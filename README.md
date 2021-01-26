@@ -5,7 +5,7 @@ designed to be (somewhat) portable. The Makefile expects a Unix-like system,
 but the code itself should (hopefully) work on Windows as well.
 
 This is work in relatively early progress. It sort of works, but is still missing
-some essentials like function calls.
+some essentials like function calls. Please don't use it for production yet.
 
 It provides a relatively simple interface for generating bytecode in SSA form,
 then performs basic optimisations (eg. DCE, constant folding, register allocation)
