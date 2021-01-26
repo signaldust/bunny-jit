@@ -1,4 +1,4 @@
-\
+
 # No default rules
 .SUFFIXES:
 
