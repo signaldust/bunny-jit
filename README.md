@@ -1,7 +1,8 @@
 # Bunny JIT
 
 This is a tiny optimising SSA-based JIT backend, currently targeting x64, but
-designed to be (somewhat) portable.
+designed to be (somewhat) portable. The Makefile expects a Unix-like system,
+but the code itself should (hopefully) work on Windows as well.
 
 This is work in relatively early progress. It sort of works, but is still missing
 some essentials like function calls.
