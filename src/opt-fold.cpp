@@ -43,11 +43,8 @@ bool Proc::opt_fold()
         {
             for(auto bc : blocks[b].code)
             {
-                debugOp(bc);
                 auto & i = ops[bc];
                 rename(i);
-                debugOp(bc);
-                fflush(stdout);
     
                 // rename phis
                 if(i.opcode <= ops::jmp)
