@@ -7,12 +7,12 @@ using namespace bjit;
 #define I(x) (i.opcode == x)
 
 // match operands
-#define I0(x) (ops[i.in[0]].opcode == x)
-#define I1(x) (ops[i.in[1]].opcode == x)
+#define I0(x) (i.nInputs() >= 1 && ops[i.in[0]].opcode == x)
+#define I1(x) (i.nInputs() >= 2 && ops[i.in[1]].opcode == x)
 
 // check for constants
 #define C0 (i.nInputs() >= 1 && (I0(ops::lci) || I0(ops::lcf)))
-#define C1 (i.nInputs() >= 1 && (I1(ops::lci) || I1(ops::lcf)))
+#define C1 (i.nInputs() >= 2 && (I1(ops::lci) || I1(ops::lcf)))
 
 // fetch operands
 #define N0 ops[i.in[0]]
@@ -43,8 +43,11 @@ bool Proc::opt_fold()
         {
             for(auto bc : blocks[b].code)
             {
+                debugOp(bc);
                 auto & i = ops[bc];
                 rename(i);
+                debugOp(bc);
+                fflush(stdout);
     
                 // rename phis
                 if(i.opcode <= ops::jmp)
@@ -274,6 +277,8 @@ bool Proc::opt_fold()
                 || (I(ops::imulI) && 1 == i.imm32))
                 {
                     rename.add(bc, i.in[0]);
+                    progress = true;
+                    i.opcode = ops::nop;
                 }
 
                 if((I(ops::fadd) && I1(ops::lcf) && N1.f64 == 0.)
@@ -281,6 +286,8 @@ bool Proc::opt_fold()
                 || (I(ops::fmul) && I1(ops::lcf) && N1.f64 == 1.))
                 {
                     rename.add(bc, i.in[0]);
+                    progress = true;
+                    i.opcode = ops::nop;
                 }
                 
                 // a * -1 -> -a
@@ -421,6 +428,9 @@ bool Proc::opt_fold()
                 if(I(ops::inot) && I0(ops::inot))
                 {
                     rename.add(bc, N0.in[0]);
+                    progress = true;
+                    i.opcode = ops::nop;
+                    
                 }
                 
                 // bit-AND merges : (a&b)&c = a&(b&c)
@@ -456,6 +466,8 @@ bool Proc::opt_fold()
                 if(I(ops::ixorI) && !i.imm32)
                 {
                     rename.add(bc, i.in[0]);
+                    progress = true;
+                    i.opcode = ops::nop;
                 }
     
                 if(C0)
