@@ -22,6 +22,23 @@ support single-precision and SIMD-operations at some point in the future.
 It comes with some sort of simple front-end language, but this is intended more
 for testing than as a serious programming language; the focus is on the backend.
 
+## License?
+
+I should paste this into every file, but for the time being:
+
+```
+/****************************************************************************\
+* Bunny-JIT is (c) Copyright pihlaja@signaldust.com 2021                     *
+*----------------------------------------------------------------------------*
+* You can use and/or redistribute this for whatever purpose, free of charge, *
+* provided that the above copyright notice and this permission notice appear *
+* in all copies of the software or it's associated documentation.            *
+*                                                                            *
+* THIS SOFTWARE IS PROVIDED "AS-IS" WITHOUT ANY WARRANTY. USE AT YOUR OWN    *
+* RISK. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE HELD LIABLE FOR ANYTHING.  *
+\****************************************************************************/
+```
+
 ## SSA?
 
 The backend keeps the code in SSA form from the beginning to the end. The interface
@@ -53,6 +70,7 @@ then jump-threaded if the edge is not actually critical.
 The register allocator itself runs locally, using "furthest next use" to choose
 which values to throw out of the register file. We don't ever explicitly spill,
 rather we flag the source operation with a spill-flag when we emit a reload.
+This is always valid in SSA, because we have no variables, only values.
 The assembler will then generate stores after any operations marked for spill.
 
 To choose stack locations, we compute "stack congruence classes" (SCCs) to find
