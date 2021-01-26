@@ -70,6 +70,7 @@ then jump-threaded if the edge is not actually critical.
 The register allocator itself runs locally, using "furthest next use" to choose
 which values to throw out of the register file. We don't ever explicitly spill,
 rather we flag the source operation with a spill-flag when we emit a reload.
+This is always valid in SSA, because we have no variables, only values.
 The assembler will then generate stores after any operations marked for spill.
 
 To choose stack locations, we compute "stack congruence classes" (SCCs) to find
