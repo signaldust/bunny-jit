@@ -57,3 +57,5 @@ The assembler will then generate stores after any operations marked for spill.
 To choose stack locations, we compute "stack congruence classes" (SCCs) to find
 which values can and/or should be placed into the same slot. We then allocate
 slots for those SCCs that are used by at least one operation flagged for spill.
+This results in a relatively simple and elegant compiler pipeline that still
+produces mostly reasonable native code.
