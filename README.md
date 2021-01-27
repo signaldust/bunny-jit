@@ -48,7 +48,7 @@ I should paste this into every file, but for the time being:
 
 ## Instructions?
 
-To generate instructions, you call the instruction-method on `bjit::Proc`.
+To generate instructions, you call the instruction methods on `bjit::Proc`.
 
 Most instructions take their parameters as SSA values. The exceptions are
 `lci`/`lcf` which take immediate constants and jump-labels which should be
