@@ -46,6 +46,83 @@ I should paste this into every file, but for the time being:
 \****************************************************************************/
 ```
 
+## Instructions?
+
+To generate instructions, you call the instruction-method on `bjit::Proc`.
+
+Most instructions take their parameters as SSA values. The exceptions are
+`lci`/`lcf` which take immediate constants and jump-labels which should be
+the block-indexes returned by `bjit::Proc::newLabel()`. For instructions
+with output values, the methods return the new SSA values and for other
+instructions they return `void`.
+
+Instructions expect their parameter types to be correct. Passing floating-point
+values to instructions that expect integer values or vice versa will result
+in undefined behaviour (which varies from invalid binary code to `assert`).
+
+The type system is very primitive though and mostly exists for the purpose of
+tracking which registers we can use to store values. In particular, anything
+stored in general purpose registers is called `_ptr` (or simply integers).
+
+Instructions starting `i` are for integers, `u` are unsigned variants when
+there is a distinction and `f` is floating point (though we might change the
+double-precision variants to `d` if we add single-precision versions). Note
+that floating-point comparisons return integers, even though they expect
+`_f64` parameters.
+
+Also note that the handling of `iparam` and `fparam` is not final and might be
+moved to internals, with a cleaner user-facing interface.
+
+### The compiler currently exposes the following instructions:
+
+`lci i64` and `lcf f64` specify constants, `jmp label` is unconditional jump
+and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise,
+`iret a` returns from the function with integer value and `fret a` returns with
+a floating point value.
+
+`ieq a b` and `ine a b` compare two integers for equality or inequality and
+produce boolean values (ie. `0` or `1`).
+
+`ilt a b`, `ile a b`, `ige a b` and `igt a b` and two signed integers
+for less, less-or-equal, greater-or-equal and greater respectively
+
+`ult a b`, `ule a b`, `uge a b` and `ugt a b` perform unsigned comparisons
+
+`feq a b`, `fne a b`, `flt a b`, `fle a b`, `fge a b` and `fgt a b` are
+floating point version of the same, but all return integers (ie `0` or `1`).
+
+`iadd a b`, `isub a b` and `imul a b` perform (signed or unsigned) integer
+addition, subtraction and multiplication, while `ineg a` negates an integer
+
+`idiv a b` and `imod a b` perform signed division and modulo
+
+`udiv a b` and `umod a b` perform unsigned division and modulo
+
+`inot a`, `iand a b`, `ior a b` and `ixor a b` perform bitwise logical operations
+
+`ishr a b` and `ushr a b` are signed and unsigned right-shift while 
+left-shift (signed or unsigned) is `ishl a b`
+
+`fadd a b`, `fsub a b`, `fmul a b`, `fdiv a b` and `fneg a` are floating point
+versions of arithmetic operations
+
+`cf2i a` converts doubles to integers while `ci2f` converts integers to doubles
+
+Loads follow the form `lXX ptr imm32` where ptr is integer SSA value and imm32
+is an immediate offset (eg. for field offsets). The variants defined are 
+`li8`, `lu8`, `li16`, `lu16`, `li32`, `lu32`, `li64` and `lf64`. The integer
+variants always produce 64-bit values with `i` variants sign-extending
+and `u` variants zero-extending.
+
+Stores follow the form `sXX ptr imm32 value` where ptr and imm32 are like loads
+while `value` is the SSA value to store. Variants are like loads, but without
+the unsigned versions.
+
+Internal we have additional instructions that the fold-engine will use (in the
+future the exact set might vary between platforms, so we rely on fold), but they
+should be fairly obvious when seen in debug, eg. `jugeI`is a conditional jump on
+`uge` comparison with the second operand converted to an `imm32` field.
+
 ## SSA?
 
 The backend keeps the code in SSA form from the beginning to the end. The interface
