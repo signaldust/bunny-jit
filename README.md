@@ -124,11 +124,16 @@ versions of arithmetic operations
 
 `cf2i a` converts doubles to integers while `ci2f` converts integers to doubles
 
+`bcf2i a` and `bci2f a` bit-cast (ie. reinterpret) without conversion
+
+`i8 a`, `i16 a` and `i32 a` can be used to sign-extend the low 8/16/32 bits
+
+`u8 a`, `u16 a` and `u32 a` can be used to zero-extend the low 8/16/32 bits
+
 Loads follow the form `lXX ptr imm32` where ptr is integer SSA value and imm32
 is an immediate offset (eg. for field offsets). The variants defined are 
-`li8`, `lu8`, `li16`, `lu16`, `li32`, `lu32`, `li64` and `lf64`. The integer
-variants always produce 64-bit values with `i` variants sign-extending
-and `u` variants zero-extending.
+`li8/16/32/64`, `lu8/16/32` and `lf64`. The integer `i` variants sign-extend
+while the `u` variants zero-extend.
 
 Stores follow the form `sXX ptr imm32 value` where ptr and imm32 are like loads
 while `value` is the SSA value to store. Variants are like loads, but without

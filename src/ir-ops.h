@@ -140,12 +140,23 @@
     _(fneg, BJIT_CSE+1, 1), \
     _(fmul, BJIT_CSE+1, 2), \
     _(fdiv, BJIT_CSE+1, 2), \
-    /* type conversions: int -> float, uint -> float, float -> int */ \
+    /* type conversions: int -> float, float -> int */ \
     _(ci2f, BJIT_CSE+1, 1), \
     _(cf2i, BJIT_CSE+1, 1), \
+    /* reinterpret bitcasts: int -> float, float -> int */ \
+    _(bci2f, BJIT_CSE+1, 1), \
+    _(bcf2i, BJIT_CSE+1, 1), \
     /* load constants */ \
-    _(lci, 1, BJIT_I64), \
-    _(lcf, 1, BJIT_F64), \
+    _(lci, BJIT_CSE+1, BJIT_I64), \
+    _(lcf, BJIT_CSE+1, BJIT_F64), \
+    /* sign-extend values (cast to smaller type) */ \
+    _(i8,  BJIT_CSE+1, 1), \
+    _(i16, BJIT_CSE+1, 1), \
+    _(i32, BJIT_CSE+1, 1), \
+    /* unsigned variants (zero-extend) */ \
+    _(u8,  BJIT_CSE+1, 1), \
+    _(u16, BJIT_CSE+1, 1), \
+    _(u32, BJIT_CSE+1, 1), \
     /* memory loads: load out <- [in0+offset] */ \
     /* integer variants: sign-extended */ \
     _(li8,  1, 1+BJIT_IMM32), \

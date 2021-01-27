@@ -87,9 +87,7 @@ RegMask Op::regsIn(int i)
 {
     switch(opcode)
     {
-        // pseudo-ops allow any valid register of the correct type
-        case ops::phi: case ops::rename: case ops::reload:
-            return regsMask();
+        default: return regsMask(); // no special case -> same as input
         
         // integer division takes RDX:RAX as 128-bit first operand
         // we only do 64-bit, but force RAX on 1st and forbid RDX on 2nd
@@ -106,9 +104,7 @@ RegMask Op::regsIn(int i)
         case ops::fgt: case ops::fle:
         case ops::feq: case ops::fne:
         
-        case ops::fadd: case ops::fsub: case ops::fneg:
-        case ops::fmul: case ops::fdiv: case ops::lcf:
-        case ops::lf64: case ops::ci2f:
+        case ops::lcf: case ops::ci2f: case ops::bci2f:
             return regs::mask_float;
 
         // shifts want their second operand in CL
@@ -171,7 +167,6 @@ RegMask Op::regsIn(int i)
         case ops::iret: return (1ull<<regs::rax);
         case ops::fret: return (1ull<<regs::xmm0);
 
-        default: return regs::mask_int;
     }
 }
 

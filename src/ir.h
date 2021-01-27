@@ -404,7 +404,11 @@ namespace bjit
         BJIT_OP2(fadd,_f64); BJIT_OP2(fsub,_f64); BJIT_OP1(fneg,_f64);
         BJIT_OP2(fmul,_f64); BJIT_OP2(fdiv,_f64);
 
-        BJIT_OP1(cf2i,_f64); BJIT_OP1(ci2f,_ptr);
+        BJIT_OP1(cf2i,_f64); BJIT_OP1(bcf2i,_f64);
+        BJIT_OP1(ci2f,_ptr); BJIT_OP1(bci2f,_ptr);
+
+        BJIT_OP1(i8,_ptr); BJIT_OP1(i16,_ptr); BJIT_OP1(i32,_ptr);
+        BJIT_OP1(u8,_ptr); BJIT_OP1(u16,_ptr); BJIT_OP1(u32,_ptr);
 
         // loads take pointer+offset
 #define BJIT_LOAD(x, t) \

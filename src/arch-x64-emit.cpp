@@ -244,7 +244,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::jfne:
             case ops::jfeq:
                 // UCOMISD (scalar double compare)
-                _UCOMISDrr(ops[i.in[0]].reg, ops[i.in[1]].reg);
+                _UCOMISDxx(ops[i.in[0]].reg, ops[i.in[1]].reg);
                 // then jump
                 a64.emit(0x0F);
                 a64.emit(0x80 | _CC(i.opcode));
@@ -314,7 +314,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 _XORrr(i.reg, i.reg);
                 
                 // UCOMISD (scalar double compare)
-                _UCOMISDrr(ops[i.in[0]].reg, ops[i.in[1]].reg);
+                _UCOMISDxx(ops[i.in[0]].reg, ops[i.in[1]].reg);
                 // then emit SETcc
                 a64._RR(3, 3, REG(i.reg), 0x0F,
                     0x90 | _CC(i.opcode - ops::jmp));
@@ -548,42 +548,42 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::fadd:
                 if(i.reg == ops[i.in[0]].reg)
                 {
-                    _ADDSDrr(i.reg, ops[i.in[1]].reg);
+                    _ADDSDxx(i.reg, ops[i.in[1]].reg);
                 }
                 else if(i.reg == ops[i.in[1]].reg)
                 {
-                    _ADDSDrr(i.reg, ops[i.in[0]].reg);
+                    _ADDSDxx(i.reg, ops[i.in[0]].reg);
                 }
                 else
                 {
-                    _MOVSDrr(i.reg, ops[i.in[0]].reg);
-                    _ADDSDrr(i.reg, ops[i.in[1]].reg);
+                    _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                    _ADDSDxx(i.reg, ops[i.in[1]].reg);
                 }
                 break;
                 
                 /**** Can't fit these in current OP format
             case ops::faddI:
-                if(i.reg != ops[i.in[0]].reg) _MOVSDrr(i.reg, ops[i.in[0]].reg);
-                _ADDSDri(i.reg, i.f64);
+                if(i.reg != ops[i.in[0]].reg) _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                _ADDSDxi(i.reg, i.f64);
                 break;
                 */
             case ops::fsub:
                 if(i.reg == ops[i.in[0]].reg)
                 {
                     // simple
-                    _SUBSDrr(i.reg, ops[i.in[1]].reg);
+                    _SUBSDxx(i.reg, ops[i.in[1]].reg);
                 }
                 else
                 {
                     // general case
-                    _MOVSDrr(i.reg, ops[i.in[0]].reg);
-                    _SUBSDrr(i.reg, ops[i.in[1]].reg);
+                    _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                    _SUBSDxx(i.reg, ops[i.in[1]].reg);
                 }
                 break;
                 /**** Can't fit these in current OP format
             case ops::fsubI:
-                if(i.reg != ops[i.in[0]].reg) _MOVSDrr(i.reg, ops[i.in[0]].reg);
-                _SUBSDri(i.reg, i.f64);
+                if(i.reg != ops[i.in[0]].reg) _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                _SUBSDxi(i.reg, i.f64);
                 break;
                 */
                 
@@ -595,45 +595,45 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 else
                 {
                     _XORPSrr(i.reg, i.reg);
-                    _SUBSDrr(i.reg, ops[i.in[0]].reg);
+                    _SUBSDxx(i.reg, ops[i.in[0]].reg);
                 }
                 break;
 
             case ops::fmul:
                 if(i.reg == ops[i.in[0]].reg)
                 {
-                    _MULSDrr(i.reg, ops[i.in[1]].reg);
+                    _MULSDxx(i.reg, ops[i.in[1]].reg);
                 }
                 else if(i.reg == ops[i.in[1]].reg)
                 {
-                    _MULSDrr(i.reg, ops[i.in[0]].reg);
+                    _MULSDxx(i.reg, ops[i.in[0]].reg);
                 }
                 else
                 {
-                    _MOVSDrr(i.reg, ops[i.in[0]].reg);
-                    _MULSDrr(i.reg, ops[i.in[1]].reg);
+                    _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                    _MULSDxx(i.reg, ops[i.in[1]].reg);
                 }
                 break;
                 /**** Can't fit these in current OP format
             case ops::fmulI:
-                if(i.reg != ops[i.in[0]].reg) _MOVSDrr(i.reg, ops[i.in[0]].reg);
-                _MULSDri(i.reg, i.f64);
+                if(i.reg != ops[i.in[0]].reg) _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                _MULSDxi(i.reg, i.f64);
                 break;
                 */
 
             case ops::fdiv:
                 if(i.reg == ops[i.in[0]].reg)
                 {
-                    _DIVSDrr(i.reg, ops[i.in[1]].reg);
+                    _DIVSDxx(i.reg, ops[i.in[1]].reg);
                 }
                 else if(i.reg == ops[i.in[1]].reg)
                 {
-                    _DIVSDrr(i.reg, ops[i.in[0]].reg);
+                    _DIVSDxx(i.reg, ops[i.in[0]].reg);
                 }
                 else
                 {
-                    _MOVSDrr(i.reg, ops[i.in[0]].reg);
-                    _DIVSDrr(i.reg, ops[i.in[1]].reg);
+                    _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                    _DIVSDxx(i.reg, ops[i.in[1]].reg);
                 }
                 break;
 
@@ -655,9 +655,17 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 }
                 else
                 {
-                    _MOVSDri(i.reg, i.f64);
+                    _MOVSDxi(i.reg, i.f64);
                 }
                 break;
+
+            case ops::i8: _MOVSX_8(i.reg, ops[i.in[0]].reg); break;
+            case ops::i16: _MOVSX_16(i.reg, ops[i.in[0]].reg); break;
+            case ops::i32: _MOVSX_32(i.reg, ops[i.in[0]].reg); break;
+            
+            case ops::u8: _MOVZX_8(i.reg, ops[i.in[0]].reg); break;
+            case ops::u16: _MOVZX_16(i.reg, ops[i.in[0]].reg); break;
+            case ops::u32: _MOVZX_32(i.reg, ops[i.in[0]].reg); break;
 
             case ops::li8:
                 _load_i8(i.reg, ops[i.in[0]].reg, i.imm32);
@@ -702,10 +710,17 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
 
             case ops::ci2f:
-                _CVTSI2SD_rr(i.reg, ops[i.in[0]].reg);
+                _CVTSI2SDxr(i.reg, ops[i.in[0]].reg);
                 break;
             case ops::cf2i:
-                _CVTTSD2SI_rr(i.reg, ops[i.in[0]].reg);
+                _CVTTSD2SIrx(i.reg, ops[i.in[0]].reg);
+                break;
+
+            case ops::bci2f:
+                _MOVQrx(i.reg, ops[i.in[0]].reg);
+                break;
+            case ops::bcf2i:
+                _MOVQxr(i.reg, ops[i.in[0]].reg);
                 break;
 
             /* Pseudo-ops: these need to check value types */
@@ -725,7 +740,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(i.reg == ops[i.in[0]].reg) break;
                 
                 if((1ull<<i.reg)&regs::mask_float)
-                    _MOVSDrr(i.reg, ops[i.in[0]].reg);
+                    _MOVSDxx(i.reg, ops[i.in[0]].reg);
                 else if((1ull<<i.reg)&regs::mask_int)
                     _MOVrr(i.reg, ops[i.in[0]].reg);
                 else assert(false);
