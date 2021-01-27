@@ -520,17 +520,17 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
             case ops::ishl:
                 if(i.reg != ops[i.in[0]].reg) _MOVrr(i.reg, ops[i.in[0]].reg);
-                _SHLr(i.reg); // rIn1 is always CL
+                _SHLr(i.reg); // in[1] is always CL
                 break;
 
             case ops::ishr:
                 if(i.reg != ops[i.in[0]].reg) _MOVrr(i.reg, ops[i.in[0]].reg);
-                _SARr(i.reg); // rIn1 is always CL
+                _SARr(i.reg); // in[1] is always CL
                 break;
 
             case ops::ushr:
                 if(i.reg != ops[i.in[0]].reg) _MOVrr(i.reg, ops[i.in[0]].reg);
-                _SHRr(i.reg); // rIn1 is always CL
+                _SHRr(i.reg); // in[1] is always CL
                 break;
 
             case ops::ishlI:

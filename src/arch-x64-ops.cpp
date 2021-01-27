@@ -111,6 +111,11 @@ RegMask Op::regsIn(int i)
         case ops::lf64: case ops::ci2f:
             return regs::mask_float;
 
+        // shifts want their second operand in CL
+        case ops::ishl: case ops::ishr: case ops::ushr:
+            return i ? (1ull<<regs::rcx) :
+                (regs::mask_int &~ (1ull<<regs::rcx));
+
         // these are fixed
         case ops::iret: return (1ull<<regs::rax);
         case ops::fret: return (1ull<<regs::xmm0);
