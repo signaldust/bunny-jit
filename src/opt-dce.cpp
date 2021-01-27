@@ -92,8 +92,11 @@ bool Proc::opt_dce()
     for(auto & b : blocks)
     {
         if(!b.flags.live) continue;
+        bool deadTail = false;
         for(auto i : b.code)
         {
+            if(deadTail) { ops[i].opcode = ops::nop; continue; }
+        
             // don't short-circuit nUse=0 here because
             // another phi might mark us as used
             if(ops[i].opcode == ops::phi)
@@ -167,6 +170,8 @@ bool Proc::opt_dce()
                     ops[i].in[k] = v;
                 }
             }
+
+            if(ops[i].opcode <= ops::iretI) deadTail = true;
         }
     }
 

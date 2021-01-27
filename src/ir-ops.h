@@ -57,9 +57,9 @@
     /* control flow, jump must come after conditionals!  */ \
     /* make sure there are even number of these (for xor1 below)  */ \
     _(jmp, 0, 0), \
-    _(iret, 0, 1), \
-    _(iretI, 0, BJIT_IMM32), \
     _(fret, 0, 1), \
+    _(iret, 0, 1), \
+    _(iretI, 0, BJIT_IMM32), /* opt-dce needs to know which one is last */ \
     /* */ \
     /* NOTE: THESE SHOULD MATCH THOSE STARTING FROM 'jilt' */ \
     /* SO MAKE SURE THE POSITIONS STAY RELATIVE */ \
