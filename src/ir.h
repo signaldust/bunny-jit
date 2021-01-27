@@ -162,6 +162,9 @@ namespace bjit
         // register state on output (used for shuffling)
         uint16_t    regsOut[regs::nregs];
 
+        // dominators
+        std::vector<uint16_t>   dom;
+
         struct {
             bool live       : 1;    // livescan uses this
             bool regsDone   : 1;    // reg-alloc uses this
@@ -191,13 +194,12 @@ namespace bjit
         {
             // do DCE first, then fold
             // repeat until neither does progress
-            while(opt_dce() || opt_fold());
-            //while(opt_dce());
+            do opt_dce(); while(opt_fold());
         }
 
         void compile(std::vector<uint8_t> & bytes)
         {
-            while(opt_dce());
+            opt_dce();
             allocRegs();
             arch_emit(bytes);
         }
@@ -500,8 +502,7 @@ namespace bjit
         bool opt_fold();
 
         // opt-dce.cpp
-        // returns true if there was progress
-        bool opt_dce();
+        void opt_dce();
 
         // opt-dce.cpp
         // compute live-in variables, set all nUse = 0

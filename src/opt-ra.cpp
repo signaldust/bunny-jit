@@ -471,7 +471,7 @@ void Proc::allocRegs()
     }
 
     // FIXME: is this always safe?
-    while(opt_dce());
+    opt_dce();
 
     // cleanup stuff that DCE decided is dead
     for(auto b : live)

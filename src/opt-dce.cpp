@@ -3,221 +3,226 @@
 
 using namespace bjit;
 
-bool Proc::opt_dce()
+void Proc::opt_dce()
 {
     assert(!raDone);    // DCE destroys register allocation
     
-    bool progress = false;
+    bool progress = true;
     //debug();
-    printf(" DCE");
-    
-    for(auto & b : blocks)
+
+    int iters = 0;
+    while(progress)
     {
-        if(!b.flags.live) continue;
-        b.flags.live = false;
-
-        for(auto & i : b.code)
+        ++iters;
+        progress = false;
+        for(auto & b : blocks)
         {
-            // NOTE: nUse aliases on labels
-            if(ops[i].opcode > ops::jmp) ops[i].nUse = 0;
-        }
-    }
-
-    todo.clear();
-    live.clear();
+            if(!b.flags.live) continue;
+            b.flags.live = false;
     
-    todo.push_back(0);
-    live.push_back(todo.back());
-    blocks[0].flags.live = true;
-
-    while(todo.size())
-    {
-        auto b = todo.back(); todo.pop_back();
-        
-        for(auto i : blocks[b].code)
-        {
-            switch(ops[i].nInputs())
+            for(auto & i : b.code)
             {
-                case 2: ++ops[ops[i].in[1]].nUse;
-                case 1: ++ops[ops[i].in[0]].nUse;
+                // NOTE: nUse aliases on labels
+                if(ops[i].opcode > ops::jmp) ops[i].nUse = 0;
             }
-
-            // only need to look at last op
-            if(ops[i].opcode <= ops::jmp)
-            for(int k = 0; k < 2; ++k)
+        }
+    
+        todo.clear();
+        live.clear();
+        
+        todo.push_back(0);
+        live.push_back(todo.back());
+        blocks[0].flags.live = true;
+    
+        while(todo.size())
+        {
+            auto b = todo.back(); todo.pop_back();
+            
+            for(auto i : blocks[b].code)
             {
-                if(k && ops[i].opcode == ops::jmp) break;
-                
-                while(ops[blocks[ops[i].label[k]].code[0]].opcode == ops::jmp
-                && i != blocks[ops[i].label[k]].code[0])    // check infinite
+                switch(ops[i].nInputs())
                 {
-                    // patch target phis
-                    auto target = ops[blocks[ops[i].label[k]].code[0]].label[0];
-                    for(auto & a : blocks[target].args)
+                    case 2: ++ops[ops[i].in[1]].nUse;
+                    case 1: ++ops[ops[i].in[0]].nUse;
+                }
+    
+                // only need to look at last op
+                if(ops[i].opcode <= ops::jmp)
+                for(int k = 0; k < 2; ++k)
+                {
+                    if(k && ops[i].opcode == ops::jmp) break;
+                    
+                    while(ops[blocks[ops[i].label[k]].code[0]].opcode == ops::jmp
+                    && i != blocks[ops[i].label[k]].code[0])    // check infinite
                     {
-                        for(auto & s : a.alts)
+                        // patch target phis
+                        auto target = ops[blocks[ops[i].label[k]].code[0]].label[0];
+                        for(auto & a : blocks[target].args)
                         {
-                            if(s.src == ops[i].label[k])
+                            for(auto & s : a.alts)
                             {
-                                a.alts.push_back(s);
-                                a.alts.back().src = b;
-                                break;
+                                if(s.src == ops[i].label[k])
+                                {
+                                    a.alts.push_back(s);
+                                    a.alts.back().src = b;
+                                    break;
+                                }
                             }
                         }
+                    
+                        ops[i].label[k] = target;
                     }
+    
+                    if(!blocks[ops[i].label[k]].flags.live)
+                    {
+                        todo.push_back(ops[i].label[k]);
+                        live.push_back(todo.back());
+                        blocks[ops[i].label[k]].flags.live = true;
+                    }
+                }
                 
-                    ops[i].label[k] = target;
-                }
-
-                if(!blocks[ops[i].label[k]].flags.live)
+                if(ops[i].opcode < ops::jmp)
                 {
-                    todo.push_back(ops[i].label[k]);
-                    live.push_back(todo.back());
-                    blocks[ops[i].label[k]].flags.live = true;
-                }
-            }
-            
-            if(ops[i].opcode < ops::jmp)
-            {
-                if(ops[i].label[0] == ops[i].label[1])
-                {
-                    ops[i].opcode = ops::jmp;
-                    progress = true;
+                    if(ops[i].label[0] == ops[i].label[1])
+                    {
+                        ops[i].opcode = ops::jmp;
+                        progress = true;
+                    }
                 }
             }
         }
-    }
-
-    // phi-uses - FIXME: get the breath-first from NNC?
-    for(auto & b : blocks)
-    {
-        if(!b.flags.live) continue;
-        bool deadTail = false;
-        for(auto i : b.code)
+    
+        // phi-uses - FIXME: get the breath-first from NNC?
+        for(auto & b : blocks)
         {
-            if(deadTail) { ops[i].opcode = ops::nop; continue; }
-        
-            // don't short-circuit nUse=0 here because
-            // another phi might mark us as used
-            if(ops[i].opcode == ops::phi)
+            if(!b.flags.live) continue;
+            bool deadTail = false;
+            for(auto i : b.code)
             {
-                auto & alts = blocks[ops[i].in[0]].args[ops[i].in[1]].alts;
-                // cleanup dead sources
-                int j = 0;
-                for(int i = 0; i < alts.size(); ++i)
-                {
-                    if(!blocks[alts[i].src].flags.live) continue;
-                    alts[j++] = alts[i];
-                }
-                alts.resize(j);
+                if(deadTail) { ops[i].opcode = ops::nop; continue; }
             
-                for(auto & src : alts)
+                // don't short-circuit nUse=0 here because
+                // another phi might mark us as used
+                if(ops[i].opcode == ops::phi)
                 {
-                    while(ops[src.val].opcode == ops::phi
-                    && blocks[ops[src.val].in[0]]
-                        .args[ops[src.val].in[1]].alts.size() == 1)
+                    auto & alts = blocks[ops[i].in[0]].args[ops[i].in[1]].alts;
+                    // cleanup dead sources
+                    int j = 0;
+                    for(int i = 0; i < alts.size(); ++i)
                     {
-                        assert(src.val != i);
-                        src.val = blocks[ops[src.val].in[0]]
-                            .args[ops[src.val].in[1]].alts[0].val;
+                        if(!blocks[alts[i].src].flags.live) continue;
+                        alts[j++] = alts[i];
                     }
-
-                    // check if all source values are the same?
-                    if(ops[src.val].opcode == ops::phi)
+                    alts.resize(j);
+                
+                    for(auto & src : alts)
                     {
-                        auto & ss = ops[src.val];
-                        auto v = src.val;
-                        for(int j = 0;
-                            j < blocks[ss.in[0]].args[ss.in[1]].alts.size(); ++j)
+                        while(ops[src.val].opcode == ops::phi
+                        && blocks[ops[src.val].in[0]]
+                            .args[ops[src.val].in[1]].alts.size() == 1)
                         {
-                            auto alt = blocks[ss.in[0]].args[ss.in[1]].alts[j].val;
-                            if(v == src.val) v = alt;
-                            if(v != alt && src.val != alt)
+                            assert(src.val != i);
+                            src.val = blocks[ops[src.val].in[0]]
+                                .args[ops[src.val].in[1]].alts[0].val;
+                        }
+    
+                        // check if all source values are the same?
+                        if(ops[src.val].opcode == ops::phi)
+                        {
+                            auto & ss = ops[src.val];
+                            auto v = src.val;
+                            for(int j = 0;
+                                j < blocks[ss.in[0]].args[ss.in[1]].alts.size(); ++j)
                             {
-                                v = src.val;
+                                auto alt = blocks[ss.in[0]].args[ss.in[1]].alts[j].val;
+                                if(v == src.val) v = alt;
+                                if(v != alt && src.val != alt)
+                                {
+                                    v = src.val;
+                                    break;
+                                }
+                            }
+                            
+                            if(src.val != v) progress = true;
+                            src.val = v;
+                        }
+    
+                        ++ops[src.val].nUse;
+                    }
+                }
+    
+                // check if all phi-values are the same
+                for(int k = 0; k < ops[i].nInputs(); ++k)
+                {
+                    if(ops[ops[i].in[k]].opcode == ops::phi)
+                    {
+                        auto & src = ops[ops[i].in[k]];
+                        auto v = ops[i].in[k];
+                        for(int j = 0;
+                            j < blocks[src.in[0]].args[src.in[1]].alts.size(); ++j)
+                        {
+                            auto alt = blocks[src.in[0]].args[src.in[1]].alts[j].val;
+                            if(v == ops[i].in[k]) v = alt;
+                            if(v != alt && ops[i].in[k] != alt)
+                            {
+                                v = ops[i].in[k];
                                 break;
                             }
                         }
                         
-                        if(src.val != v) progress = true;
-                        src.val = v;
+                        if(ops[i].in[k] != v) progress = true;
+                        ops[i].in[k] = v;
                     }
-
-                    ++ops[src.val].nUse;
                 }
-            }
-
-            // check if all phi-values are the same
-            for(int k = 0; k < ops[i].nInputs(); ++k)
-            {
-                if(ops[ops[i].in[k]].opcode == ops::phi)
-                {
-                    auto & src = ops[ops[i].in[k]];
-                    auto v = ops[i].in[k];
-                    for(int j = 0;
-                        j < blocks[src.in[0]].args[src.in[1]].alts.size(); ++j)
-                    {
-                        auto alt = blocks[src.in[0]].args[src.in[1]].alts[j].val;
-                        if(v == ops[i].in[k]) v = alt;
-                        if(v != alt && ops[i].in[k] != alt)
-                        {
-                            v = ops[i].in[k];
-                            break;
-                        }
-                    }
-                    
-                    if(ops[i].in[k] != v) progress = true;
-                    ops[i].in[k] = v;
-                }
-            }
-
-            if(ops[i].opcode <= ops::iretI) deadTail = true;
-        }
-    }
-
-    // cleanup using a stack
-    std::vector<unsigned>   deadOps;
-    for(auto & b : blocks)
-    {
-        if(!b.flags.live) continue;
-        int j = 0;
-        for(int i = 0; i < b.code.size(); ++i)
-        {
-            if(ops[b.code[i]].opcode == ops::nop) continue;
-            if(!ops[b.code[i]].hasSideFX() && !ops[b.code[i]].nUse)
-            {
-                deadOps.push_back(b.code[i]);
-            }
-
-            if(j != i) b.code[j] = b.code[i];
-            ++j;
-        }
-        b.code.resize(j);
-    }
     
-    while(deadOps.size())
-    {
-        auto i = deadOps.back(); deadOps.pop_back();
-
-        //printf("dead: "); debugOp(i);
-        
-        switch(ops[i].nInputs())
-        {
-        case 2:
-            if(!--ops[ops[i].in[1]].nUse) deadOps.push_back(ops[i].in[1]);
-        case 1:
-            if(!--ops[ops[i].in[0]].nUse) deadOps.push_back(ops[i].in[0]);
-        default:
-            if(ops[i].opcode == ops::phi)
-            {
-                blocks[ops[i].in[0]].args[ops[i].in[1]].alts.clear();
+                if(ops[i].opcode <= ops::iretI) deadTail = true;
             }
-            ops[i].opcode = ops::nop;
-            progress = true;
+        }
+    
+        // cleanup using a stack
+        std::vector<unsigned>   deadOps;
+        for(auto & b : blocks)
+        {
+            if(!b.flags.live) continue;
+            int j = 0;
+            for(int i = 0; i < b.code.size(); ++i)
+            {
+                if(ops[b.code[i]].opcode == ops::nop) continue;
+                if(!ops[b.code[i]].hasSideFX() && !ops[b.code[i]].nUse)
+                {
+                    deadOps.push_back(b.code[i]);
+                }
+    
+                if(j != i) b.code[j] = b.code[i];
+                ++j;
+            }
+            b.code.resize(j);
+        }
+        
+        while(deadOps.size())
+        {
+            auto i = deadOps.back(); deadOps.pop_back();
+    
+            //printf("dead: "); debugOp(i);
+            
+            switch(ops[i].nInputs())
+            {
+            case 2:
+                if(!--ops[ops[i].in[1]].nUse) deadOps.push_back(ops[i].in[1]);
+            case 1:
+                if(!--ops[ops[i].in[0]].nUse) deadOps.push_back(ops[i].in[0]);
+            default:
+                if(ops[i].opcode == ops::phi)
+                {
+                    blocks[ops[i].in[0]].args[ops[i].in[1]].alts.clear();
+                }
+                ops[i].opcode = ops::nop;
+                progress = true;
+            }
         }
     }
 
-    // rebuild comeFrom
+    // rebuild comeFrom, should delay this until iteration done
     for(int b = live.size();b--;) blocks[live[b]].comeFrom.clear();
     for(int b = live.size();b--;)
     {
@@ -232,6 +237,14 @@ bool Proc::opt_dce()
         {
             blocks[op.label[0]].comeFrom.push_back(live[b]);
         }
+    }
+
+    // reset dominators
+    for(auto & b : live)
+    {
+        blocks[b].dom.clear();
+        if(!blocks[b].comeFrom.size())
+            blocks[b].dom.push_back(b);
     }
 
     // cleanup dead phi alternatives
@@ -255,7 +268,7 @@ bool Proc::opt_dce()
         if(j != a.alts.size()) { a.alts.resize(j); progress = true; }
     }
 
-    return progress;
+    printf(" DCE:%d", iters);
 }
 
 void Proc::findUsesBlock(int b, bool inOnly)
