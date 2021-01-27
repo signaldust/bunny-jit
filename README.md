@@ -22,6 +22,13 @@ support single-precision and SIMD-operations at some point in the future.
 It comes with some sort of simple front-end language, but this is intended more
 for testing than as a serious programming language; the focus is on the backend.
 
+The test-driver currently parses this simple language from `stdin` and compiles
+it into native code, which is written to `out.bin` for disassembly purposes with
+something like:
+```
+gobjdump --insn-width=16 -mi386:x86-64:intel -d -D -b binary out.bin
+```
+
 ## License?
 
 I should paste this into every file, but for the time being:
