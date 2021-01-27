@@ -103,7 +103,7 @@ for less, less-or-equal, greater-or-equal and greater respectively
 `ult a b`, `ule a b`, `uge a b` and `ugt a b` perform unsigned comparisons
 
 `feq a b`, `fne a b`, `flt a b`, `fle a b`, `fge a b` and `fgt a b` are
-floating point version of the same, but still produc integers `0` or `1`.
+floating point version of the same (still produce integer `0` or `1`).
 
 `iadd a b`, `isub a b` and `imul a b` perform (signed or unsigned) integer
 addition, subtraction and multiplication, while `ineg a` negates an integer
