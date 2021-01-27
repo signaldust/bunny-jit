@@ -19,19 +19,11 @@ RegMask Op::regsOut()
     // only deal with anything that isn't regs::mask_int explicit
     switch(opcode)
     {
-        // pseudo-ops allow any valid register of the correct type
-        case ops::phi: case ops::rename: case ops::reload:
-            return regsMask();
-        
+        default: return regsMask(); // no special case -> any valid
+    
         // divisions are fixed registers
         case ops::idiv: case ops::udiv: return (1ull<<regs::rax);
         case ops::imod: case ops::umod: return (1ull<<regs::rdx);
-
-        // floating point stuff
-        case ops::fadd: case ops::fsub: case ops::fneg:
-        case ops::fmul: case ops::fdiv: case ops::lcf:
-        case ops::lf64: case ops::ci2f:
-            return regs::mask_float;
 
         case ops::icall: return (1ull<<regs::rax);
         case ops::fcall: return (1ull<<regs::xmm0);
@@ -88,8 +80,6 @@ RegMask Op::regsOut()
             default: assert(false); // FIXME: RA can't handle
             }
 #endif
-
-        default: return regs::mask_int;
     }
 }
 
@@ -121,7 +111,7 @@ RegMask Op::regsIn(int i)
         case ops::lf64: case ops::ci2f:
             return regs::mask_float;
 
-        // these are fixed so might just as well
+        // these are fixed
         case ops::iret: return (1ull<<regs::rax);
         case ops::fret: return (1ull<<regs::xmm0);
 
@@ -133,8 +123,11 @@ RegMask Op::regsLost()
 {
     switch(opcode)
     {
-        case ops::idiv: case ops::udiv: return (1ull<<regs::rdx);
-        case ops::imod: case ops::umod: return (1ull<<regs::rax);
+        case ops::idiv: case ops::udiv:
+        case ops::imod: case ops::umod:
+            // mark the output as lost as well, so RA tries to save
+            // if we still need the value after the division
+            return (1ull<<regs::rax)|(1ull<<regs::rdx);
 
         case ops::icall:  case ops::fcall: return regs::caller_saved;
 
