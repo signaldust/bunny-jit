@@ -218,7 +218,8 @@ into `env`).
 
 Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
-in undefined behaviour. The compiler should never fail with valid data, so we
+in undefined behaviour (ie. invalid code or `assert`).
+The compiler should never fail with valid data, so we
 do not provide error reporting other than `assert`. This is a conscious design
 decision, as error checking should be done at higher levels.
 
