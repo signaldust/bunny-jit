@@ -8,7 +8,7 @@ This is work in relatively early progress. It sort of works, but is still missin
 some essentials like function calls. Please don't use it for production yet.
 
 It provides a relatively simple interface for generating bytecode in SSA form,
-then performs basic optimisations (eg. DCE, constant folding, register allocation)
+then performs basic optimisations (DCE, CSE, constant folding, register allocation)
 and assembles the result into native code in memory. Some additional optimisations
 are highly likely in the future, but the goal is to keep things simple.
 
