@@ -224,7 +224,9 @@ number of values of same types). When `Proc::emitLabel()` is called to generate
 code for the label, we replace the contents of `env` with fresh phi-values.
 So even though we only handle SSA values, elements of `env` behave essentially
 like regular variables (eg. "assignments" can simply store a new SSA value
-into `env`).
+into `env`). Note that you can adjust the size of `env` as you please as long
+as constraints match for jump-sites, but keep in mind that `emitLabel()` will
+resize `env` back to what it was at the time of `newLabel()`.
 
 Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
