@@ -48,6 +48,14 @@ I should paste this into every file, but for the time being:
 \****************************************************************************/
 ```
 
+## Contributing?
+
+You are free to send pull-requests, but given that this project is still very
+volatile and doing significant editing all over the place, I highly suggest
+opening an issue first to discuss your plans as this will greatly increase
+the chance that I haven't completely rewritten everything your contributions
+were based on.
+
 ## What it does?
 
 Well, here's a simple example (already slightly out of data, but it still
