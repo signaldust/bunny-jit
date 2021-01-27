@@ -31,10 +31,9 @@ void bjit::Proc::debugOp(uint16_t iop)
 
     switch(op.flags.type)
     {
-        case Op::_none: printf("       "); break;
-        case Op::_ptr:  printf("  ptr  "); break;
-        case Op::_f64:  printf("  f64  "); break;
-
+        case Op::_none: printf("          "); break;
+        case Op::_ptr:  printf(" %3d  ptr ", op.nUse); break;
+        case Op::_f64:  printf(" %3d  f64 ", op.nUse); break;
     };
 
     // special-case reload to not print register
@@ -54,7 +53,8 @@ void bjit::Proc::debugOp(uint16_t iop)
                 if(ops[op.in[0]].opcode == ops::nop) printf(" <BAD:0>");
                 if(ops[op.in[1]].opcode == ops::nop) printf(" <BAD:1>");
                 break;
-            default: break;
+            case 0: break;
+            default: assert(false);
         }
     }
 
@@ -78,7 +78,6 @@ void bjit::Proc::debugOp(uint16_t iop)
 
     if(op.opcode <= ops::jmp) printf(" L%d", op.label[0]);
     if(op.opcode < ops::jmp) printf(" L%d", op.label[1]);
-    //if(op.opcode > ops::jmp) printf(" U:%d", op.nUse);
 
     printf("\n");
 }
@@ -97,14 +96,14 @@ void bjit::Proc::debug()
             //if(0)
             for(int i = 0; i < blocks[b].livein.size(); ++i)
             {
-                if(!(0x7&(i))) printf("\n; LIVE: ");
+                if(!(0x7&(i))) printf("\n; In: ");
                 printf(" [%04x]:%04x",
                     ops[blocks[b].livein[i]].scc, blocks[b].livein[i]);
             }
             //if(0)
             if(raDone)
             {
-                printf("\n; Regs in:");
+                printf("\n; Regs:");
                 for(int i = 0; i < regs::nregs; ++i)
                 {
                     if(blocks[b].regsIn[i] != 0xffff)
@@ -114,11 +113,12 @@ void bjit::Proc::debug()
                 }
             }
             printf("\n");
+            printf("; SLOT  VALUE    REG       OP USE TYPE  ARGS\n");
             for(auto & iop : blocks[b].code) { debugOp(iop); }
             //if(0)
             if(raDone)
             {
-                printf("; Regs out:");
+                printf("; Out:");
                 for(int i = 0; i < regs::nregs; ++i)
                 {
                     if(blocks[b].regsOut[i] != 0xffff)
