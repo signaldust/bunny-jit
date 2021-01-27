@@ -123,6 +123,8 @@ convention requires alignment, so the assembler bumps it up to an odd number.
 Rest of it should be fairly obvious. The registers in arguments are not
 stored with the operations, but the debug-dump pulls them from the 
 original definition sites for convenience, just like the assembler will do.
+The code is SSA so the definition site always knows the register, or there
+is an explicit `rename` (or `reload`) to provide a new definition site.
 ```
 ;---- Slots: 1
 L0:
