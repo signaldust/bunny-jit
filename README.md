@@ -184,8 +184,10 @@ Disassembly of section .data:
 
 We could certainly do better (eg. unroll the loop and fold it into a
 constant return) and the `lea` should probably be `inc` instead (by the
-time you are reading this, it probably is), but overall this isn't too
-bad given the simplicity of the compiler.
+time you are reading this, it probably is; at this point it's still
+easy to improve this quite rapidly and I probably won't update this
+page all the time), but overall this isn't too bad given the simplicity
+of the compiler.
 
 This is obviously a simple example, but the quality of code is generally
 roughly similar for more complicated functions as well: not necessarily
