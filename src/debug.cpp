@@ -23,11 +23,13 @@ void bjit::Proc::debugOp(uint16_t iop)
         //else printf("        ");
     }
     else printf("         ");
-    
-    printf("%04x %6s %8s",
-        iop,
-        op.hasOutput() ? regNames[op.reg]: "",
-        op.strOpcode());
+
+    // make it clear which renames actually cause moves
+    bool nopRename = false;
+    if(op.opcode == ops::rename && op.reg == ops[op.in[0]].reg)
+        nopRename = true;
+    printf("%04x %6s %8s", iop, regName(op.reg),
+        nopRename ? " - " : op.strOpcode());
 
     switch(op.flags.type)
     {
