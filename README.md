@@ -82,8 +82,10 @@ double-precision variants to `d` if we add single-precision versions). Note
 that floating-point comparisons return integers, even though they expect
 `_f64` parameters.
 
-Also note that the handling of `iparam` and `fparam` is not final and might be
-moved to internals, with a cleaner user-facing interface.
+Right now parameters to the generated function can be specified with
+`iparam` and `fparam` on entry to the function (in order; they take no
+parameters), but this is probably not final (ie. there will probably be a
+cleaner user-facing interface and these will become internal).
 
 ### The compiler currently exposes the following instructions:
 
