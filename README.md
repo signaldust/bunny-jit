@@ -50,7 +50,8 @@ I should paste this into every file, but for the time being:
 
 ## What it does?
 
-Well, here's a simple example, with full output broken into parts:
+Well, here's a simple example (already slightly out of data, but it still
+serves it's purpose), with full output broken into parts:
 ```
 $ echo '{ x := 0;  while(x < 10) { x = x + 1; } return x; }' | ./bjit
 (block 
