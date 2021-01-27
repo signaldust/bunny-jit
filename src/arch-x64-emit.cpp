@@ -140,26 +140,20 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
         switch(i.opcode)
         {
-            case ops::iparam:
-            case ops::fparam:
-                break;  // these are nops
-            /*
-            case ops::iarg:
-                ++nArgsForCall;
-                assert(nArgsForCall <= 6);
-                break;
+            case ops::iarg: // incoming arguments
             case ops::farg:
-                ++nFloatsForCall;
-                assert(nFloatsForCall <= 8);
-                break;
-            case ops::icall:
-            case ops::fcall:
-                nArgsForCall = 0;
-                nFloatsForCall = 0;
+                break;  // these are nops
+
+            case ops::ipass: // outgoing arguments
+            case ops::fpass:
+                break;  // these are nops
+                
+            case ops::icallp:
+            case ops::fcallp:
                 // generate indirect near-call: FF /2
                 a64._RR(0, 2, REG(ops[i.in[0]].reg), 0xFF);
                 break;
-        */
+                
             case ops::jmp:
                 doJump(i.label[0]);
                 break;

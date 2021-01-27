@@ -3,7 +3,7 @@
 
 using namespace bjit;
 
-static const bool ra_debug = true;     // print lots of debug spam
+static const bool ra_debug = false;     // print lots of debug spam
 static const bool scc_debug = false;    // print lots of debug spam
 
 void Proc::allocRegs()
@@ -97,6 +97,10 @@ void Proc::allocRegs()
                         return r;
                     }
                 }
+
+                // prefer registers we're not going to lose soon
+                if(mask &~ op.regsLost()) mask &=~ op.regsLost();
+                else break; // doesn't matter what we pick
             }
 
             // FIXME: check live-out set?

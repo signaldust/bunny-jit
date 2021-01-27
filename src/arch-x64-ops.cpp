@@ -25,12 +25,12 @@ RegMask Op::regsOut()
         case ops::idiv: case ops::udiv: return (1ull<<regs::rax);
         case ops::imod: case ops::umod: return (1ull<<regs::rdx);
 
-        case ops::icall: return (1ull<<regs::rax);
-        case ops::fcall: return (1ull<<regs::xmm0);
+        case ops::icallp: return (1ull<<regs::rax);
+        case ops::fcallp: return (1ull<<regs::xmm0);
 
         // we have in[0] = index in type, in[1] = index total
         // which one we want to use varies by platform
-        case ops::iparam:
+        case ops::iarg:
 #ifdef _WIN32
             switch(in[1])   // Win64 wants the total position
             {
@@ -54,7 +54,7 @@ RegMask Op::regsOut()
             default: assert(false); // FIXME: RA can't handle
             }
 #endif
-        case ops::fparam:
+        case ops::farg:
 #ifdef _WIN32
             switch(in[1])   // Win64 wants the total index
             {
@@ -116,6 +116,57 @@ RegMask Op::regsIn(int i)
             return i ? (1ull<<regs::rcx) :
                 (regs::mask_int &~ (1ull<<regs::rcx));
 
+        case ops::ipass:
+#ifdef _WIN32
+            switch(in[2])   // Win64 wants the total position
+            {
+            case 0: return (1ull<<regs::rcx);
+            case 1: return (1ull<<regs::rdx);
+            case 2: return (1ull<<regs::r8);
+            case 3: return (1ull<<regs::r9);
+
+            default: assert(false); // FIXME: RA can't handle
+            }
+#else
+            switch(in[1])   // SysV uses position by type
+            {
+            case 0: return (1ull<<regs::rdi);
+            case 1: return (1ull<<regs::rsi);
+            case 2: return (1ull<<regs::rdx);
+            case 3: return (1ull<<regs::rcx);
+            case 4: return (1ull<<regs::r8);
+            case 5: return (1ull<<regs::r9);
+
+            default: assert(false); // FIXME: RA can't handle
+            }
+#endif
+        case ops::fpass:
+#ifdef _WIN32
+            switch(in[2])   // Win64 wants the total index
+            {
+            case 0: return (1ull<<regs::xmm0);
+            case 1: return (1ull<<regs::xmm1);
+            case 2: return (1ull<<regs::xmm2);
+            case 3: return (1ull<<regs::xmm3);
+
+            default: assert(false); // FIXME: RA can't handle
+            }
+#else
+            switch(in[1])   // SysV uses position by type
+            {
+            case 0: return (1ull<<regs::xmm0);
+            case 1: return (1ull<<regs::xmm1);
+            case 2: return (1ull<<regs::xmm2);
+            case 3: return (1ull<<regs::xmm3);
+            case 4: return (1ull<<regs::xmm4);
+            case 5: return (1ull<<regs::xmm5);
+            case 6: return (1ull<<regs::xmm6);
+            case 7: return (1ull<<regs::xmm7);
+
+            default: assert(false); // FIXME: RA can't handle
+            }
+#endif
+
         // these are fixed
         case ops::iret: return (1ull<<regs::rax);
         case ops::fret: return (1ull<<regs::xmm0);
@@ -134,7 +185,24 @@ RegMask Op::regsLost()
             // if we still need the value after the division
             return (1ull<<regs::rax)|(1ull<<regs::rdx);
 
-        case ops::icall:  case ops::fcall: return regs::caller_saved;
+        // for now, collect registers used by previous args
+        // this should help convince RA to do the right thing
+        case ops::ipass:
+        case ops::fpass:
+            {
+                RegMask used = 0;
+#ifdef _WIN32
+                for(int i = 0; i < in[2]; ++i)
+#else
+                for(int i = 0; i < in[1]; ++i)
+#endif
+                {
+                    used |= regsIn(i);
+                }
+                return used;
+            }
+
+        case ops::icallp: case ops::fcallp: return regs::caller_saved;
 
         default: return 0;
     }

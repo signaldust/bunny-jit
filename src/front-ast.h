@@ -346,7 +346,11 @@ namespace bjit
         
         virtual unsigned codeGen(Proc & proc)
         {
-            assert(false);
+            unsigned p = fn->codeGen(proc);
+            for(auto & a : args) proc.env.push_back(a->codeGen(proc));
+            unsigned r = proc.icallp(p, args.size());
+            proc.env.resize(proc.env.size() - args.size());
+            return r;
         }
     };
 

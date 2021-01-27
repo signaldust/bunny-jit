@@ -164,15 +164,15 @@
     /* floating point load and store */ \
     _(lf64, 1, 1+BJIT_IMM32), \
     _(sf64, 0, 2+BJIT_IMM32), \
-    /* procedure parameters */ \
-    _(iparam, 1, 0), \
-    _(fparam, 1, 0), \
-    /* CALL ARGUMENTS - left to right before call */ \
-    _(iarg, 0, 1), \
-    _(farg, 0, 1), \
-    /* CALLS: typed for return value */ \
-    _(icall, 1+BJIT_SIDEFX, 1), \
-    _(fcall, 1+BJIT_SIDEFX, 1), \
+    /* procedure arguments */ \
+    _(iarg, 1, 0), \
+    _(farg, 1, 0), \
+    /* Call arguments - right to left before call */ \
+    _(ipass, 0, 1), \
+    _(fpass, 0, 1), \
+    /* Indirect calls: typed for return value */ \
+    _(icallp, 1+BJIT_SIDEFX, 1), \
+    _(fcallp, 1+BJIT_SIDEFX, 1), \
     /* pseudo-ops: polymorphic and don't participate in use-def */ \
     /* NOTE: we use "phi" as marker, so it must be first        */ \
     _(phi,    1, 0), \

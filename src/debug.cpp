@@ -72,7 +72,7 @@ void bjit::Proc::debugOp(uint16_t iop)
         }
     }
 
-    if(op.opcode == ops::iparam || op.opcode == ops::fparam)
+    if(op.opcode == ops::iarg || op.opcode == ops::farg)
     {
         printf(" #%d total #%d", op.in[1], op.in[0]);
     }

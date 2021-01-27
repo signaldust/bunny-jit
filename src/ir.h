@@ -17,6 +17,44 @@ namespace bjit
 
     struct Op
     {
+        // input operands
+        // NOTE: packing is sensitive (also FIXME: rethink this?)
+        union
+        {
+            // 64-bit constants for load immediate
+            int64_t     i64;
+            uint64_t    u64;
+            double      f64;
+            
+            // imm + two values
+            // phi stores   in = { block, value  }
+            // params store in = { nType, nTotal }
+            struct {
+                uint32_t    imm32;
+                // 16-bits is likely enough?
+                uint16_t    in[0];  // this is size 2, but silence clang
+            };
+
+        };
+
+        // output data
+        // NOTE: packing is sensitive (also relative to above)
+        union
+        {
+            // NOTE: We let ssc alias on in[2] so that
+            // ops without output can have 3 inputs
+            //
+            // We use this for call arguments, possibly stores in the future
+            struct
+            {
+                uint16_t    scc;    // stack congruence class
+                uint16_t    nUse;   // number of users
+            };
+
+            // jumps need labels
+            uint16_t    label[2];
+        };
+        
         uint16_t    opcode;             // opcode, see ir-ops.h
         uint8_t     reg = regs::none;   // output register
 
@@ -38,38 +76,6 @@ namespace bjit
             bool    spill   : 1;
         } flags = {};
 
-        // input operands
-        union
-        {
-            // two values
-            // phi stores   { block, value  }
-            // params store { nType, nTotal }
-            struct {
-                uint32_t    imm32;
-                // 16-bits is likely enough?
-                uint16_t    in[2];
-            };
-
-            // 64-bit constants for load immediate
-            int64_t     i64;
-            uint64_t    u64;
-            double      f64;
-        };
-
-        // output data
-        union
-        {
-            // NOTE: We let ssc alias on in[2] so that stores
-            // which have no scc can have 3 inputs
-            struct
-            {
-                uint16_t    scc;    // stack congruence class
-                uint16_t    nUse;   // number of users
-            };
-
-            // jumps need labels
-            uint16_t    label[2];
-        };
 
         // regsMask returns a mask of registers that can hold this type
         RegMask     regsMask();     // in arch-XX-ops.cpp
@@ -298,36 +304,71 @@ namespace bjit
         void fret(unsigned v)
         { unsigned i = addOp(ops::fret, Op::_none); ops[i].in[0] = v; }
 
+        // indirect call to a function that returns an integer
+        // the last 'n' values from 'env' are passed as parameters
+        //
+        // NOTE: we expect the parameters left-to-right array order
+        // such that env.back() is the last parameter
+        unsigned icallp(unsigned ptr, unsigned n)
+        {
+            nPassInt     = 0;
+            nPassFloat   = 0;
+            nPassTotal   = 0;
+            
+            // must do left-to-right if we want to count on the fly
+            // might change this eventually
+            for(int i = 0; i<n; ++i) passArg(env[env.size()-n+i]);
+
+            unsigned i = addOp(ops::icallp, Op::_ptr);
+            ops[i].in[0] = ptr;
+            return i;
+        }
+
+        // same as icallp but functions returning floats
+        unsigned fcallp(unsigned ptr, unsigned n)
+        {
+            nPassInt     = 0;
+            nPassFloat   = 0;
+            nPassTotal   = 0;
+            
+            // We probably want right-to-left once we do stack?
+            for(int i = 0; i<n; ++i) passArg(env[env.size()-n+i]);
+
+            unsigned i = addOp(ops::fcallp, Op::_f64);
+            ops[i].in[0] = ptr;
+            return i;
+        }
+        
         // integer and floating-point parameters to procedure
         //
         // FIXME: for now we only support 4 total so that we can assume
         // they fit into registers and we don't need to worry about
         // calling conventions too much
-        unsigned iparam()
+        unsigned iarg()
         {
-            assert(nParamTotal < 4);    // the most that will work on Windows
+            assert(nArgsTotal < 4);    // the most that will work on Windows
             assert(!currentBlock); // must be block zero
             assert(!blocks[0].code.size()
-                || ops[blocks[0].code.back()].opcode == ops::iparam
-                || ops[blocks[0].code.back()].opcode == ops::fparam);
+                || ops[blocks[0].code.back()].opcode == ops::iarg
+                || ops[blocks[0].code.back()].opcode == ops::farg);
                 
-            auto i = addOp(ops::iparam, Op::_ptr);
-            ops[i].in[0] = nParamInt++;
-            ops[i].in[1] = nParamTotal++;
+            auto i = addOp(ops::iarg, Op::_ptr);
+            ops[i].in[0] = nArgsInt++;
+            ops[i].in[1] = nArgsTotal++;
             return i;
         }
         
-        unsigned fparam()
+        unsigned farg()
         {
-            assert(nParamTotal < 4);    // the most that will work on Windows
+            assert(nArgsTotal < 4);    // the most that will work on Windows
             assert(!currentBlock); // must be block zero
             assert(!blocks[0].code.size()
-                || ops[blocks[0].code.back()].opcode == ops::iparam
-                || ops[blocks[0].code.back()].opcode == ops::fparam);
+                || ops[blocks[0].code.back()].opcode == ops::iarg
+                || ops[blocks[0].code.back()].opcode == ops::farg);
                 
-            auto i = addOp(ops::fparam, Op::_f64);
-            ops[i].in[0] = nParamFloat++;
-            ops[i].in[1] = nParamTotal++;
+            auto i = addOp(ops::farg, Op::_f64);
+            ops[i].in[0] = nArgsFloat++;
+            ops[i].in[1] = nArgsTotal++;
             return i;
         }
 
@@ -365,9 +406,6 @@ namespace bjit
 
         BJIT_OP1(cf2i,_f64); BJIT_OP1(ci2f,_ptr);
 
-        BJIT_OP1(iarg,_ptr); BJIT_OP1(farg,_f64);
-        BJIT_OP1(icall,_ptr); BJIT_OP1(fcall,_f64);
-
         // loads take pointer+offset
 #define BJIT_LOAD(x, t) \
     unsigned x(unsigned v0, int32_t imm32) { \
@@ -394,11 +432,16 @@ namespace bjit
         // STATE DATA //
         ////////////////
 
-        // used to encode in[0],in[1] for parameters
-        int     nParamInt   = 0;
-        int     nParamFloat = 0;
-        int     nParamTotal = 0;
+        // used to encode in[0],in[1] for incoming parameters
+        int     nArgsInt    = 0;
+        int     nArgsFloat  = 0;
+        int     nArgsTotal  = 0;
 
+        // used to track in[1],in[2] for outgoing arguments
+        int     nPassInt    = 0;
+        int     nPassFloat  = 0;
+        int     nPassTotal  = 0;
+        
         bool    raDone = false;
         int     nSlots = 0;     // number of slots after raDone
         
@@ -427,6 +470,23 @@ namespace bjit
             uint16_t i = newOp(opcode, type);
             blocks[currentBlock].code.push_back(i);
             return i;
+        }
+
+        void passArg(unsigned val)
+        {
+            unsigned i = addOp(ops::nop, ops[val].flags.type);
+            // in[0] must be the real value, so it gets reg-alloc
+            ops[i].in[0] = val;
+
+            if(ops[i].flags.type == Op::_ptr)
+            { ops[i].opcode = ops::ipass; ops[i].in[1] = nPassInt++; }
+
+            if(ops[i].flags.type == Op::_f64)
+            { ops[i].opcode = ops::fpass; ops[i].in[1] = nPassFloat++; }
+            
+            ops[i].in[2] = nPassTotal++;
+
+            assert(ops[i].opcode != ops::nop);
         }
 
         // opt-ra.cpp
