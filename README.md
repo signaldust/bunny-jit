@@ -198,7 +198,7 @@ and idea what I'm going for with this project.
 
 To generate instructions, you call the instruction methods on `bjit::Proc`.
 When done, `Proc::opt()` will optimize and `Proc::compile()` generate code.
-Compile always does one pass of DCE, but otherwise optimization is optional.
+Compile always does a few passes of DCE, but otherwise optimization is optional.
 
 Most instructions take their parameters as SSA values. The exceptions are
 `lci`/`lcf` which take immediate constants and jump-labels which should be
