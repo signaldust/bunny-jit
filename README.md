@@ -95,7 +95,7 @@ a floating point value.
 `ieq a b` and `ine a b` compare two integers for equality or inequality and
 produce boolean values (ie. `0` or `1`).
 
-`ilt a b`, `ile a b`, `ige a b` and `igt a b` and two signed integers
+`ilt a b`, `ile a b`, `ige a b` and `igt a b` compare signed integers
 for less, less-or-equal, greater-or-equal and greater respectively
 
 `ult a b`, `ule a b`, `uge a b` and `ugt a b` perform unsigned comparisons
