@@ -193,13 +193,12 @@ namespace bjit
             // repeat until neither does progress
             while(opt_dce() || opt_fold());
             //while(opt_dce());
-            allocRegs();
         }
 
         void compile(std::vector<uint8_t> & bytes)
         {
-            if(!raDone) opt();
-
+            while(opt_dce());
+            allocRegs();
             arch_emit(bytes);
         }
 

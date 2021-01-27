@@ -3,7 +3,7 @@
 
 using namespace bjit;
 
-static const bool ra_debug = false;     // print lots of debug spam
+static const bool ra_debug = true;     // print lots of debug spam
 static const bool scc_debug = false;    // print lots of debug spam
 
 void Proc::allocRegs()

@@ -10,7 +10,7 @@ RegMask Op::regsMask()
         case _ptr: return regs::mask_int;
         case _f64: return regs::mask_float;
 
-        default: assert(false);
+        default: printf("%s\n", strOpcode()); assert(false);
     }
 }
 
@@ -95,6 +95,15 @@ RegMask Op::regsIn(int i)
         case ops::imod: case ops::umod:
             return (!i) ? (1ull<<regs::rax)
             : (regs::mask_int & ~(1ull<<regs::rdx));
+
+        case ops::jilt: case ops::jige:
+        case ops::jigt: case ops::jile:
+        case ops::jieq: case ops::jine:
+        case ops::jiltI: case ops::jigeI:
+        case ops::jigtI: case ops::jileI:
+        case ops::jieqI: case ops::jineI:
+        case ops::jz: case ops::jnz:
+            return regs::mask_int;
 
         case ops::jflt: case ops::jfge:
         case ops::jfgt: case ops::jfle:

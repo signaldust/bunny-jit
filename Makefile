@@ -13,7 +13,7 @@ MAKEDIR := mkdir -p
 CLEANALL := rm -rf $(TARGET) $(BUILD_DIR)
 
 # Generic compilation flags, both C and C++
-CFLAGS := -I.
+CFLAGS := -I. -g
 CFLAGS += -Ofast -fomit-frame-pointer
 CFLAGS += -Wall -Werror -Wfloat-conversion -ferror-limit=5
 CFLAGS += -Wno-unused -Wno-unused-function

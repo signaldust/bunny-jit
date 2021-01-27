@@ -209,10 +209,10 @@ void bjit::parse(std::vector<uint8_t> & codeOut)
     p.debug();
 
     printf("-- Optimizing:\n");
-    p.opt();
-    p.debug();
+    //p.opt();
 
     p.compile(codeOut);
+    p.debug();
 
     
 }
