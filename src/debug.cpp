@@ -78,7 +78,6 @@ void bjit::Proc::debugOp(uint16_t iop)
         printf(" #%d total #%d", op.in[1], op.in[0]);
     }
 
-
     if(op.opcode <= ops::jmp) printf(" L%d", op.label[0]);
     if(op.opcode < ops::jmp) printf(" L%d", op.label[1]);
 
@@ -96,6 +95,8 @@ void bjit::Proc::debug()
         {
             printf("L%d:", b);
             for(auto s : blocks[b].comeFrom) printf(" <L%d", s);
+            printf("\n; Dom:");
+            for(auto s : blocks[b].dom) printf(" ^L%d", s);
             //if(0)
             for(int i = 0; i < blocks[b].livein.size(); ++i)
             {

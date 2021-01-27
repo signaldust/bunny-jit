@@ -452,8 +452,8 @@ namespace bjit
         
         RegMask usedRegs = 0;   // for callee saved on prolog/epilog
         
-        std::vector<uint32_t>   todo;   // this is used for block todos
-        std::vector<uint32_t>   live;   // live blocks, used for stuff
+        std::vector<uint16_t>   todo;   // this is used for block todos
+        std::vector<uint16_t>   live;   // live blocks, used for stuff
     
         std::vector<Block>      blocks;
         std::vector<Op>         ops;

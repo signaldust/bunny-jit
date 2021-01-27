@@ -239,12 +239,65 @@ void Proc::opt_dce()
         }
     }
 
-    // reset dominators
     for(auto & b : live)
     {
+        // reset dominators
         blocks[b].dom.clear();
         if(!blocks[b].comeFrom.size())
             blocks[b].dom.push_back(b);
+        else blocks[b].dom = live;
+    }    
+
+    // find dominator
+    //
+    // start with every node dominating itself
+    // iterate blocks n until no change:
+    //   tdom(n) = blocks
+    //   for p in comeFrom(n):
+    //     tdom(n) = sdom(n) intersect dom(p)
+    //   dom(n) = { n } union sdom(n)
+    int domIters = 0;
+    bool iterate = true;
+    std::vector<uint16_t>   tdom;
+    while(iterate)
+    {
+        iterate = false;
+        ++domIters;
+
+        for(auto & b : live)
+        {
+            // this is entry block
+            if(!blocks[b].comeFrom.size()) continue;
+
+            tdom = live;
+            for(auto & f : blocks[b].comeFrom)
+            {
+                for(int t = 0; t < tdom.size();)
+                {
+                    bool found = false;
+                    for(auto & d : blocks[f].dom)
+                    {
+                        if(d == tdom[t]) found = true;
+                    }
+                    
+                    if(found) { ++t; }
+                    else
+                    {
+                        std::swap(tdom[t], tdom.back());
+                        tdom.pop_back();
+                    }
+                }
+            }
+            
+            bool foundSelf = false;
+            for(auto & t : tdom) { if(t != b) continue; foundSelf = true; break; }
+    
+            if(!foundSelf) tdom.push_back(b);
+            if(tdom.size() != blocks[b].dom.size()) iterate = true;
+
+            // save copy, we'll reset tdom above anyway
+            std::swap(blocks[b].dom, tdom);
+        }
     }
 
     // cleanup dead phi alternatives
@@ -268,7 +321,7 @@ void Proc::opt_dce()
         if(j != a.alts.size()) { a.alts.resize(j); progress = true; }
     }
 
-    printf(" DCE:%d", iters);
+    printf(" DCE:%d+%d", iters, domIters);
 }
 
 void Proc::findUsesBlock(int b, bool inOnly)
