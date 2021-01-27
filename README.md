@@ -197,14 +197,14 @@ and idea what I'm going for with this project.
 
 ## Instructions?
 
-The first step is to create a `Proc` which takes a stack allocation size
+The first step is to create a `bjit::Proc` which takes a stack allocation size
 and a string representing arguments (`i` for integer, `f` for double).
 This will initialize `env[0]` with an SSA value for the pointer to a block
 of the requested size on the stack (in practice, it represents stack
 pointer) and `env[1..]` as the SSA values of the arguments. More on `env`
 below. Pass `0` and `""` if you don't care about allocations or arguments.
 
-To generate instructions, you call the instruction methods on `bjit::Proc`.
+To generate instructions, you call the instruction methods on `Proc`.
 When done, `Proc::opt()` will optimize and `Proc::compile()` generate code.
 Compile always does a few passes of DCE, but otherwise optimization is optional.
 
