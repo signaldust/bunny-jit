@@ -52,9 +52,19 @@ To generate instructions, you call the instruction-method on `bjit::Proc`.
 
 Most instructions take their parameters as SSA values. The exceptions are
 `lci`/`lcf` which take immediate constants and jump-labels which should be
-the block-indexes returned by `bjit::Proc::newLabel()`. For instructions
+the block-indexes returned by `Proc::newLabel()`. For instructions
 with output values, the methods return the new SSA values and for other
 instructions they return `void`.
+
+`Proc` has a public `std::vector` member `env` which stores the "environment".
+When a new label is create with `Proc::newLabel()` the number and types of
+incoming arguments to the block are fixed to those contained in `env` and when
+jumps are emitted, we check that the contents of `env` are compatible (same
+number of values of same types). When `Proc::emitLabel()` is generate code for
+the label, we replace the contents of `env` with fresh phi-values. So even
+though we only handle SSA values, the contents of `env` behave essentially
+like regular variables (eg. "assignments" can simply store a new SSA value
+into `env`).
 
 Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
