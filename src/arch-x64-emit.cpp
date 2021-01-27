@@ -370,8 +370,9 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
 
             case ops::iaddI:
-                if(i.reg != ops[i.in[0]].reg) _MOVrr(i.reg, ops[i.in[0]].reg);
-                _ADDri(i.reg, i.imm32);
+                // use LEA for different input/output registers
+                // we don't track CCs anyway
+                _LEA(i.reg, ops[i.in[0]].reg, i.imm32);
                 break;
                 
             case ops::isub:

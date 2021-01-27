@@ -426,6 +426,9 @@ struct AsmX64
 #define _XORPSrr(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0x0F, 0x57)
 #define _XORPSri(r0, c)     a64._RM(0, REG(r0), RIP, a64.data128(c), 0x0F, 0x57)
 
+// we currently use this for iaddI
+#define _LEA(r, ptr, off)   a64._RM(1, REG(r), REG(ptr), off, 0x8D)
+
 // explicit sizes for memory ops - signed loads, MOVSX for sign-extend
 #define _load_i64(r, ptr, off)  a64._RM(1, REG(r), REG(ptr), off, 0x8B)
 #define _load_i32(r, ptr, off)  a64._RM(1, REG(r), REG(ptr), off, 0x63)
