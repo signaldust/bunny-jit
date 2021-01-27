@@ -196,6 +196,13 @@ and idea what I'm going for with this project.
 
 ## Instructions?
 
+The first step is to create a `Proc` which takes a stack allocation size
+and a string representing arguments (`i` for integer, `f` for double).
+This will initialize `env[0]` with an SSA value for the pointer to a block
+of the requested size on the stack (in practice, it represents stack
+pointer) and `env[1..]` as the SSA values of the arguments. More on `env`
+below. Pass `0` and `""` if you don't care about allocations or arguments.
+
 To generate instructions, you call the instruction methods on `bjit::Proc`.
 When done, `Proc::opt()` will optimize and `Proc::compile()` generate code.
 Compile always does a few passes of DCE, but otherwise optimization is optional.
@@ -232,11 +239,6 @@ there is a distinction and `f` is floating point (though we might change the
 double-precision variants to `d` if we add single-precision versions). Note
 that floating-point comparisons return integers, even though they expect
 `_f64` parameters.
-
-Right now parameters to the generated function can be specified with
-`iarg` and `farg` on entry to the function (in order; they take no
-parameters), but this is probably not final (ie. there will probably be a
-cleaner user-facing interface and these will become internal).
 
 ### The compiler currently exposes the following instructions:
 
