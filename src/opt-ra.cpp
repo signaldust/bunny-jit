@@ -777,6 +777,8 @@ void Proc::allocRegs()
     // Cleanup and find slots
     for(auto & op : ops)
     {
+        if(!op.hasOutput()) continue;
+        
         // clear spill-flag from PHIs with no register
         // the source-site will handle the spill
         if(op.opcode == ops::phi && op.reg == regs::nregs)
@@ -787,10 +789,10 @@ void Proc::allocRegs()
         if(op.opcode == ops::reload && op.scc == ops[op.in[0]].scc)
             op.flags.spill = false;
 
-        if(op.scc >= sccUsed.size()) sccUsed.resize(op.scc + 1);
+        if(op.scc >= sccUsed.size()) sccUsed.resize(op.scc + 1, false);
         if(op.flags.spill) sccUsed[op.scc] = true;
 
-        if(op.hasOutput()) usedRegs |= (1ull<<op.reg);
+        usedRegs |= (1ull<<op.reg);
     }
 
     std::vector<uint16_t>   slots(sccUsed.size(), 0xffff);

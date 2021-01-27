@@ -28,7 +28,8 @@ void bjit::Proc::debugOp(uint16_t iop)
     bool nopRename = false;
     if(op.opcode == ops::rename && op.reg == ops[op.in[0]].reg)
         nopRename = true;
-    printf("%04x %6s %8s", iop, regName(op.reg),
+    printf("%04x %6s %8s", iop,
+        op.hasOutput() ? regName(op.reg) : "",
         nopRename ? " - " : op.strOpcode());
 
     switch(op.flags.type)
@@ -136,6 +137,7 @@ void bjit::Proc::debug()
     {
         if(!blocks[b].flags.live) continue;
         printf("L%d:%s\n", b, blocks[b].flags.live ? "" : " -- dead --");
+        printf("; SLOT  VALUE    REG       OP USE TYPE  ARGS\n");
         for(auto & iop : blocks[b].code) { debugOp(iop); }
     }
     printf(";----\n");

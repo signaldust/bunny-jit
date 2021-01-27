@@ -73,12 +73,12 @@ bool Proc::opt_fold()
     bool progress = true, anyProgress = false;
     while(progress)
     {
-        cseTable.clear();
-        
         ++iter;
         progress = false;
         for(auto b : live)
         {
+            cseTable.clear();
+            
             for(auto bc : blocks[b].code)
             {
                 auto & i = ops[bc];
