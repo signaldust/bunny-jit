@@ -7,7 +7,10 @@ BUILD_DIR ?= build
 # We assume clang on all platforms
 CC := clang
 
+TARGET := bjit
+
 MAKEDIR := mkdir -p
+CLEANALL := rm -rf $(TARGET) $(BUILD_DIR)
 
 # Generic compilation flags, both C and C++
 CFLAGS := -I.
@@ -27,15 +30,13 @@ SOURCES := $(wildcard src/*.cpp)
 OBJECTS := $(patsubst %,$(BUILD_DIR)/%.o,$(SOURCES))
 DEPENDS := $(OBJECTS:.o=.d)
 
-TARGET := bjit
-
 .PHONY: all clean
 
 all: $(TARGET)
 	@echo DONE
 
 clean:
-	@echo Cleaning directory \'$(BUILD_DIR)\'
+	@echo Cleaning '$(BUILD_DIR)' and '$(TARGET)'
 	@$(CLEANALL)
 
 $(TARGET): $(OBJECTS)
