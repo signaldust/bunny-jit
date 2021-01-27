@@ -109,14 +109,12 @@ namespace bjit
         {
             int n = op.nInputs();
             if(!n) return op;
-            for(int i = map.size(); i--;)
+            for(auto & r : map)
             {
                 switch(n)
                 {
-                case 2:
-                    if(op.in[1] == map[i].src) op.in[1] = map[i].dst;
-                case 1:
-                    if(op.in[0] == map[i].src) op.in[0] = map[i].dst;
+                case 2: if(op.in[1] == r.src) op.in[1] = r.dst;
+                case 1: if(op.in[0] == r.src) op.in[0] = r.dst;
                 }
             }
             return op;
@@ -150,8 +148,6 @@ namespace bjit
         std::vector<uint16_t>   livein;
         std::vector<uint16_t>   comeFrom;   // which blocks we come from?
 
-        Rename  rename;
-
         // register state on input
         uint16_t    regsIn[regs::nregs];
 
@@ -178,8 +174,6 @@ namespace bjit
             emitLabel(currentBlock);
         }
 
-        
-
         // debug.cpp
         void debug();
         void debugOp(uint16_t index);
@@ -201,7 +195,6 @@ namespace bjit
             arch_emit(bytes);
         }
 
-    public:
         std::vector<unsigned>   env;
 
         // generate a label
