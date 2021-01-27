@@ -20,6 +20,9 @@ RegMask Op::regsOut()
     switch(opcode)
     {
         default: return regsMask(); // no special case -> any valid
+
+        // special
+        case ops::alloc: return (1ull<<regs::rsp);
     
         // divisions are fixed registers
         case ops::idiv: case ops::udiv: return (1ull<<regs::rax);
@@ -88,6 +91,13 @@ RegMask Op::regsIn(int i)
     switch(opcode)
     {
         default: return regsMask(); // no special case -> same as input
+
+        // loads and stores allow stack pointer as their first argument
+        case ops::li8: case ops::li16: case ops::li32: case ops::li64:
+        case ops::lu8: case ops::lu16: case ops::lu32: case ops::lf64:
+        case ops::si8: case ops::si16: case ops::si32: case ops::si64:
+        case ops::sf64:
+            return regs::mask_int | (i ? 0 : (1ull<<regs::rsp));
         
         // integer division takes RDX:RAX as 128-bit first operand
         // we only do 64-bit, but force RAX on 1st and forbid RDX on 2nd

@@ -179,10 +179,29 @@ namespace bjit
 
     struct Proc
     {
-        Proc()
+        // allocBytes is the size of an optional block allocated from the stack
+        // for function local data (eg. arrays, variables with address taken)
+        //  - env[0] will contain a pointer to this data
+        //
+        // args is string describing argument: 'i' for int, 'f' for double
+        //  - env[1..] are the SSA values for the arguments
+        //
+        Proc(unsigned allocBytes, const char * args)
         {
             currentBlock = newLabel();
             emitLabel(currentBlock);
+
+            env.push_back(alloc(allocBytes));
+
+            if(args) for(;*args;++args)
+            {
+                switch(*args)
+                {
+                case 'i': env.push_back(iarg()); break;
+                case 'f': env.push_back(farg()); break;
+                default: assert(false);
+                }
+            }
         }
 
         // debug.cpp
@@ -209,11 +228,21 @@ namespace bjit
         // generate a label
         unsigned newLabel()
         {
-            unsigned i = blocks.size();
-            blocks.resize(i + 1);
+            unsigned label = blocks.size();
+            blocks.resize(label + 1);
             
-            blocks[i].args.resize(env.size());
-            return i;
+            blocks[label].args.resize(env.size());
+
+            // generate phis
+            for(int i = 0; i < env.size(); ++i)
+            {
+                auto phi = addOp(ops::phi, ops[env[i]].flags.type, label);
+                blocks[label].args[i].phiop = phi;
+                ops[phi].in[0] = label;
+                ops[phi].in[1] = i;
+            }
+            
+            return label;
         }
 
         void emitLabel(unsigned label)
@@ -224,15 +253,10 @@ namespace bjit
             blocks[label].flags.live = true;
             currentBlock = label;
 
-            // check environment size, generate phis
-            assert(blocks[label].args.size() == env.size());
+            env.resize(blocks[label].args.size());
             for(int i = 0; i < env.size(); ++i)
             {
-                env[i] = addOp(ops::phi, ops[env[i]].flags.type);
-                ops[env[i]].in[0] = label;
-                ops[env[i]].in[1] = i;
-                // regalloc wants this
-                blocks[label].args[i].phiop = env[i];
+                env[i] = blocks[label].args[i].phiop;
             }
         }
 
@@ -340,39 +364,6 @@ namespace bjit
             return i;
         }
         
-        // integer and floating-point parameters to procedure
-        //
-        // FIXME: for now we only support 4 total so that we can assume
-        // they fit into registers and we don't need to worry about
-        // calling conventions too much
-        unsigned iarg()
-        {
-            assert(nArgsTotal < 4);    // the most that will work on Windows
-            assert(!currentBlock); // must be block zero
-            assert(!blocks[0].code.size()
-                || ops[blocks[0].code.back()].opcode == ops::iarg
-                || ops[blocks[0].code.back()].opcode == ops::farg);
-                
-            auto i = addOp(ops::iarg, Op::_ptr);
-            ops[i].in[0] = nArgsInt++;
-            ops[i].in[1] = nArgsTotal++;
-            return i;
-        }
-        
-        unsigned farg()
-        {
-            assert(nArgsTotal < 4);    // the most that will work on Windows
-            assert(!currentBlock); // must be block zero
-            assert(!blocks[0].code.size()
-                || ops[blocks[0].code.back()].opcode == ops::iarg
-                || ops[blocks[0].code.back()].opcode == ops::farg);
-                
-            auto i = addOp(ops::farg, Op::_f64);
-            ops[i].in[0] = nArgsFloat++;
-            ops[i].in[1] = nArgsTotal++;
-            return i;
-        }
-
 #define BJIT_OP1(x,t) \
     unsigned x(unsigned v0) { \
         unsigned i = addOp(ops::x, Op::t); \
@@ -470,10 +461,12 @@ namespace bjit
             return i;
         }
         
-        unsigned addOp(uint16_t opcode, Op::Type type)
+        unsigned addOp(uint16_t opcode, Op::Type type, uint16_t inBlock = noVal)
         {
             uint16_t i = newOp(opcode, type);
-            blocks[currentBlock].code.push_back(i);
+            
+            if(inBlock == noVal) inBlock = currentBlock;
+            blocks[inBlock].code.push_back(i);
             return i;
         }
 
@@ -492,6 +485,46 @@ namespace bjit
             ops[i].in[2] = nPassTotal++;
 
             assert(ops[i].opcode != ops::nop);
+        }
+
+        // integer and floating-point parameters to procedure
+        //
+        // FIXME: up to 4 until we have better calling convention support
+        unsigned iarg()
+        {
+            assert(nArgsTotal < 4);    // the most that will work on Windows
+            assert(!currentBlock); // must be block zero
+            assert(!blocks[0].code.size()
+                || ops[blocks[0].code.back()].opcode == ops::alloc
+                || ops[blocks[0].code.back()].opcode == ops::iarg
+                || ops[blocks[0].code.back()].opcode == ops::farg);
+                
+            auto i = addOp(ops::iarg, Op::_ptr);
+            ops[i].in[0] = nArgsInt++;
+            ops[i].in[1] = nArgsTotal++;
+            return i;
+        }
+        unsigned farg()
+        {
+            assert(nArgsTotal < 4);    // the most that will work on Windows
+            assert(!currentBlock); // must be block zero
+            assert(!blocks[0].code.size()
+                || ops[blocks[0].code.back()].opcode == ops::alloc
+                || ops[blocks[0].code.back()].opcode == ops::iarg
+                || ops[blocks[0].code.back()].opcode == ops::farg);
+                
+            auto i = addOp(ops::farg, Op::_f64);
+            ops[i].in[0] = nArgsFloat++;
+            ops[i].in[1] = nArgsTotal++;
+            return i;
+        }
+
+        // user-requested stack frame
+        unsigned alloc(unsigned size)
+        {
+            auto i = addOp(ops::alloc, Op::_ptr);
+            ops[i].imm32 = size;
+            return i;
         }
 
         // opt-ra.cpp

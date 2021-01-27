@@ -68,13 +68,15 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
         }
     }
 
-    // need 8 mod 16 - emit "prelude" if necessary
-    nSlots += 1 ^ ((nPush+nSlots) & 1);
-    if(nSlots) { _SUBri(regs::rsp, 8*nSlots); }
-
     // this tracks additional stack offset
     // when we need to adjust stack during calls
-    unsigned    frameOffset = 0;
+    assert(ops[0].opcode == ops::alloc);
+    unsigned    frameOffset = ((ops[0].imm32+0xf)&~0xf);;
+
+    // need 8 mod 16 - emit "prelude" if necessary
+    nSlots += 1 ^ ((nPush+nSlots) & 1);
+    int frameBytes = 8*nSlots + frameOffset;
+    if(frameBytes) { _SUBri(regs::rsp, frameBytes); }
 
     // block todo-stack
     std::vector<unsigned>   todo;
@@ -140,13 +142,13 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
         switch(i.opcode)
         {
+            case ops::alloc: break; // stack frame, nop
+            
             case ops::iarg: // incoming arguments
-            case ops::farg:
-                break;  // these are nops
+            case ops::farg: break; // these are nops
 
             case ops::ipass: // outgoing arguments
-            case ops::fpass:
-                break;  // these are nops
+            case ops::fpass: break; // these are nops for now
                 
             case ops::icallp:
             case ops::fcallp:
@@ -326,7 +328,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 // fall through
             case ops::iret:
             case ops::fret:
-                if(nSlots) { _ADDri(regs::rsp, 8*nSlots); }
+                if(nSlots) { _ADDri(regs::rsp, frameBytes); }
                 for(int r = savedRegs.size(); r--;)
                 {
                     if((1ull<<savedRegs[r]) & regs::mask_float)

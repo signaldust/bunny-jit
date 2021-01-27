@@ -190,7 +190,7 @@ void bjit::parse(std::vector<uint8_t> & codeOut)
         ps.state(ps);
     }
 
-    Env env;
+    Env env(1); // must match what we pass proc
     for(auto & e : ps.frags)
     {
         e->typecheck(ps, env);
@@ -200,7 +200,7 @@ void bjit::parse(std::vector<uint8_t> & codeOut)
 
     if(ps.nErrors) return;
 
-    Proc p;
+    Proc p(0, "");
     
     for(auto & e : ps.frags)
         e->codeGen(p);

@@ -159,14 +159,15 @@
     _(u32, BJIT_CSE+1, 1), \
     /* memory loads: load out <- [in0+offset] */ \
     /* integer variants: sign-extended */ \
-    _(li8,  1, 1+BJIT_IMM32), \
-    _(li16, 1, 1+BJIT_IMM32), \
-    _(li32, 1, 1+BJIT_IMM32), \
-    _(li64, 1, 1+BJIT_IMM32), \
+    /* treat as potentially causing side-effects */ \
+    _(li8,  1+BJIT_SIDEFX, 1+BJIT_IMM32), \
+    _(li16, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
+    _(li32, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
+    _(li64, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
     /* unsigned variants (zero-extend) */ \
-    _(lu8,  1, 1+BJIT_IMM32), \
-    _(lu16, 1, 1+BJIT_IMM32), \
-    _(lu32, 1, 1+BJIT_IMM32), \
+    _(lu8,  1+BJIT_SIDEFX, 1+BJIT_IMM32), \
+    _(lu16, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
+    _(lu32, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
     /* memory stores: store [in0+offset] <- in1 */ \
     _(si8,  0, 2+BJIT_IMM32), \
     _(si16, 0, 2+BJIT_IMM32), \
@@ -184,6 +185,8 @@
     /* Indirect calls: typed for return value */ \
     _(icallp, 1+BJIT_SIDEFX, 1), \
     _(fcallp, 1+BJIT_SIDEFX, 1), \
+    /* this is user-requested allocation with reg = stack pointer */ \
+    _(alloc, 1+BJIT_SIDEFX, BJIT_IMM32), \
     /* pseudo-ops: polymorphic and don't participate in use-def */ \
     /* NOTE: we use "phi" as marker, so it must be first        */ \
     _(phi,    1, 0), \
