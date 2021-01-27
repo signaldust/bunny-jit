@@ -60,9 +60,9 @@ instructions they return `void`.
 When a new label is create with `Proc::newLabel()` the number and types of
 incoming arguments to the block are fixed to those contained in `env` and when
 jumps are emitted, we check that the contents of `env` are compatible (same
-number of values of same types). When `Proc::emitLabel()` is generate code for
-the label, we replace the contents of `env` with fresh phi-values. So even
-though we only handle SSA values, the contents of `env` behave essentially
+number of values of same types). When `Proc::emitLabel()` is called to generate
+code for the label, we replace the contents of `env` with fresh phi-values.
+So even though we only handle SSA values, elements of `env` behave essentially
 like regular variables (eg. "assignments" can simply store a new SSA value
 into `env`).
 
