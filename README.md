@@ -58,7 +58,9 @@ instructions they return `void`.
 
 Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
-in undefined behaviour (which varies from invalid binary code to `assert`).
+in undefined behaviour. The compiler should never fail with valid data, so we
+do not provide error reporting other than `assert`. This is a conscious design
+decision, as error checking should be done at higher levels.
 
 The type system is very primitive though and mostly exists for the purpose of
 tracking which registers we can use to store values. In particular, anything
