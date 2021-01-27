@@ -5,12 +5,13 @@
 //  _(name, nOutputs, nInputs)
 
 // output flags
-#define BJIT_SIDEFX  0x10    // never DCE
+#define BJIT_SIDEFX 0x10    // never DCE
+#define BJIT_CSE    0x20    // can CSE
 
 // input flags
-#define BJIT_IMM32   0x10    // has imm32 operand
-#define BJIT_I64     0x20    // has 64-bit integer constant
-#define BJIT_F64     0x40    // has double constant
+#define BJIT_IMM32  0x10    // has imm32 operand
+#define BJIT_I64    0x20    // has 64-bit integer constant
+#define BJIT_F64    0x40    // has double constant
 
 #define BJIT_OPS(_) \
     /* (xor 1): branch signed integer comparisons */ \
@@ -65,80 +66,83 @@
     /* SO MAKE SURE THE POSITIONS STAY RELATIVE */ \
     /* */ \
     /* (xor 1): signed integer comparisons */ \
-    _(ilt, 1, 2), \
-    _(ige, 1, 2), \
-    _(igt, 1, 2), \
-    _(ile, 1, 2), \
+    _(ilt, BJIT_CSE+1, 2), \
+    _(ige, BJIT_CSE+1, 2), \
+    _(igt, BJIT_CSE+1, 2), \
+    _(ile, BJIT_CSE+1, 2), \
     /* (xor 1): unsigned integer comparisons */ \
-    _(ult, 1, 2), \
-    _(uge, 1, 2), \
-    _(ugt, 1, 2), \
-    _(ule, 1, 2), \
+    _(ult, BJIT_CSE+1, 2), \
+    _(uge, BJIT_CSE+1, 2), \
+    _(ugt, BJIT_CSE+1, 2), \
+    _(ule, BJIT_CSE+1, 2), \
     /* (xor 1): integer equality (equal, not equal) */ \
-    _(ieq, 1, 2), \
-    _(ine, 1, 2), \
+    _(ieq, BJIT_CSE+1, 2), \
+    _(ine, BJIT_CSE+1, 2), \
     /* (xor 1): floating point comparisons */ \
-    _(flt, 1, 2), \
-    _(fge, 1, 2), \
-    _(fgt, 1, 2), \
-    _(fle, 1, 2), \
+    _(flt, BJIT_CSE+1, 2), \
+    _(fge, BJIT_CSE+1, 2), \
+    _(fgt, BJIT_CSE+1, 2), \
+    _(fle, BJIT_CSE+1, 2), \
     /* (xor 1): float equality (equal, not equal) */ \
-    _(feq, 1, 2), \
-    _(fne, 1, 2), \
+    _(feq, BJIT_CSE+1, 2), \
+    _(fne, BJIT_CSE+1, 2), \
     /* */ \
     /* NOTE: THESE SHOULD MATCH THOSE STARTING FROM 'jilt' */ \
     /* SO MAKE SURE THE POSITIONS STAY RELATIVE */ \
     /* */ \
     /* (xor 1): signed integer comparisons */ \
-    _(iltI, 1, 1+BJIT_IMM32), \
-    _(igeI, 1, 1+BJIT_IMM32), \
-    _(igtI, 1, 1+BJIT_IMM32), \
-    _(ileI, 1, 1+BJIT_IMM32), \
+    _(iltI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(igeI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(igtI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(ileI, BJIT_CSE+1, 1+BJIT_IMM32), \
     /* (xor 1): unsigned integer comparisons */ \
-    _(ultI, 1, 1+BJIT_IMM32), \
-    _(ugeI, 1, 1+BJIT_IMM32), \
-    _(ugtI, 1, 1+BJIT_IMM32), \
-    _(uleI, 1, 1+BJIT_IMM32), \
+    _(ultI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(ugeI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(ugtI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(uleI, BJIT_CSE+1, 1+BJIT_IMM32), \
     /* (xor 1): integer equality (equal, not equal) */ \
-    _(ieqI, 1, 1+BJIT_IMM32), \
-    _(ineI, 1, 1+BJIT_IMM32), \
+    _(ieqI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(ineI, BJIT_CSE+1, 1+BJIT_IMM32), \
     /* integer arithmetic */ \
-    _(iadd, 1, 2), \
-    _(isub, 1, 2), \
-    _(ineg, 1, 1), \
-    _(imul, 1, 2), \
-    _(idiv, 1, 2), \
-    _(imod, 1, 2), \
+    _(iadd, BJIT_CSE+1, 2), \
+    _(isub, BJIT_CSE+1, 2), \
+    _(ineg, BJIT_CSE+1, 1), \
+    _(imul, BJIT_CSE+1, 2), \
+    _(idiv, BJIT_CSE+1, 2), \
+    _(imod, BJIT_CSE+1, 2), \
     /* unsigned integer arithmetic */ \
-    _(udiv, 1, 2), \
-    _(umod, 1, 2), \
+    _(udiv, BJIT_CSE+1, 2), \
+    _(umod, BJIT_CSE+1, 2), \
     /* integer bitwise */ \
-    _(inot, 1, 1), \
-    _(iand, 1, 2), \
-    _(ior, 1, 2),  \
-    _(ixor, 1, 2), \
+    _(inot, BJIT_CSE+1, 1), \
+    _(iand, BJIT_CSE+1, 2), \
+    _(ior,  BJIT_CSE+1, 2),  \
+    _(ixor, BJIT_CSE+1, 2), \
     /* integer shifts */ \
-    _(ishl, 1, 2), \
-    _(ishr, 1, 2), \
-    _(ushr, 1, 2), \
+    _(ishl, BJIT_CSE+1, 2), \
+    _(ishr, BJIT_CSE+1, 2), \
+    _(ushr, BJIT_CSE+1, 2), \
     /* integer arithmetic */ \
-    _(iaddI, 1, 1+BJIT_IMM32), \
-    _(isubI, 1, 1+BJIT_IMM32), \
-    _(imulI, 1, 1+BJIT_IMM32), \
+    _(iaddI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(isubI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(imulI, BJIT_CSE+1, 1+BJIT_IMM32), \
     /* integer bitwise */ \
-    _(iandI, 1, 1+BJIT_IMM32), \
-    _(iorI,  1, 1+BJIT_IMM32),  \
-    _(ixorI, 1, 1+BJIT_IMM32), \
+    _(iandI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(iorI,  BJIT_CSE+1, 1+BJIT_IMM32),  \
+    _(ixorI, BJIT_CSE+1, 1+BJIT_IMM32), \
     /* integer shifts */ \
-    _(ishlI, 1, 1+BJIT_IMM32), \
-    _(ishrI, 1, 1+BJIT_IMM32), \
-    _(ushrI, 1, 1+BJIT_IMM32), \
+    _(ishlI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(ishrI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(ushrI, BJIT_CSE+1, 1+BJIT_IMM32), \
     /* floating point arithmetic */ \
-    _(fadd, 1, 2), \
-    _(fsub, 1, 2), \
-    _(fneg, 1, 1), \
-    _(fmul, 1, 2), \
-    _(fdiv, 1, 2), \
+    _(fadd, BJIT_CSE+1, 2), \
+    _(fsub, BJIT_CSE+1, 2), \
+    _(fneg, BJIT_CSE+1, 1), \
+    _(fmul, BJIT_CSE+1, 2), \
+    _(fdiv, BJIT_CSE+1, 2), \
+    /* type conversions: int -> float, uint -> float, float -> int */ \
+    _(ci2f, BJIT_CSE+1, 1), \
+    _(cf2i, BJIT_CSE+1, 1), \
     /* load constants */ \
     _(lci, 1, BJIT_I64), \
     _(lcf, 1, BJIT_F64), \
@@ -160,9 +164,6 @@
     /* floating point load and store */ \
     _(lf64, 1, 1+BJIT_IMM32), \
     _(sf64, 0, 2+BJIT_IMM32), \
-    /* type conversions: int -> float, uint -> float, float -> int */ \
-    _(ci2f, 1, 1), \
-    _(cf2i, 1, 1), \
     /* procedure parameters */ \
     _(iparam, 1, 0), \
     _(fparam, 1, 0), \

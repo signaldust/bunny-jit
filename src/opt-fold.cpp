@@ -1,7 +1,41 @@
 
 #include "ir.h"
 
+#include "hash.h"
+
 using namespace bjit;
+
+// This stores the data CSE needs in our hash table.
+// Keep this packed POD so we can use memcpy and stringHash
+struct OpCSE
+{
+    uint16_t index = noVal;
+    uint16_t opcode = noVal;
+    uint16_t in[2] = { noVal, noVal };
+    uint32_t imm32 = 0;
+
+    OpCSE() {}
+    OpCSE(uint16_t i, Op const & op) { set(i, op); }
+
+    void set(uint16_t i, Op const & op)
+    {
+        index = i;
+        opcode = op.opcode;
+        in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
+        in[1] = op.nInputs() >= 2 ? op.in[1] : noVal;
+        imm32 = op.hasImm32() ? op.imm32 : 0;
+    }
+
+    bool isEqual(Op const & op) const
+    { OpCSE tmp(noVal, op); return isEqual(tmp); }
+    bool isEqual(OpCSE const & op) const
+    { return !memcmp(&opcode, &op.opcode, 2+4+4); }
+
+    static uint64_t getHash(Op const & op)
+    { OpCSE tmp(noVal, op); return getHash(tmp); }
+    static uint64_t getHash(OpCSE const & op)
+    { return stringHash64((uint8_t*)&op.opcode, 2+4+4); }
+};
 
 // match op
 #define I(x) (i.opcode == x)
@@ -18,6 +52,7 @@ using namespace bjit;
 #define N0 ops[i.in[0]]
 #define N1 ops[i.in[1]]
 
+
 /*
 
 We try to avoid any folding here that isn't guaranteed to be profitable.
@@ -31,12 +66,15 @@ bool Proc::opt_fold()
     assert(live.size());   // should have at least one DCE pass done
 
     Rename rename;
+    HashTable<OpCSE> cseTable(ops.size());
 
     int iter = 0;
 
     bool progress = true, anyProgress = false;
     while(progress)
     {
+        cseTable.clear();
+        
         ++iter;
         progress = false;
         for(auto b : live)
@@ -45,6 +83,28 @@ bool Proc::opt_fold()
             {
                 auto & i = ops[bc];
                 rename(i);
+
+                // CSE
+                if(i.canCSE())
+                {
+                    auto * ptr = cseTable.find(i);
+                    if(ptr)
+                    {
+                        assert(ptr->index != noVal);
+                        rename.add(bc, ptr->index);
+
+                        if(0)
+                        {
+                            printf("CSE:\n");
+                            debugOp(ptr->index);
+                            debugOp(bc);
+                        }
+                        
+                        i.opcode = ops::nop;
+                        progress = true;
+                        continue;
+                    }
+                }
     
                 // rename phis
                 if(i.opcode <= ops::jmp)
@@ -276,6 +336,7 @@ bool Proc::opt_fold()
                     rename.add(bc, i.in[0]);
                     progress = true;
                     i.opcode = ops::nop;
+                    continue;
                 }
 
                 if((I(ops::fadd) && I1(ops::lcf) && N1.f64 == 0.)
@@ -285,6 +346,7 @@ bool Proc::opt_fold()
                     rename.add(bc, i.in[0]);
                     progress = true;
                     i.opcode = ops::nop;
+                    continue;                    
                 }
                 
                 // a * -1 -> -a
@@ -427,7 +489,7 @@ bool Proc::opt_fold()
                     rename.add(bc, N0.in[0]);
                     progress = true;
                     i.opcode = ops::nop;
-                    
+                    continue;
                 }
                 
                 // bit-AND merges : (a&b)&c = a&(b&c)
@@ -465,6 +527,7 @@ bool Proc::opt_fold()
                     rename.add(bc, i.in[0]);
                     progress = true;
                     i.opcode = ops::nop;
+                    continue;
                 }
     
                 if(C0)
@@ -914,6 +977,10 @@ bool Proc::opt_fold()
                         break;
     
                 }
+
+                // if we're here, insert to CSE table
+                OpCSE cse(bc, i);
+                cseTable.insert(cse);
             }
         }
         if(progress) anyProgress = true;

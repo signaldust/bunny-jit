@@ -79,16 +79,18 @@ namespace bjit
         RegMask     regsOut();      // in arch-XX-ops.cpp
         RegMask     regsLost();     // in arch-XX-ops.cpp
 
-        const char * strOpcode();
+        const char* strOpcode() const;
         
-        unsigned    nInputs();
-        bool        hasOutput();
+        unsigned    nInputs()   const;
+        bool        hasOutput() const;
 
-        bool    hasImm32();
-        bool    hasI64();
-        bool    hasF64();
+        bool    canCSE()        const;
 
-        bool    hasSideFX();
+        bool    hasImm32()      const;
+        bool    hasI64()        const;
+        bool    hasF64()        const;
+
+        bool    hasSideFX()     const;
     };
 
     static const uint16_t   noVal = 0xffff;

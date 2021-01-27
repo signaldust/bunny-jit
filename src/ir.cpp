@@ -12,38 +12,44 @@ static struct
     unsigned    inputs;
 } opData[] = { BJIT_OPS(BJIT_DATA) };
 
-const char * bjit::Op::strOpcode()
+const char * bjit::Op::strOpcode() const
 {
     return opData[this->opcode].name;
 }
 
-bool bjit::Op::hasOutput()
+bool bjit::Op::hasOutput() const
 {
     return 0 != (opData[this->opcode].outputs & 0xf);
 }
 
-unsigned bjit::Op::nInputs()
+unsigned bjit::Op::nInputs() const
 {
     return opData[this->opcode].inputs & 0xf;   // mask the flags
 }
 
-bool bjit::Op::hasImm32()
+bool bjit::Op::hasImm32() const
 {
     return 0 != (opData[this->opcode].inputs & BJIT_IMM32);
 }
 
-bool bjit::Op::hasI64()
+bool bjit::Op::hasI64() const
 {
     return 0 != (opData[this->opcode].inputs & BJIT_I64);
 }
 
-bool bjit::Op::hasF64()
+bool bjit::Op::hasF64() const
 {
     return 0 != (opData[this->opcode].inputs & BJIT_F64);
 }
 
-bool bjit::Op::hasSideFX()
+bool bjit::Op::hasSideFX() const
 {
     return !opData[this->opcode].outputs
         || (opData[this->opcode].outputs & BJIT_SIDEFX);
 }
+
+bool bjit::Op::canCSE() const
+{
+    return (opData[this->opcode].outputs & BJIT_CSE);
+}
+
