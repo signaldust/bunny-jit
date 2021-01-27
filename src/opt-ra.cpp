@@ -3,7 +3,7 @@
 
 using namespace bjit;
 
-static const bool ra_debug = false;     // print lots of debug spam
+static const bool ra_debug = true;     // print lots of debug spam
 static const bool scc_debug = false;    // print lots of debug spam
 
 void Proc::allocRegs()
@@ -157,7 +157,6 @@ void Proc::allocRegs()
                     if(s.val == r.src) s.val = r.dst;
                 }
             }
-            if(ra_debug) debugOp(blocks[b].code[c]);
 
             // copy - we'll fix this below if necessary
             codeOut.push_back(blocks[b].code[c]);
@@ -243,11 +242,15 @@ void Proc::allocRegs()
                         ops[rr].in[0] = op.in[i];
                         ops[rr].reg = r;
                         regstate[r] = rr;
-                            
-                        ops[rr].nUse = ops[op.in[i]].nUse;
-                        
-                        rename.add(op.in[i], rr);
-                        rename(op);
+
+                        // we're satisfying constraints, so don't throw the
+                        // original away (often the renamed one will be lost)
+                        ops[rr].nUse = 1;
+                        if(!--ops[op.in[i]].nUse)
+                            regstate[ops[op.in[i]].reg] = noVal;
+
+                        // only rename this op locally here
+                        op.in[i] = rr;
                         if(ra_debug) debugOp(rr);
                         
                         std::swap(codeOut.back(), rr);
@@ -530,6 +533,22 @@ void Proc::allocRegs()
                 }
             }
 
+            // throw away source registers that are not needed by target
+            for(int s = 0; s < regs::nregs; ++s)
+            {
+                if(sregs[s] == noVal) continue;
+                
+                bool found = false;
+                for(int t = 0; t < regs::nregs; ++t)
+                {
+                    if(tregs[t] != sregs[s]) continue;
+                    found = true;
+                    break;
+                }
+
+                if(!found) sregs[s] = noVal;
+            }
+
             // if we have any renames or reloads, trace tham back
             // but only if the SCCs match
             for(int i = 0; i < regs::nregs; ++i)
@@ -551,13 +570,27 @@ void Proc::allocRegs()
                 }
             }
 
+            auto debugRegfile = [&]()
+            {
+                for(int r = 0; r < regs::nregs; ++r)
+                {
+                    if(tregs[r] == noVal && sregs[r] == noVal) continue;
+
+                    printf(" %s src: %04x dst: %04x\n",
+                        regName(r), sregs[r], tregs[r]);
+                }
+            };
+
             bool done = false;
             while(!done)
             {
                 if(ra_debug) printf("Shuffle L%d:\n", b);
                 done = true;
 
-                // first try: free moves only
+                // this is a bit too spammy to put into ra_debug
+                //debugRegfile();
+                
+                // first try: free target moves only
                 for(int t = 0; t < regs::nregs; ++t)
                 {
                     if(tregs[t] == noVal) continue;
@@ -568,7 +601,7 @@ void Proc::allocRegs()
                         // can we move without overwriting
                         if(sregs[s] == tregs[t])
                         {
-                            if(sregs[t] != noVal) break;
+                            if(sregs[t] != noVal) continue;
 
                             uint16_t rr = newOp(ops::rename,
                                 ops[sregs[s]].flags.type);
@@ -579,6 +612,7 @@ void Proc::allocRegs()
                             ops[rr].reg = t;
                             ops[rr].in[0] = sregs[s];
                             ops[rr].scc = ops[sregs[s]].scc;
+                            tregs[t] = rr;
                             sregs[t] = tregs[t];
                             sregs[s] = noVal;
     
@@ -604,16 +638,21 @@ void Proc::allocRegs()
                         {
                             // figure out the correct register type
                             RegMask mask = ops[tregs[t]].regsMask();
-                                
-                            // if source register is already free
-                            // then don't move it to another free
-                            // this will just cause infinite cycles
-                            int r = tregs[s] != noVal ? 0 : regs::nregs;
-                            while(r < regs::nregs)
+
+                            // if source register is free in target
+                            // then we don't need to move it
+                            if(tregs[s] == noVal) continue;
+
+                            // try to find a free source register
+                            // that is also a free target register
+                            int r = 0;
+                            for(;r < regs::nregs;++r)
                             {
-                                if(((1ull<<r)&mask) && sregs[r] == noVal) break;
-                                ++r;
+                                if(((1ull<<r)&mask)
+                                && sregs[r] == noVal
+                                && tregs[r] == noVal) break;
                             }
+                            
                             // if no free regs, just force correct register
                             // so we break the cycle through memory
                             if(r == regs::nregs) r = t;
@@ -628,8 +667,9 @@ void Proc::allocRegs()
                             ops[rr].reg = r;
                             ops[rr].in[0] = sregs[s];
                             ops[rr].scc = ops[sregs[s]].scc;
+                            tregs[t] = rr;
                             sregs[r] = tregs[t];
-                            sregs[s] = noVal; // do NOT mark this as free!
+                            sregs[s] = noVal;
     
                             std::swap(rr, blocks[b].code.back());
                             blocks[out].code.push_back(rr);
