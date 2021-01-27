@@ -1,7 +1,8 @@
-/*
+*
 !.gitignore
 !Makefile
 !*.md
+!/src
 !**/*.h
 !**/*.c
 !**/*.cpp
