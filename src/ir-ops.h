@@ -146,9 +146,9 @@
     /* reinterpret bitcasts: int -> float, float -> int */ \
     _(bci2f, BJIT_CSE+1, 1), \
     _(bcf2i, BJIT_CSE+1, 1), \
-    /* load constants, NOTE: fold breaks if we CSE these */ \
-    _(lci, 1, BJIT_I64), \
-    _(lcf, 1, BJIT_F64), \
+    /* load constants */ \
+    _(lci, BJIT_CSE+1, BJIT_I64), \
+    _(lcf, BJIT_CSE+1, BJIT_F64), \
     /* sign-extend values (cast to smaller type) */ \
     _(i8,  BJIT_CSE+1, 1), \
     _(i16, BJIT_CSE+1, 1), \

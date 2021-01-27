@@ -6,35 +6,54 @@
 using namespace bjit;
 
 // This stores the data CSE needs in our hash table.
-// Keep this packed POD so we can use memcpy and stringHash
 struct OpCSE
 {
+    // not included in hash
     uint16_t index = noVal;
+    uint16_t block = noVal;
+
+    // rest is hashed
+    union
+    {
+        struct {
+            uint32_t imm32 = 0;
+            uint16_t in[2] = { noVal, noVal };
+        };
+
+        // for lci/lcf
+        int64_t     i64;
+    };
     uint16_t opcode = noVal;
-    uint16_t in[2] = { noVal, noVal };
-    uint32_t imm32 = 0;
 
     OpCSE() {}
-    OpCSE(uint16_t i, Op const & op) { set(i, op); }
+    OpCSE(uint16_t i, uint16_t b, Op const & op) { set(i, b, op); }
 
-    void set(uint16_t i, Op const & op)
+    void set(uint16_t i, uint16_t b, Op const & op)
     {
         index = i;
+        block = b;
         opcode = op.opcode;
-        in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
-        in[1] = op.nInputs() >= 2 ? op.in[1] : noVal;
-        imm32 = op.hasImm32() ? op.imm32 : 0;
+        if(op.hasI64() || op.hasF64())
+        {
+            i64 = op.i64;
+        }
+        else
+        {
+            in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
+            in[1] = op.nInputs() >= 2 ? op.in[1] : noVal;
+            imm32 = op.hasImm32() ? op.imm32 : 0;
+        }
     }
 
     bool isEqual(Op const & op) const
-    { OpCSE tmp(noVal, op); return isEqual(tmp); }
+    { OpCSE tmp(noVal, noVal, op); return isEqual(tmp); }
     bool isEqual(OpCSE const & op) const
-    { return !memcmp(&opcode, &op.opcode, 2+4+4); }
+    { return i64 == op.i64 && opcode == op.opcode; }
 
     static uint64_t getHash(Op const & op)
-    { OpCSE tmp(noVal, op); return getHash(tmp); }
+    { OpCSE tmp(noVal, noVal, op); return getHash(tmp); }
     static uint64_t getHash(OpCSE const & op)
-    { return stringHash64((uint8_t*)&op.opcode, 2+4+4); }
+    { return hash64(op.i64 + op.opcode); }
 };
 
 // match op
@@ -75,10 +94,9 @@ bool Proc::opt_fold()
     {
         ++iter;
         progress = false;
+        cseTable.clear();
         for(auto b : live)
         {
-            cseTable.clear();
-            
             for(auto bc : blocks[b].code)
             {
                 auto & i = ops[bc];
@@ -90,19 +108,19 @@ bool Proc::opt_fold()
                     auto * ptr = cseTable.find(i);
                     if(ptr)
                     {
-                        assert(ptr->index != noVal);
-                        rename.add(bc, ptr->index);
-
-                        if(0)
+                        bool isDom = false;
+                        for(auto & d : blocks[b].dom)
                         {
-                            printf("CSE:\n");
-                            debugOp(ptr->index);
-                            debugOp(bc);
+                            if(d == ptr->block) isDom = true;
                         }
-                        
-                        i.opcode = ops::nop;
-                        progress = true;
-                        continue;
+
+                        if(isDom)
+                        {
+                            rename.add(bc, ptr->index);
+                            i.opcode = ops::nop;
+                            progress = true;
+                            continue;
+                        }
                     }
                 }
     
@@ -979,7 +997,7 @@ bool Proc::opt_fold()
                 }
 
                 // if we're here, insert to CSE table
-                OpCSE cse(bc, i);
+                OpCSE cse(bc, b, i);
                 cseTable.insert(cse);
             }
         }
