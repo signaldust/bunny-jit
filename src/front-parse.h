@@ -5,7 +5,7 @@
 #include <vector>
 #include <memory>
 
-#include "front-hash.h"
+#include "hash.h"
 #include "front-lexer.h"
 
 namespace bjit
