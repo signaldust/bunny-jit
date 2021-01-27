@@ -49,7 +49,7 @@ I should paste this into every file, but for the time being:
 ## Instructions?
 
 To generate instructions, you call the instruction methods on `bjit::Proc`.
-When done, call `Proc::opt()` and to generate code call `Proc::compile()`.
+When done, `Proc::opt()` will optimize and `Proc::compile()` generate code.
 Compile always does one pass of DCE, but otherwise optimization is optional.
 
 Most instructions take their parameters as SSA values. The exceptions are
