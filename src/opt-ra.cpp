@@ -40,8 +40,11 @@ void Proc::allocRegs()
         memcpy(regstate, blocks[b].regsIn, sizeof(regstate));
         blocks[b].flags.regsDone = true;
 
-        auto findBest = [&](RegMask mask, int reg, int c)
+        // FIXME: this should do a parallel search
+        auto findBest = [&](RegMask mask, int reg, int c) -> int
         {
+            if(!mask) return regs::nregs;
+            
             // if preferred register is impossible, clear it
             if(reg != regs::nregs && !((1ull<<reg)&mask))
             {
@@ -51,31 +54,41 @@ void Proc::allocRegs()
             }
 
             if(reg < regs::nregs) return reg;
-            
-            int nextUse = 0;
-            for(int i = 0; i < regs::nregs; ++i)
+
+            for(int r = 0; r < regs::nregs; ++r)
             {
-                if(~mask & (1ull<<i)) continue;
-
-                // always pick a free register
-                if(regstate[i] == noVal) { reg = i; break; }
-                else
+                if(((1ull<<r) & mask) && regstate[r] == noVal) return r;
+            }
+            
+            for(int i = c; i < blocks[b].code.size(); ++i)
+            {
+                auto & op = ops[blocks[b].code[i]];
+                for(int j = 0; j < op.nInputs(); ++j)
                 {
-                    // find first use for this register
-                    int j = c;
-                    while(j < blocks[b].code.size())
+                    // is there only a single register left?
+                    if(!(mask & (mask - 1)))
                     {
-                        auto & op = ops[blocks[b].code[j++]];
-                        if(op.nInputs() && op.in[0] == regstate[i]) break;
-                        if(op.nInputs()>1 && op.in[1] == regstate[i]) break;
+                        unsigned r = 0, s = 64;
+                        while(s >>= 1) if(mask & ~((1ull<<s)-1))
+                            { r += s; mask >>= s; }
+                        return r;
                     }
-
-                    // if it's better than current, pick this
-                    if(j > nextUse) { nextUse = j; reg = i; }
+                    
+                    // source register is still live?
+                    if(op.in[j] == regstate[ops[op.in[j]].reg])
+                        mask &=~ (1ull<<ops[op.in[j]].reg);
                 }
             }
 
-            return reg;
+            // FIXME: check live-out set?
+
+            // assume the rest are equally bad
+            for(int r = 0; r < regs::nregs; ++r)
+            {
+                if((1ull<<r) & mask) return r;
+            }
+
+            assert(false);
         };
         
         
@@ -143,7 +156,7 @@ void Proc::allocRegs()
 
                 if(wr != regs::nregs && r != wr)
                 {
-                    if(ra_debug) printf("; need rename for v%04x (%s -> %s) \n",
+                    if(ra_debug) printf("; need rename for %04x (%s -> %s) \n",
                         op.in[i], regName(ops[op.in[i]].reg), regName(r));
 
                     // should we try to save existing?
@@ -164,7 +177,7 @@ void Proc::allocRegs()
                         int s = findBest(smask, regs::nregs, c+1);
                         if(s != r && s != wr)
                         {
-                            if(ra_debug) printf("; saving v%04x (%s -> %s) \n",
+                            if(ra_debug) printf("; saving %04x (%s -> %s) \n",
                                     regstate[r], regName(r), regName(s));
                             uint16_t sr = newOp(ops::rename,
                                 ops[regstate[r]].flags.type);
@@ -187,7 +200,7 @@ void Proc::allocRegs()
                         {
                             // FIXME: we can XCHG but we'll need 2-out ops
                             if(ra_debug)
-                                printf("; could not save v%04x\n", regstate[r]);
+                                printf("; could not save %04x\n", regstate[r]);
                         }
                     }
 
@@ -229,7 +242,7 @@ void Proc::allocRegs()
                     || ops[op.in[i]].opcode == ops::reload)
                         op.in[i] = ops[op.in[i]].in[0];
                         
-                    if(ra_debug) printf("; need reload for v%04x into %s\n",
+                    if(ra_debug) printf("; need reload for %04x into %s\n",
                         op.in[i], regName(r));
 
                     uint16_t rr = newOp(ops::reload, ops[op.in[1]].flags.type);
@@ -278,11 +291,43 @@ void Proc::allocRegs()
                 }
             }
 
-            // globbers - could try to save, but whatever
-            RegMask glob = op.regsLost();
-            if(glob) for(int r = 0; r < regs::nregs; ++r)
+            // clobbers - could try to save, but whatever
+            RegMask lost = op.regsLost();
+            if(lost) for(int r = 0; r < regs::nregs; ++r)
             {
-                if((1ull<<r)&glob) regstate[r] = noVal;
+                if(regstate[r] == noVal || (1ull<<r)&~lost) continue;
+
+                // scan from current op, don't wanna overwrite inputs
+                int s = findBest(
+                    ~lost & ops[regstate[r]].regsMask(), regs::nregs, c);
+
+                if(s < regs::nregs && regstate[s] == noVal)
+                {
+                    if(ra_debug) printf("; saving lost %04x (%s -> %s) \n",
+                            regstate[r], regName(r), regName(s));
+                
+                    uint16_t sr = newOp(ops::rename,
+                        ops[regstate[r]].flags.type);
+                    
+                    ops[sr].in[0] = regstate[r];
+                    ops[sr].reg = s;
+                    regstate[s] = sr;
+
+                    ops[sr].nUse = ops[regstate[r]].nUse;
+                    ops[regstate[r]].nUse = 0;
+                    
+                    blocks[b].rename.add(regstate[r], sr);
+                    // do NOT rename the current op here
+                    if(ra_debug) debugOp(sr);
+                    
+                    std::swap(codeOut.back(), sr);
+                    codeOut.push_back(sr);
+
+                }
+                else if(ra_debug) printf("; could not save lost v%04x (%s)\n",
+                    regstate[r], regName(r));
+                
+                regstate[r] = noVal;
             }
 
             // on jumps, store regs out, but only after processing
@@ -672,14 +717,12 @@ void Proc::allocRegs()
         if(op.hasOutput()) usedRegs |= (1ull<<op.reg);
     }
 
-    fprintf(stderr,"foo\n");
     std::vector<uint16_t>   slots(sccUsed.size(), 0xffff);
-    fprintf(stderr,"bar\n");
     assert(!nSlots);
     for(int s = 0; s < slots.size(); ++s)
         if(sccUsed[s]) slots[s] = nSlots++;
 
-    for(auto & op : ops) if(op.opcode > ops::jmp) op.scc = slots[op.scc];
+    for(auto & op : ops) if(op.hasOutput()) op.scc = slots[op.scc];
 
     printf(" DONE\n");
     raDone = true;
@@ -695,7 +738,7 @@ void Proc::findSCC()
     std::vector<bool>   sccUsed;
 
     // reset all ops
-    for(auto & op : ops) if(op.opcode > ops::jmp) op.scc = noSCC;
+    for(auto & op : ops) if(op.hasOutput()) op.scc = noSCC;
     
     // livescan live
     for(auto bi : live)

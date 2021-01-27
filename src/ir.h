@@ -45,9 +45,9 @@ namespace bjit
             // phi stores   { block, value  }
             // params store { nType, nTotal }
             struct {
+                uint32_t    imm32;
                 // 16-bits is likely enough?
                 uint16_t    in[2];
-                uint32_t    imm32;
             };
 
             // 64-bit constants for load immediate
@@ -59,6 +59,8 @@ namespace bjit
         // output data
         union
         {
+            // NOTE: We let ssc alias on in[2] so that stores
+            // which have no scc can have 3 inputs
             struct
             {
                 uint16_t    scc;    // stack congruence class
