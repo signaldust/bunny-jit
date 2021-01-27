@@ -376,9 +376,9 @@ namespace bjit
 
         // stores take pointer+offset and value to store
 #define BJIT_STORE(x) \
-    unsigned x(unsigned v0, int32_t imm32, unsigned v1) { \
+    unsigned x(unsigned ptr, int32_t imm32, unsigned val) { \
         unsigned i = addOp(ops::x, Op::_none); \
-        ops[i].in[0] = v0; ops[i].in[1] = v1; \
+        ops[i].in[0] = ptr; ops[i].in[1] = val; \
         ops[i].imm32 = imm32; return i; }
 
         BJIT_LOAD(li8, _ptr); BJIT_LOAD(li16, _ptr);
