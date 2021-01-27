@@ -4,8 +4,8 @@ This is a tiny optimising SSA-based JIT backend, currently targeting x64, but
 designed to be (somewhat) portable. The Makefile expects a Unix-like system,
 but the code itself should (hopefully) work on Windows as well.
 
-This is work in relatively early progress. It sort of works, but is still missing
-some essentials like function calls. Please don't use it for production yet.
+This is work in relatively early progress. It sort of works, but some things like
+function calls not done robustly yet. Please don't use it for production yet.
 
 It provides a relatively simple interface for generating bytecode in SSA form,
 then performs basic optimisations (DCE, CSE, constant folding, register allocation)
