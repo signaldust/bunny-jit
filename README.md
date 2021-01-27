@@ -113,6 +113,10 @@ The result then looks like below. `SLOT` is the allocate stack slot
 with `ffff` standing for "don't need." If we had any spills, those would
 be shown as `=[0012]=` in this field as we don't add instructions for those.
 
+Why is it claiming to have allocated a slot? Probably still a bug somewhere.
+Fortunately thanks to SSA it's pretty robust in terms of such things and
+usually manages to produce working code anyway.
+
 Rest of it should be fairly obvious. The registers in arguments are not
 stored with the operations, but the debug-dump pulls them from the 
 original definition sites for convenience, just like the assembler will do.
