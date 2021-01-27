@@ -53,8 +53,8 @@ To generate instructions, you call the instruction methods on `bjit::Proc`.
 Most instructions take their parameters as SSA values. The exceptions are
 `lci`/`lcf` which take immediate constants and jump-labels which should be
 the block-indexes returned by `Proc::newLabel()`. For instructions
-with output values, the methods return the new SSA values and for other
-instructions they return `void`.
+with output values, the methods return the new SSA values and other
+instructions return `void`.
 
 `Proc` has a public `std::vector` member `env` which stores the "environment".
 When a new label is create with `Proc::newLabel()` the number and types of
