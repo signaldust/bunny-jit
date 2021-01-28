@@ -318,6 +318,8 @@ L8: <L1
 This looks better, doesn't it? We still have the silly division by zero,
 but we've managed to combine all the `(x+1)` terms into a single instruction
 and then get rid of the unnecessary branches (they were the same after all).
+Note how the compiler realized that it can compute the final `(x+1)` inside
+the loop, as long as it shuffles correctly: this is the power of SSA.
 
 So what does `out.bin` look like?
 ```
