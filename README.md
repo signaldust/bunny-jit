@@ -15,6 +15,7 @@ Features:
   * end-to-end SSA, with consistency checking and simple interface to generate valid SSA
   * performs DCE, global CSE, constant folding and register allocation (at this point)
   * assembles to native binary code (ready to be copied to executable memory)
+  * keeps `valgrind` happy
   
 It is intended for situations where it is desirable to create some native code
 on the fly (eg. for performance reasons), but including something like LLVM would
