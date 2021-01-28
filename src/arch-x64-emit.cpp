@@ -135,18 +135,41 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
     auto emitOp = [&](Op & i)
     {
-        // for conditionals, if first branch is not done
-        // then schedule it as the fall-thru by inverting..
-        // usually this should give better code ordering,
-        // although realistically it's bit of a hack
+        // for conditionals, if one of the blocks is done
+        // place the "not done" as the fall-thu path
         //
-        // if neither branch is done, we should pick the fall-thru
-        // that is 
-        if(i.opcode < ops::jmp
-        && !blocks[i.label[0]].flags.codeDone)
+        // if neither block is done, see if they unconditionally
+        // jump to blocks that are done..
+        //
+        if(i.opcode < ops::jmp)
         {
-            i.opcode ^= 1;
-            std::swap(i.label[0], i.label[1]);
+            bool swap = false;
+            
+            bool done0 = blocks[i.label[0]].flags.codeDone;
+            bool done1 = blocks[i.label[1]].flags.codeDone;
+
+            auto & j0 = ops[blocks[i.label[0]].code.back()];
+            auto & j1 = ops[blocks[i.label[1]].code.back()];
+            
+            if(!done0 && !done1)
+            {
+                if(j0.opcode == ops::jmp
+                && blocks[j0.label[0]].flags.codeDone) done0 = true;
+                if(j1.opcode == ops::jmp
+                && blocks[j1.label[0]].flags.codeDone) done1 = true;
+            }
+
+            if(done1 && !done0) swap = true;
+
+            // if either ends with a return, then use that first
+            if(j0.opcode > ops::jmp) swap = false;
+            if(j1.opcode > ops::jmp) swap = true;
+
+            if(swap)
+            {
+                i.opcode ^= 1;
+                std::swap(i.label[0], i.label[1]);
+            }
         }
 
         switch(i.opcode)
