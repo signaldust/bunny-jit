@@ -1,7 +1,7 @@
 
 // Opcode data definitions
 
-#include "ir.h"
+#include "bjit.h"
 
 #define BJIT_DATA(name, out, in) { #name, out, in }
 static struct
