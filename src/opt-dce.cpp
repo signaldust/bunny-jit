@@ -105,7 +105,7 @@ void Proc::opt_dce()
                 // another phi might mark us as used
                 if(ops[i].opcode == ops::phi)
                 {
-                    auto & alts = blocks[ops[i].in[0]].args[ops[i].in[1]].alts;
+                    auto & alts = blocks[ops[i].block].args[ops[i].phiIndex].alts;
                     // cleanup dead sources
                     int j = 0;
                     for(int i = 0; i < alts.size(); ++i)
@@ -118,12 +118,12 @@ void Proc::opt_dce()
                     for(auto & src : alts)
                     {
                         while(ops[src.val].opcode == ops::phi
-                        && blocks[ops[src.val].in[0]]
-                            .args[ops[src.val].in[1]].alts.size() == 1)
+                        && blocks[ops[src.val].block]
+                            .args[ops[src.val].phiIndex].alts.size() == 1)
                         {
                             assert(src.val != i);
-                            src.val = blocks[ops[src.val].in[0]]
-                                .args[ops[src.val].in[1]].alts[0].val;
+                            src.val = blocks[ops[src.val].block]
+                                .args[ops[src.val].phiIndex].alts[0].val;
                         }
     
                         // check if all source values are the same?
@@ -132,9 +132,11 @@ void Proc::opt_dce()
                             auto & ss = ops[src.val];
                             auto v = src.val;
                             for(int j = 0;
-                                j < blocks[ss.in[0]].args[ss.in[1]].alts.size(); ++j)
+                                j < blocks[ss.block]
+                                    .args[ss.phiIndex].alts.size(); ++j)
                             {
-                                auto alt = blocks[ss.in[0]].args[ss.in[1]].alts[j].val;
+                                auto alt = blocks[ss.block].
+                                    args[ss.phiIndex].alts[j].val;
                                 if(v == src.val) v = alt;
                                 if(v != alt && src.val != alt)
                                 {
@@ -159,9 +161,11 @@ void Proc::opt_dce()
                         auto & src = ops[ops[i].in[k]];
                         auto v = ops[i].in[k];
                         for(int j = 0;
-                            j < blocks[src.in[0]].args[src.in[1]].alts.size(); ++j)
+                            j < blocks[src.block]
+                                .args[src.phiIndex].alts.size(); ++j)
                         {
-                            auto alt = blocks[src.in[0]].args[src.in[1]].alts[j].val;
+                            auto alt = blocks[src.block]
+                                .args[src.phiIndex].alts[j].val;
                             if(v == ops[i].in[k]) v = alt;
                             if(v != alt && ops[i].in[k] != alt)
                             {
@@ -214,7 +218,7 @@ void Proc::opt_dce()
             default:
                 if(ops[i].opcode == ops::phi)
                 {
-                    blocks[ops[i].in[0]].args[ops[i].in[1]].alts.clear();
+                    blocks[ops[i].block].args[ops[i].phiIndex].alts.clear();
                 }
                 ops[i].opcode = ops::nop;
                 progress = true;

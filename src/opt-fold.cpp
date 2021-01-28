@@ -104,6 +104,14 @@ bool Proc::opt_fold()
             for(auto bc : blocks[b].code)
             {
                 auto & i = ops[bc];
+
+                if(i.opcode == ops::nop)
+                {
+                    i.in[0] = noVal;
+                    i.in[1] = noVal;
+                    continue;
+                }
+                
                 rename(i);
 
                 // CSE
@@ -165,12 +173,14 @@ bool Proc::opt_fold()
                         progress = true;
                         break;
     
-                    // we can replace with negate if constant is zero
+                    // rewrite 0 - a = -a
                     case ops::isub:
                         if(!ops[i.in[1]].i64)
                         {
                             i.opcode = ops::ineg;
                             i.in[0] = i.in[1];
+                            i.in[1] = noVal;
+                            progress = true;
                         }
                         break;
     
@@ -255,6 +265,7 @@ bool Proc::opt_fold()
                     case ops::jugt: case ops::jule:
                         i.opcode += ops::jiltI - ops::jilt;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     
@@ -265,53 +276,63 @@ bool Proc::opt_fold()
                     case ops::ugt: case ops::ule:
                         i.opcode += ops::iltI - ops::ilt;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     
                     case ops::iadd:
                         i.opcode = ops::iaddI;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::isub:
                         // FIXME: rewrite as iaddI with negated immediated?
                         i.opcode = ops::isubI;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::imul:
                         i.opcode = ops::imulI;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::iand:
                         i.opcode = ops::iandI;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::ior:
                         i.opcode = ops::iorI;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::ixor:
                         i.opcode = ops::ixorI;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::ishl:
                         i.opcode = ops::ishlI;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::ishr:
                         i.opcode = ops::ishrI;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::ushr:
                         i.opcode = ops::ushrI;
                         i.imm32 = (int32_t) N1.i64;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                 }
@@ -335,6 +356,7 @@ bool Proc::opt_fold()
                     i.opcode = negate ^ (N0.opcode + ops::jiltI - ops::iltI);
                     i.imm32 = N0.imm32;
                     i.in[0] = N0.in[0];
+                    i.in[1] = noVal;
                     progress = true;
                 }
     
@@ -343,6 +365,7 @@ bool Proc::opt_fold()
                 if((I(ops::jieqI) || I(ops::jineI)) && !i.imm32)
                 {
                     i.opcode = I(ops::jieqI) ? ops::jz : ops::jnz;
+                    i.in[0] = noVal;
                     progress = true;
                 }
     
@@ -378,7 +401,7 @@ bool Proc::opt_fold()
                 }
                 if(I(ops::fmul) && I1(ops::lcf) && N1.f64 == -1.)
                 {
-                    i.opcode = ops::fneg; progress = true;
+                    i.opcode = ops::fneg; i.in[1] = noVal; progress = true;
                 }
                 
                 // a + (-b) = a-b
@@ -560,71 +583,84 @@ bool Proc::opt_fold()
                         {
                             i.opcode = ops::iretI;
                             i.imm32 = N0.i64;
+                            i.in[0] = noVal;
                             progress = true;
                         }
                         break;
                     case ops::jz:
                         i.opcode = ops::jmp;
                         if(N0.i64) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
                         
                     case ops::jnz:
                         i.opcode = ops::jmp;
                         if(!N0.i64) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
     
                     case ops::jiltI:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 < (int64_t)i.imm32)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
                     case ops::jigeI:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 >= (int64_t)i.imm32)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
                     case ops::jigtI:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 > (int64_t)i.imm32)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
                     case ops::jileI:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 <= (int64_t)i.imm32)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
     
                     case ops::jieqI:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 == (int64_t)i.imm32)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
                     case ops::jineI:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 != (int64_t)i.imm32)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
                         
                     case ops::jultI:
                         i.opcode = ops::jmp;
                         if(!(N0.u64 < (int64_t)i.imm32)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
                     case ops::jugeI:
                         i.opcode = ops::jmp;
                         if(!(N0.u64 >= (int64_t)i.imm32)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
                     case ops::jugtI:
                         i.opcode = ops::jmp;
                         if(!(N0.u64 > (int64_t)i.imm32)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
                     case ops::juleI:
                         i.opcode = ops::jmp;
                         if(!(N0.u64 <= (int64_t)i.imm32)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
                         progress = true;
                         break;
                         
@@ -755,91 +791,123 @@ bool Proc::opt_fold()
                 }
     
                 // This has some redundancy with immediate versions..
-                // Get rid of those once we've got rid of IMM32
+                // We can still fold constants that don't fit imm32
                 if(C0 && C1)
                 switch(i.opcode)
                 {
                     case ops::jilt:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 < N1.i64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jige:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 >= N1.i64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jigt:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 > N1.i64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jile:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 <= N1.i64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
     
                     case ops::jieq:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 == N1.i64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jine:
                         i.opcode = ops::jmp;
                         if(!(N0.i64 != N1.i64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                         
                     case ops::jult:
                         i.opcode = ops::jmp;
                         if(!(N0.u64 < N1.u64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::juge:
                         i.opcode = ops::jmp;
                         if(!(N0.u64 >= N1.u64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jugt:
                         i.opcode = ops::jmp;
                         if(!(N0.u64 > N1.u64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jule:
                         i.opcode = ops::jmp;
                         if(!(N0.u64 <= N1.u64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                         
                     case ops::jfeq:
                         i.opcode = ops::jmp;
                         if(!(N0.f64 == N1.f64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jfne:
                         i.opcode = ops::jmp;
                         if(!(N0.f64 != N1.f64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jflt:
                         i.opcode = ops::jmp;
                         if(!(N0.f64 < N1.f64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jfge:
                         i.opcode = ops::jmp;
                         if(!(N0.f64 >= N1.f64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jfgt:
                         i.opcode = ops::jmp;
                         if(!(N0.f64 > N1.f64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
                     case ops::jfle:
                         i.opcode = ops::jmp;
                         if(!(N0.f64 <= N1.f64)) i.label[0] = i.label[1];
+                        i.in[0] = noVal;
+                        i.in[1] = noVal;
                         progress = true;
                         break;
     
@@ -897,7 +965,7 @@ bool Proc::opt_fold()
                         break;
     
                     // Floating point versions
-                    // FIXME: These never get converted to immediates
+                    // These never get converted to immediates
                     case ops::feq:
                         i.opcode = ops::lci;
                         i.i64 = (N0.f64 == N1.f64);
