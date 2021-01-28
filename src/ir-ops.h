@@ -188,8 +188,7 @@
     _(fcallp, 1+BJIT_SIDEFX, 1), \
     /* this is user-requested allocation with reg = stack pointer */ \
     _(alloc, 1+BJIT_SIDEFX, BJIT_IMM32), \
-    /* pseudo-ops: polymorphic and don't participate in use-def */ \
-    /* NOTE: we use "phi" as marker, so it must be first        */ \
+    /* pseudo-ops: polymorphic */ \
     _(phi,    1+BJIT_NOMOVE, 0), \
     _(rename, 1, 1), \
     _(reload, 1, 1), \
