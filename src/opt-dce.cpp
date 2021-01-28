@@ -99,7 +99,13 @@ void Proc::opt_dce()
             bool deadTail = false;
             for(auto i : b.code)
             {
-                if(deadTail) { ops[i].opcode = ops::nop; continue; }
+                if(deadTail)
+                {
+                    ops[i].opcode = ops::nop;
+                    ops[i].in[0] = noVal;
+                    ops[i].in[1] = noVal;
+                    continue;
+                }
             
                 // don't short-circuit nUse=0 here because
                 // another phi might mark us as used
@@ -221,6 +227,8 @@ void Proc::opt_dce()
                     blocks[ops[i].block].args[ops[i].phiIndex].alts.clear();
                 }
                 ops[i].opcode = ops::nop;
+                ops[i].in[0] = noVal;
+                ops[i].in[1] = noVal;
                 progress = true;
             }
         }

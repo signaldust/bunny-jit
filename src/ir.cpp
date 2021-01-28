@@ -53,3 +53,10 @@ bool bjit::Op::canCSE() const
     return (opData[this->opcode].outputs & BJIT_CSE);
 }
 
+
+bool bjit::Op::canMove() const
+{
+    return !hasSideFX()
+        && !(opData[this->opcode].outputs & BJIT_NOMOVE);
+}
+

@@ -7,6 +7,7 @@
 // output flags
 #define BJIT_SIDEFX 0x10    // never DCE
 #define BJIT_CSE    0x20    // can CSE
+#define BJIT_NOMOVE 0x40    // don't move inside the block
 
 // input flags
 #define BJIT_IMM32  0x10    // has imm32 operand
@@ -177,8 +178,8 @@
     _(lf64, 1, 1+BJIT_IMM32), \
     _(sf64, 0, 2+BJIT_IMM32), \
     /* procedure arguments */ \
-    _(iarg, 1, 0), \
-    _(farg, 1, 0), \
+    _(iarg, 1+BJIT_NOMOVE, 0), \
+    _(farg, 1+BJIT_NOMOVE, 0), \
     /* Call arguments - right to left before call */ \
     _(ipass, 0, 1), \
     _(fpass, 0, 1), \
@@ -189,7 +190,7 @@
     _(alloc, 1+BJIT_SIDEFX, BJIT_IMM32), \
     /* pseudo-ops: polymorphic and don't participate in use-def */ \
     /* NOTE: we use "phi" as marker, so it must be first        */ \
-    _(phi,    1, 0), \
+    _(phi,    1+BJIT_NOMOVE, 0), \
     _(rename, 1, 1), \
     _(reload, 1, 1), \
     _(nop,    0, 0) /* removed by DCE */
