@@ -9,7 +9,7 @@
 #include "front-lexer.h"
 #include "front-parse.h"
 
-#include "ir.h"
+#include "bjit.h"
 
 namespace bjit
 {

@@ -1,5 +1,5 @@
 
-#include "ir.h"
+#include "bjit.h"
 
 using namespace bjit;
 

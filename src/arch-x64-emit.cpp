@@ -1,6 +1,6 @@
 
 
-#include "ir.h"
+#include "bjit.h"
 #include "arch-x64-asm.h"
 
 using namespace bjit;
