@@ -5,7 +5,8 @@ designed to be (somewhat) portable. The Makefile expects a Unix-like system,
 but the code itself should (hopefully) work on Windows as well.
 
 This is work in relatively early progress. It sort of works, but some things like
-function calls not done robustly yet. Please don't use it for production yet.
+function calls not done robustly yet and there are likely serious bugs hiding.
+**Please don't use it for production yet.**
 
 Features:
   * small and simple, yet tries to avoid being naive
