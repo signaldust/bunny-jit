@@ -18,6 +18,9 @@ namespace bjit
     struct Op
     {
         // input operands
+        //
+        // NOTE: CSE only copies this union when it moves ops
+        //
         // NOTE: packing is sensitive (also FIXME: rethink this?)
         union
         {
@@ -102,12 +105,14 @@ namespace bjit
         bool        hasOutput() const;
 
         bool    canCSE()        const;
+        bool    canMove()       const;
+
+        bool    hasSideFX()     const;
 
         bool    hasImm32()      const;
         bool    hasI64()        const;
         bool    hasF64()        const;
 
-        bool    hasSideFX()     const;
     };
 
     static const uint16_t   noVal = 0xffff;
@@ -233,6 +238,7 @@ namespace bjit
         void compile(std::vector<uint8_t> & bytes)
         {
             opt_dce();
+            
             allocRegs();
             arch_emit(bytes);
         }
