@@ -9,16 +9,25 @@ namespace bjit
 {
     namespace regs
     {
+        /*
+         From MS:
+         The x64 ABI considers registers
+            RBX, RBP, RDI, RSI, RSP, R12, R13, R14, R15,
+            and XMM6-XMM15 nonvolatile. They must be saved
+            and restored by a function that uses them.
+
+        */
+        
         // we use "none" as a list terminator
         static int calleeSaved[] =
         {
+            // These are callee saved both Win64 and SysV
             rbp, rbx, r12, r13, r14, r15,
 
-            xmm1, xmm2, xmm3,   // these are for testing :)
 #ifdef _WIN32
             rsi, rdi,
-            
-            // these are caller saved SSE wide, volatile otherwise
+
+            // these are callee saved SSE wide (128bit
             xmm6, xmm7, xmm8, xxm9, xmm10,
             xmm11, xmm12, xmm13, xmm14, xmm15
 #endif
