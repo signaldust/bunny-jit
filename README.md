@@ -12,7 +12,7 @@ Features:
   * works with low-level portable bytecode that models common architectures
   * supports integers and double-floats (other types in the future)
   * end-to-end SSA, with simple interface to generate valid SSA
-  * performs DCE, global CSE, constant folding and register allocation
+  * performs DCE, global CSE, constant folding and register allocation (at this point)
   * assembles to native binary code (ready to be copied to executable memory)
   
 It is intended for situations where it is desirable to create some native code
