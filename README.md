@@ -16,7 +16,7 @@ Features:
   * uses low-level portable bytecode that models common architectures
   * supports integers and double-floats (other types in the future)
   * end-to-end SSA, with consistency checking and simple interface to generate valid SSA
-  * performs DCE, global CSE, constant folding and register allocation (likely more in the future)
+  * performs DCE, global CSE, constant propagation/folding and register allocation (likely more in the future)
   * assembles to native binary code (ready to be copied to executable memory)
   * uses `std::vector` to manage memory, keeps `valgrind` happy
   
