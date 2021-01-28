@@ -91,7 +91,7 @@ When a new label is create with `Proc::newLabel()` the number and types of
 incoming arguments to the block are fixed to those contained in `env` and when
 jumps are emitted, we check that the contents of `env` are compatible (same
 number of values of same types). When `Proc::emitLabel()` is called to generate
-code for the label, we replace the contents of `env` with fresh phi-values.
+code for the label, we replace the contents of `env` with fresh `phi`-values.
 So even though we only handle SSA values, elements of `env` behave essentially
 like regular variables (eg. "assignments" can simply store a new SSA value
 into `env`). Note that you can adjust the size of `env` as you please as long
@@ -376,17 +376,17 @@ Either way, hopefully this gives you an idea of what to expect.
 ## SSA?
 
 The backend keeps the code in SSA form from the beginning to the end. We rely
-on `env` to automatically add phis for all cross-block variables initially.
-While there is no need to add temporaries to the environment, always adding phis
-for any actual local variables still creates a lot more phis than necessary. We choose
-to let DCE clean this up, by simplifying those phis with only one real source.
+on `env` to automatically add `phi`s for all cross-block variables initially.
+While there is no need to add temporaries to the environment, always adding `phi`s
+for any actual local variables still creates a lot more `phi`s than necessary. We choose
+to let DCE clean this up, by simplifying those `phi`s with only one real source.
 
 We keep the SSA structure all the way. The code is valid SSA even after register
 allocation. Registers are not SSA values, but each value has one register. When we
 need to rename registers or reload values from stack, we define new values. We handle
-phis by simply making sure that the phi-functions are no-ops: all jump-sites
+`phi`s by simply making sure that the `phi`-functions are no-ops: all jump-sites
 place the correct values in either the same registers or stack-slots, depending
-on what the phi expects. Two-way jumps always generate shuffle blocks, which are
+on what the `phi` expects. Two-way jumps always generate shuffle blocks, which are
 then jump-threaded if the edge is not actually critical or the shuffle is empty.
 
 The register allocator itself runs locally, using "furthest next use" to choose
@@ -403,7 +403,7 @@ because we resolve SCCs to actual slots only after register allocation is done.
 To choose stack locations, we compute what I like to call "stack congruence
 classes" (SCCs) to find which values can and/or should be placed into the same
 slot. Essentially if two values are live at the same time, then they must have
-different SCCs. On the other hand, if a value is argument to a phi, then we
+different SCCs. On the other hand, if a value is argument to a `phi`, then we
 would like to place it into the same class to avoid having to move spilled
 values from one stack slot to another. For other values, we would like to try
 and find a (nearly) minimal set of SCCs that can be used to hold them, in order
