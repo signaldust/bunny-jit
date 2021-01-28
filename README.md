@@ -286,11 +286,11 @@ L0:
          0008             jmp           L1
 ; Out: rsi:002d
 
-L1: <L1 <L0
+L1: <L8 <L0
 ; Dom: ^L0 ^L1
 ; Regs: rsi:0006
 ; SLOT  VALUE    REG       OP USE TYPE  ARGS
- (ffff)  0006    rsi      phi   2  ptr  L0:[ffff]:002d L1:[ffff]:002c
+ (ffff)  0006    rsi      phi   2  ptr  L0:[ffff]:002d L8:[ffff]:0030
  (ffff)  002b    rax    iaddI   1  ptr  rsi:0006 +1
  (ffff)  002c    rax       -    2  ptr  rax:002b
          0011           jigeI           rsi:0006 +10 L3 L8

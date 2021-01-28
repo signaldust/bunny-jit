@@ -502,6 +502,8 @@ void Proc::allocRegs()
             memcpy(sregs, blocks[b].regsOut, sizeof(sregs));
             memcpy(tregs, blocks[target].regsIn, sizeof(tregs));
 
+            Rename rename;  // for correcting target PHIs
+
             if(ra_debug) printf("Args L%d (L%d)-> L%d\n", b, out, target);
 
             for(auto & a : blocks[target].args)
@@ -614,6 +616,8 @@ void Proc::allocRegs()
                             if(ra_debug) printf("move: %s:%04x -> %s:%04x\n",
                                 regName(s), sregs[s], regName(t), rr);
 
+                            rename.add(sregs[s], rr);
+
                             ops[rr].reg = t;
                             ops[rr].in[0] = sregs[s];
                             ops[rr].scc = ops[sregs[s]].scc;
@@ -668,6 +672,8 @@ void Proc::allocRegs()
                             if(ra_debug) printf(
                                 "move: %s:%04x -> %s:%04x, cycle breaker: %04x\n",
                                 regName(s), sregs[s], regName(r), rr, sregs[r]);
+
+                            rename.add(sregs[s], rr);
                             
                             ops[rr].reg = r;
                             ops[rr].in[0] = sregs[s];
@@ -704,6 +710,8 @@ void Proc::allocRegs()
 
                     uint16_t rr = newOp(ops::reload, ops[tregs[t]].flags.type, b);
                     
+                    rename.add(tregs[t], rr);
+                    
                     ops[rr].reg = t;
                     ops[rr].in[0] = tregs[t];
                     ops[rr].scc = ops[tregs[t]].scc;
@@ -714,6 +722,15 @@ void Proc::allocRegs()
                     blocks[out].code.push_back(rr);
                 }
             }
+
+            // rename target PHI values (but not block, we do it below)
+            for(auto & a : blocks[target].args)
+            for(auto & s : a.alts)
+            for(auto & r : rename.map)
+            {
+                if(s.val == r.src) s.val = r.dst;
+            }
+            
             memcpy(blocks[out].regsOut, sregs, sizeof(sregs));
         };
 
@@ -741,6 +758,16 @@ void Proc::allocRegs()
             // keep shuffle-block if we added shuffles
             if(blocks[b0].code.size() > 1)
             {
+                // fix target comeFrom (for debugs)
+                for(auto & cf : blocks[op.label[0]].comeFrom) if(cf == b) cf = b0;
+                
+                // rename target PHI sources (for debugs)
+                for(auto & a : blocks[op.label[0]].args)
+                for(auto & s : a.alts)
+                {
+                    if(ops[s.val].block == b) s.src = b0;
+                }
+                
                 blocks[b0].comeFrom.push_back(b);
                 blocks[b0].flags.live = true;
                 ops[blocks[b].code.back()].label[0] = b0;
@@ -755,11 +782,22 @@ void Proc::allocRegs()
             // keep shuffle-block if we added shuffles
             if(blocks[b1].code.size() > 1)
             {
+                // fix target comeFrom (for debugs)
+                for(auto & cf : blocks[op.label[1]].comeFrom) if(cf == b) cf = b1;
+                
+                // rename target PHI sources (for debugs)
+                for(auto & a : blocks[op.label[1]].args)
+                for(auto & s : a.alts)
+                {
+                    if(ops[s.val].block == b) s.src = b1;
+                }
+                
                 blocks[b1].comeFrom.push_back(b);
                 blocks[b1].flags.live = true;
                 ops[blocks[b].code.back()].label[1] = b1;
                 newBlocks.push_back(b1);
             }
+            
         }
 
         // standard jmp
