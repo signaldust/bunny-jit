@@ -190,22 +190,27 @@ void bjit::parse(std::vector<uint8_t> & codeOut)
         ps.state(ps);
     }
 
-    Env env(1); // must match what we pass proc
-    for(auto & e : ps.frags)
-    {
-        e->typecheck(ps, env);
-        e->debug(0);
-    }
+    // create Proc for the initial env-size
+    Proc p(0, "");
+    Env env(p.env.size());
+
+    // wrap all expressions into a block
+    ps.token.type = Token::ToBlock;
+    ps.token.nArgs = ps.frags.size();
+    fragment(ps, ps.token);
+
+    assert(ps.frags.size() == 1);
+    auto & ast = ps.frags.back();
+    ast->typecheck(ps, env);
+    ast->debug(0);
     printf("\n");
 
     if(ps.nErrors) return;
 
-    Proc p(0, "");
-    
-    for(auto & e : ps.frags)
-        e->codeGen(p);
+    ast->codeGen(p);
 
-    p.iret(p.lci(0));  // must always have return
+    // always force return
+    p.iret(p.lci(0));
     p.debug();
 
     printf("-- Optimizing:\n");
