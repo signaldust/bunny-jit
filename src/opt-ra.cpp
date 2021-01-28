@@ -277,7 +277,7 @@ void Proc::allocRegs()
                     if(ra_debug) printf("; need reload for %04x into %s\n",
                         op.in[i], regName(r));
 
-                    uint16_t rr = newOp(ops::reload, ops[op.in[1]].flags.type, b);
+                    uint16_t rr = newOp(ops::reload, ops[op.in[i]].flags.type, b);
                     
                     // don't do a true reload if we can remat constant
                     if(ops[op.in[i]].opcode == ops::lci
@@ -621,7 +621,7 @@ void Proc::allocRegs()
                             sregs[t] = tregs[t];
                             sregs[s] = noVal;
     
-                            std::swap(rr, blocks[b].code.back());
+                            std::swap(rr, blocks[out].code.back());
                             blocks[out].code.push_back(rr);
                             done = false;
                             break;
@@ -676,7 +676,7 @@ void Proc::allocRegs()
                             sregs[r] = tregs[t];
                             sregs[s] = noVal;
     
-                            std::swap(rr, blocks[b].code.back());
+                            std::swap(rr, blocks[out].code.back());
                             blocks[out].code.push_back(rr);
                             done = false;
                             break;
@@ -720,7 +720,7 @@ void Proc::allocRegs()
         assert(b < blocks.size());
     
         // make a copy, since we'll be adding new ops
-        auto op = ops[blocks[b].code.back()];
+        const auto op = ops[blocks[b].code.back()];
 
         // is this a return?
         if(op.opcode > ops::jmp) continue;
@@ -746,7 +746,7 @@ void Proc::allocRegs()
                 ops[blocks[b].code.back()].label[0] = b0;
                 newBlocks.push_back(b0);
             }
-            
+
             blocks[b1].code.push_back(newOp(ops::jmp, Op::_none, b1));
             ops[blocks[b1].code.back()].label[0] = op.label[1];
             memcpy(blocks[b1].regsIn, blocks[b].regsOut, sizeof(sregs));
