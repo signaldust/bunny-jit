@@ -109,11 +109,11 @@
     _(isub, BJIT_CSE+1, 2), \
     _(ineg, BJIT_CSE+1, 1), \
     _(imul, BJIT_CSE+1, 2), \
-    _(idiv, BJIT_CSE+1, 2), \
-    _(imod, BJIT_CSE+1, 2), \
+    _(idiv, BJIT_SIDEFX+1, 2), \
+    _(imod, BJIT_SIDEFX+1, 2), \
     /* unsigned integer arithmetic */ \
-    _(udiv, BJIT_CSE+1, 2), \
-    _(umod, BJIT_CSE+1, 2), \
+    _(udiv, BJIT_SIDEFX+1, 2), \
+    _(umod, BJIT_SIDEFX+1, 2), \
     /* integer bitwise */ \
     _(inot, BJIT_CSE+1, 1), \
     _(iand, BJIT_CSE+1, 2), \
