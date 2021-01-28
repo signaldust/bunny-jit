@@ -33,6 +33,10 @@ gobjdump --insn-width=16 -mi386:x86-64:intel -d -D -b binary out.bin
 
 You can certainly run it too, but you'll have to copy it to executable memory.
 
+## Why Bunny?
+
+Bunnies are cute.
+
 ## License?
 
 I should paste this into every file, but for the time being:
