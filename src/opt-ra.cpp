@@ -485,8 +485,6 @@ void Proc::allocRegs()
         }
     }
 
-    sanity();
-
     printf(" RA:JMP"); if(ra_debug) printf("\n");
 
     std::vector<uint16_t>   newBlocks;
@@ -611,7 +609,7 @@ void Proc::allocRegs()
                             if(sregs[t] != noVal) continue;
 
                             uint16_t rr = newOp(ops::rename,
-                                ops[sregs[s]].flags.type, b);
+                                ops[sregs[s]].flags.type, out);
                             
                             if(ra_debug) printf("move: %s:%04x -> %s:%04x\n",
                                 regName(s), sregs[s], regName(t), rr);
@@ -667,7 +665,7 @@ void Proc::allocRegs()
                             if(r == regs::nregs) r = t;
 
                             uint16_t rr = newOp(ops::rename,
-                                ops[sregs[s]].flags.type, b);
+                                ops[sregs[s]].flags.type, out);
                             
                             if(ra_debug) printf(
                                 "move: %s:%04x -> %s:%04x, cycle breaker: %04x\n",
@@ -708,7 +706,7 @@ void Proc::allocRegs()
                     if(ra_debug) printf("reload -> %s:%04x (%04x)\n",
                             regName(t), tregs[t], sregs[t]);
 
-                    uint16_t rr = newOp(ops::reload, ops[tregs[t]].flags.type, b);
+                    uint16_t rr = newOp(ops::reload, ops[tregs[t]].flags.type, out);
                     
                     rename.add(tregs[t], rr);
                     
@@ -758,10 +756,14 @@ void Proc::allocRegs()
             // keep shuffle-block if we added shuffles
             if(blocks[b0].code.size() > 1)
             {
-                // fix target comeFrom (for debugs)
+                // fix target comeFrom, satisfy sanity
                 for(auto & cf : blocks[op.label[0]].comeFrom) if(cf == b) cf = b0;
                 
-                // rename target PHI sources (for debugs)
+                // fix dominators, satisfy sanity
+                blocks[b1].dom = blocks[b].dom;
+                blocks[b1].dom.push_back(b1);
+                
+                // rename target PHI sources, satisfy sanity
                 for(auto & a : blocks[op.label[0]].args)
                 for(auto & s : a.alts)
                 {
@@ -782,10 +784,14 @@ void Proc::allocRegs()
             // keep shuffle-block if we added shuffles
             if(blocks[b1].code.size() > 1)
             {
-                // fix target comeFrom (for debugs)
+                // fix target comeFrom, satisfy sanity
                 for(auto & cf : blocks[op.label[1]].comeFrom) if(cf == b) cf = b1;
+
+                // fix dominators, satisfy sanity
+                blocks[b1].dom = blocks[b].dom;
+                blocks[b1].dom.push_back(b1);
                 
-                // rename target PHI sources (for debugs)
+                // rename target PHI sources, satisfy sanity
                 for(auto & a : blocks[op.label[1]].args)
                 for(auto & s : a.alts)
                 {
@@ -809,6 +815,8 @@ void Proc::allocRegs()
 
     // add the new blocks after loop
     for(auto n : newBlocks) live.push_back(n);
+
+    sanity();
 
     // find slots
     std::vector<bool>   sccUsed;
