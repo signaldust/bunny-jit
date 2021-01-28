@@ -402,8 +402,7 @@ void Proc::allocRegs()
 
             if(op.opcode == ops::phi)
             {
-                assert(op.in[0] == b);
-                auto & alts =  blocks[b].args[op.in[1]].alts;
+                auto & alts =  blocks[b].args[op.phiIndex].alts;
                 for(int i = 0; i < alts.size(); ++i)
                 {
                     if(op.reg == regs::nregs)
@@ -846,8 +845,7 @@ void Proc::findSCC()
             // at least one phi-alternative should have SCC
             if(ops[c].opcode == ops::phi)
             {
-                assert(ops[c].in[0] == bi);
-                for(auto & s : b.args[ops[c].in[1]].alts)
+                for(auto & s : b.args[ops[c].phiIndex].alts)
                 {
                     // check for validity, pick first possible
                     if(ops[s.val].scc != noSCC && !sccUsed[ops[s.val].scc])

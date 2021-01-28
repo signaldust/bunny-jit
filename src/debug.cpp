@@ -39,6 +39,13 @@ void bjit::Proc::debugOp(uint16_t iop) const
         case Op::_f64:  printf(" %3d  f64 ", op.nUse); break;
     };
 
+    // this should now hold
+    if(!op.hasI64() && !op.hasF64())
+    {
+        if(op.nInputs() < 2) assert(op.in[1] == noVal);
+        if(op.nInputs() < 1) assert(op.in[0] == noVal);
+    }
+
     // special-case reload to not print register
     if(op.opcode == ops::reload)
         printf(" [%04x]:%04x", ops[op.in[0]].scc, op.in[0]);
@@ -67,7 +74,7 @@ void bjit::Proc::debugOp(uint16_t iop) const
 
     if(op.opcode == ops::phi)
     {
-        for(auto & a : blocks[op.in[0]].args[op.in[1]].alts)
+        for(auto & a : blocks[op.block].args[op.phiIndex].alts)
         {
             printf(" L%d:[%04x]:%04x", a.src, ops[a.val].scc, a.val);
         }
@@ -75,13 +82,12 @@ void bjit::Proc::debugOp(uint16_t iop) const
 
     if(op.opcode == ops::iarg || op.opcode == ops::farg)
     {
-        printf(" #%d total #%d", op.in[1], op.in[0]);
+        printf(" #%d total #%d", op.indexType, op.indexTotal);
     }
 
     if(op.opcode <= ops::jmp) printf(" L%d", op.label[0]);
     if(op.opcode < ops::jmp) printf(" L%d", op.label[1]);
 
-    printf("  | i: %04x, b:%d", op.index, op.block);
     printf("\n");
 }
 

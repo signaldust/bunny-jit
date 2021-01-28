@@ -27,12 +27,20 @@ namespace bjit
             double      f64;
             
             // imm + two values
-            // phi stores   in = { block, value  }
-            // params store in = { nType, nTotal }
             struct {
-                uint32_t    imm32;
+                union
+                {
+                    uint32_t    imm32;
+                    uint32_t    phiIndex;
+                    
+                    struct  // used by arguments
+                    {
+                        uint16_t    indexType;
+                        uint16_t    indexTotal;
+                    };
+                };
                 // 16-bits is likely enough?
-                uint16_t    in[0];  // this is size 2, but silence clang
+                uint16_t    in[2];
             };
 
         };
@@ -244,8 +252,7 @@ namespace bjit
             {
                 auto phi = addOp(ops::phi, ops[env[i]].flags.type, label);
                 blocks[label].args[i].phiop = phi;
-                ops[phi].in[0] = label;
-                ops[phi].in[1] = i;
+                ops[phi].phiIndex = i;
             }
             
             return label;
@@ -463,6 +470,8 @@ namespace bjit
             assert(i < 0xffff);
             ops.resize(i + 1);
             ops[i].opcode = opcode;
+            ops[i].in[0] = noVal;
+            ops[i].in[1] = noVal;
             ops[i].flags.type = type;
             ops[i].index = i;
             ops[i].block = block;
@@ -481,16 +490,15 @@ namespace bjit
         void passArg(unsigned val)
         {
             unsigned i = addOp(ops::nop, ops[val].flags.type);
-            // in[0] must be the real value, so it gets reg-alloc
             ops[i].in[0] = val;
 
             if(ops[i].flags.type == Op::_ptr)
-            { ops[i].opcode = ops::ipass; ops[i].in[1] = nPassInt++; }
+            { ops[i].opcode = ops::ipass; ops[i].indexType = nPassInt++; }
 
             if(ops[i].flags.type == Op::_f64)
-            { ops[i].opcode = ops::fpass; ops[i].in[1] = nPassFloat++; }
+            { ops[i].opcode = ops::fpass; ops[i].indexType = nPassFloat++; }
             
-            ops[i].in[2] = nPassTotal++;
+            ops[i].indexTotal = nPassTotal++;
 
             assert(ops[i].opcode != ops::nop);
         }
@@ -508,8 +516,8 @@ namespace bjit
                 || ops[blocks[0].code.back()].opcode == ops::farg);
                 
             auto i = addOp(ops::iarg, Op::_ptr);
-            ops[i].in[0] = nArgsInt++;
-            ops[i].in[1] = nArgsTotal++;
+            ops[i].indexType = nArgsInt++;
+            ops[i].indexTotal = nArgsTotal++;
             return i;
         }
         unsigned farg()
@@ -522,8 +530,8 @@ namespace bjit
                 || ops[blocks[0].code.back()].opcode == ops::farg);
                 
             auto i = addOp(ops::farg, Op::_f64);
-            ops[i].in[0] = nArgsFloat++;
-            ops[i].in[1] = nArgsTotal++;
+            ops[i].indexType = nArgsFloat++;
+            ops[i].indexTotal = nArgsTotal++;
             return i;
         }
 

@@ -35,7 +35,7 @@ RegMask Op::regsOut()
         // which one we want to use varies by platform
         case ops::iarg:
 #ifdef _WIN32
-            switch(in[1])   // Win64 wants the total position
+            switch(indexTotal)  // Win64 wants the total position
             {
             case 0: return (1ull<<regs::rcx);
             case 1: return (1ull<<regs::rdx);
@@ -45,7 +45,7 @@ RegMask Op::regsOut()
             default: assert(false); // FIXME: RA can't handle
             }
 #else
-            switch(in[0])   // SysV uses position by type
+            switch(indexType)   // SysV uses position by type
             {
             case 0: return (1ull<<regs::rdi);
             case 1: return (1ull<<regs::rsi);
@@ -59,7 +59,7 @@ RegMask Op::regsOut()
 #endif
         case ops::farg:
 #ifdef _WIN32
-            switch(in[1])   // Win64 wants the total index
+            switch(indexTotal)  // Win64 wants the total position
             {
             case 0: return (1ull<<regs::xmm0);
             case 1: return (1ull<<regs::xmm1);
@@ -69,7 +69,7 @@ RegMask Op::regsOut()
             default: assert(false); // FIXME: RA can't handle
             }
 #else
-            switch(in[0])   // SysV uses position by type
+            switch(indexType)   // SysV uses position by type
             {
             case 0: return (1ull<<regs::xmm0);
             case 1: return (1ull<<regs::xmm1);
@@ -133,7 +133,7 @@ RegMask Op::regsIn(int i)
 
         case ops::ipass:
 #ifdef _WIN32
-            switch(in[2])   // Win64 wants the total position
+            switch(indexTotal)  // Win64 wants the total position
             {
             case 0: return (1ull<<regs::rcx);
             case 1: return (1ull<<regs::rdx);
@@ -143,7 +143,7 @@ RegMask Op::regsIn(int i)
             default: assert(false); // FIXME: RA can't handle
             }
 #else
-            switch(in[1])   // SysV uses position by type
+            switch(indexType)   // SysV uses position by type
             {
             case 0: return (1ull<<regs::rdi);
             case 1: return (1ull<<regs::rsi);
@@ -157,7 +157,7 @@ RegMask Op::regsIn(int i)
 #endif
         case ops::fpass:
 #ifdef _WIN32
-            switch(in[2])   // Win64 wants the total index
+            switch(indexTotal)  // Win64 wants the total index
             {
             case 0: return (1ull<<regs::xmm0);
             case 1: return (1ull<<regs::xmm1);
@@ -167,7 +167,7 @@ RegMask Op::regsIn(int i)
             default: assert(false); // FIXME: RA can't handle
             }
 #else
-            switch(in[1])   // SysV uses position by type
+            switch(indexType)   // SysV uses position by type
             {
             case 0: return (1ull<<regs::xmm0);
             case 1: return (1ull<<regs::xmm1);
