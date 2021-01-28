@@ -66,7 +66,9 @@ some drastic changes on a regular basis.
 
 ## Instructions?
 
-The first step is to create a `bjit::Proc` which takes a stack allocation size
+The first step is to include `bjit.h`.
+
+The second step is to create a `bjit::Proc` which takes a stack allocation size
 and a string representing arguments (`i` for integer, `f` for double).
 This will initialize `env[0]` with an SSA value for the pointer to a block
 of the requested size on the stack (in practice, it represents stack
