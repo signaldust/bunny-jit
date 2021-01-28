@@ -9,7 +9,7 @@ function calls not done robustly yet. Please don't use it for production yet.
 
 Features:
   * small and simple, yet tries to avoid being naive
-  * portable C++11 without dependencies (other than STL)
+  * portable C++11 without dependencies (other than STL; uses `std::vector` to manage memory)
   * uses low-level portable bytecode that models common architectures
   * supports integers and double-floats (other types in the future)
   * end-to-end SSA, with consistency checking and simple interface to generate valid SSA
