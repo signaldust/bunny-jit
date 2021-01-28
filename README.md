@@ -344,8 +344,39 @@ rather we flag the source operation with a spill-flag when we emit a reload.
 This is always valid in SSA, because we have no variables, only values.
 The assembler will then generate stores after any operations marked for spill.
 
-To choose stack locations, we compute "stack congruence classes" (SCCs) to find
-which values can and/or should be placed into the same slot. We then allocate
-slots for those SCCs that are used by at least one operation flagged for spill.
-This results in a relatively simple and elegant compiler pipeline that still
-produces mostly reasonable native code.
+# SCC?
+
+To choose stack locations, we compute what I like to call "stack congruence
+classes" (SCCs) to find which values can and/or should be placed into the same
+slot. Essentially if two values are live at the same time, then they must have
+different SCCs. On the other hand, if a value is argument to a phi, then we
+would like to place it into the same class to avoid having to move spilled
+values from one stack slot to another. For other values, we would like to try
+and find a (nearly) minimal set of SCCs that can be used to hold them, in order
+to keep the stack frames as small as possible.
+
+As pointed out earlier, sometimes we have cycles. Eg. if two values are swapped
+in a loop every iteration, then we can't allocate the same SCC to these without
+potentially forcing a swap in memory. We solve SCCs (but not slots) before
+register allocation, so at this point we don't know which variables live in
+memory. To make sure the register allocator doesn't need worry about cycles (in
+memory; it *can* deal with cycles in actual registers) the SCC computation adds
+additional renames to temporary SCCs. This way the register allocator can mark
+the rename (rather than the original value) for spill if necessary, otherwise
+the renames typically compile to nops. The register allocator itself never adds
+any additional SCCs: at that point we already have enough to allow every shuffle
+to be trivial.
+
+Only after register allocation is done, do we actually allocate stack slots. At
+this point, we find all the SCCs with at least one value actually spilled and
+allocate slots for these (and only these), but since we know (by definition)
+that no two variables in the same SCC are live at the same time, at this point
+we don't need to do anything else. We just rewrite all the SCCs to the slots
+allocated (or "don't need" for classes without spills) and pass the total number
+of slots to the assembler.
+
+The beauty of this design is that it completely decouples the concerns of stack
+layout and register allocation: the latter can pretend that every value has a
+stack location, that any value can be reloaded at any time (as long as it's then
+marked for "spill" at the time the reload is done) yet we can trivially collapse
+the layout afterwards.
