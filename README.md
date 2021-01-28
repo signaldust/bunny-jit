@@ -398,7 +398,7 @@ This is always valid in SSA, because we have no variables, only values.
 The assembler will then generate stores after any operations marked for spill,
 because we resolve SCCs to actual slots only after register allocation is done.
 
-# SCC?
+## SCC?
 
 To choose stack locations, we compute what I like to call "stack congruence
 classes" (SCCs) to find which values can and/or should be placed into the same
