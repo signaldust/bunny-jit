@@ -6,6 +6,8 @@ but the code itself should (hopefully) work on Windows as well.
 
 This is work in relatively early progress. It sort of works, but some things like
 function calls not done robustly yet and there are likely serious bugs hiding.
+Loads and stores in particular are not properly tested yet.
+
 **Please don't use it for production yet.**
 
 Features:
