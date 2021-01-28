@@ -375,37 +375,28 @@ Either way, hopefully this gives you an idea of what to expect.
 
 ## SSA?
 
-The backend keeps the code in SSA form from the beginning to the end. The interface
-is designed to make emitting SSA directly relatively simple for block-structured
-languages by tracking the "environment" that must be passed form one block to
-another. When a new label is created, we create phis for all the values in the
-environment. When a jump to a label is emitted, we take the current environment
-and add the values to the target block phi-alternatives. When a label is emitted
-we replace the values in the current environment with the phi-values.
-
-Essentially for a block structured language, whenever a new variable is defined
-one pushes the SSA value into the environment. When looking up variables, one
-takes the values form the environment. On control-flow constructs, one needs to
-match the environment size of the label and the jump-site, but the interface
-will take care of the rest.
-
+The backend keeps the code in SSA form from the beginning to the end. We rely
+on `env` to automatically add phis for all cross-block variables initially.
 While there is no need to add temporaries to the environment, always adding phis
-for any actual local variables still creates more phis than necessary. We choose
+for any actual local variables still creates a lot more phis than necessary. We choose
 to let DCE clean this up, by simplifying those phis with only one real source.
 
-We keep the SSA structure all the way. The register allocator is currently a bit
-lazy with regards to rewriting phi-sources for shuffle-blocks properly, but
-theoretically the code is valid SSA even after register allocation. We handle
+We keep the SSA structure all the way. The code is valid SSA even after register
+allocation. Registers are not SSA values, but each value has one register. When we
+need to rename registers or reload values from stack, we define new values. We handle
 phis by simply making sure that the phi-functions are no-ops: all jump-sites
 place the correct values in either the same registers or stack-slots, depending
 on what the phi expects. Two-way jumps always generate shuffle blocks, which are
-then jump-threaded if the edge is not actually critical.
+then jump-threaded if the edge is not actually critical or the shuffle is empty.
 
 The register allocator itself runs locally, using "furthest next use" to choose
-which values to throw out of the register file. We don't ever explicitly spill,
+which values to throw out of the register file, but passes information from one
+block to the next to reduce pointless shuffling. We don't ever explicitly spill,
 rather we flag the source operation with a spill-flag when we emit a reload.
 This is always valid in SSA, because we have no variables, only values.
-The assembler will then generate stores after any operations marked for spill.
+
+The assembler will then generate stores after any operations marked for spill,
+because we resolve SCCs to actual slots only after register allocation is done.
 
 # SCC?
 
