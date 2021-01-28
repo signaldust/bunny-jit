@@ -270,7 +270,7 @@ That looks incredibly silly, doesn't it? But we have an optimizer:
 -- Optimizing:
  DCE:4+2 Fold:3
  DCE:3+2 Fold:1
- DCE:1+2 DCE:1+2 Live:1
+ DCE:1+2 Live:1
  RA:SCC DCE:1+2 Live:1
  RA:BB DCE:1+2 SANE RA:JMP DONE
 
