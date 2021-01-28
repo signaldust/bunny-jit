@@ -54,6 +54,9 @@ namespace bjit
             // jumps need labels
             uint16_t    label[2];
         };
+
+        uint16_t    index;  // index in ops[] array (ie. backref)
+        uint16_t    block;  // block in which the op currently lives
         
         uint16_t    opcode;             // opcode, see ir-ops.h
         uint8_t     reg = regs::none;   // output register
@@ -204,10 +207,13 @@ namespace bjit
             }
         }
 
+        // sanity.cpp: checks internal invariants
+        void sanity() const;
+
         // debug.cpp
-        void debug();
-        void debugOp(uint16_t index);
-        const char * regName(int r);
+        void debug() const;
+        void debugOp(uint16_t index) const;
+        const char * regName(int r) const;
 
         void opt()
         {
@@ -451,21 +457,23 @@ namespace bjit
 
         unsigned currentBlock;
         
-        unsigned newOp(uint16_t opcode, Op::Type type)
+        unsigned newOp(uint16_t opcode, Op::Type type, uint16_t block)
         {
             unsigned i = ops.size();
             assert(i < 0xffff);
             ops.resize(i + 1);
             ops[i].opcode = opcode;
             ops[i].flags.type = type;
+            ops[i].index = i;
+            ops[i].block = block;
             return i;
         }
         
         unsigned addOp(uint16_t opcode, Op::Type type, uint16_t inBlock = noVal)
         {
-            uint16_t i = newOp(opcode, type);
-            
             if(inBlock == noVal) inBlock = currentBlock;
+            
+            uint16_t i = newOp(opcode, type, inBlock);
             blocks[inBlock].code.push_back(i);
             return i;
         }

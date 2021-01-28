@@ -26,12 +26,12 @@ struct OpCSE
     uint16_t opcode = noVal;
 
     OpCSE() {}
-    OpCSE(uint16_t i, uint16_t b, Op const & op) { set(i, b, op); }
+    OpCSE(Op const & op) { set(op); }
 
-    void set(uint16_t i, uint16_t b, Op const & op)
+    void set(Op const & op)
     {
-        index = i;
-        block = b;
+        index = op.index;
+        block = op.block;
         opcode = op.opcode;
         if(op.hasI64() || op.hasF64())
         {
@@ -45,13 +45,17 @@ struct OpCSE
         }
     }
 
+    // NOTE: we need temporary to force the "noVals"
     bool isEqual(Op const & op) const
-    { OpCSE tmp(noVal, noVal, op); return isEqual(tmp); }
+    { OpCSE tmp(op); return isEqual(tmp); }
+
+    // NOTE: we need temporary to force the "noVals"
+    static uint64_t getHash(Op const & op)
+    { OpCSE tmp(op); return getHash(tmp); }
+    
     bool isEqual(OpCSE const & op) const
     { return i64 == op.i64 && opcode == op.opcode; }
 
-    static uint64_t getHash(Op const & op)
-    { OpCSE tmp(noVal, noVal, op); return getHash(tmp); }
     static uint64_t getHash(OpCSE const & op)
     { return hash64(op.i64 + op.opcode); }
 };
@@ -997,7 +1001,7 @@ bool Proc::opt_fold()
                 }
 
                 // if we're here, insert to CSE table
-                OpCSE cse(bc, b, i);
+                OpCSE cse(i);
                 cseTable.insert(cse);
             }
         }

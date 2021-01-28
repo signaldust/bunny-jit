@@ -10,11 +10,11 @@ using namespace bjit;
 static const char * regNames[] = { BJIT_REGS(BJIT_REGS_NAME) };
 #undef none
 
-const char * bjit::Proc::regName(int r) { return regNames[r]; }
+const char * bjit::Proc::regName(int r) const { return regNames[r]; }
 
-void bjit::Proc::debugOp(uint16_t iop)
+void bjit::Proc::debugOp(uint16_t iop) const
 {
-    Op & op = ops[iop];
+    auto & op = ops[iop];
 
     if(op.hasOutput())
     {
@@ -81,10 +81,11 @@ void bjit::Proc::debugOp(uint16_t iop)
     if(op.opcode <= ops::jmp) printf(" L%d", op.label[0]);
     if(op.opcode < ops::jmp) printf(" L%d", op.label[1]);
 
+    printf("  | i: %04x, b:%d", op.index, op.block);
     printf("\n");
 }
 
-void bjit::Proc::debug()
+void bjit::Proc::debug() const
 {
     printf("\n;----");
     if(raDone) printf(" Slots: %d\n", nSlots); else printf("\n");
