@@ -207,7 +207,7 @@ void Proc::allocRegs()
                             if(ra_debug) printf("; saving %04x (%s -> %s) \n",
                                     regstate[r], regName(r), regName(s));
                             uint16_t sr = newOp(ops::rename,
-                                ops[regstate[r]].flags.type);
+                                ops[regstate[r]].flags.type, b);
                             
                             ops[sr].in[0] = regstate[r];
                             ops[sr].reg = s;
@@ -241,7 +241,7 @@ void Proc::allocRegs()
                     }
                     else
                     {
-                        uint16_t rr = newOp(ops::rename, ops[op.in[0]].flags.type);
+                        uint16_t rr = newOp(ops::rename, ops[op.in[0]].flags.type, b);
                         
                         ops[rr].in[0] = op.in[i];
                         ops[rr].reg = r;
@@ -277,7 +277,7 @@ void Proc::allocRegs()
                     if(ra_debug) printf("; need reload for %04x into %s\n",
                         op.in[i], regName(r));
 
-                    uint16_t rr = newOp(ops::reload, ops[op.in[1]].flags.type);
+                    uint16_t rr = newOp(ops::reload, ops[op.in[1]].flags.type, b);
                     
                     // don't do a true reload if we can remat constant
                     if(ops[op.in[i]].opcode == ops::lci
@@ -346,7 +346,7 @@ void Proc::allocRegs()
                                 regstate[r], regName(r), regName(s));
                     
                         uint16_t sr = newOp(ops::rename,
-                            ops[regstate[r]].flags.type);
+                            ops[regstate[r]].flags.type, b);
                         
                         ops[sr].in[0] = regstate[r];
                         ops[sr].reg = s;
@@ -486,6 +486,8 @@ void Proc::allocRegs()
         }
     }
 
+    sanity();
+
     printf(" RA:JMP"); if(ra_debug) printf("\n");
 
     std::vector<uint16_t>   newBlocks;
@@ -608,7 +610,7 @@ void Proc::allocRegs()
                             if(sregs[t] != noVal) continue;
 
                             uint16_t rr = newOp(ops::rename,
-                                ops[sregs[s]].flags.type);
+                                ops[sregs[s]].flags.type, b);
                             
                             if(ra_debug) printf("move: %s:%04x -> %s:%04x\n",
                                 regName(s), sregs[s], regName(t), rr);
@@ -662,7 +664,7 @@ void Proc::allocRegs()
                             if(r == regs::nregs) r = t;
 
                             uint16_t rr = newOp(ops::rename,
-                                ops[sregs[s]].flags.type);
+                                ops[sregs[s]].flags.type, b);
                             
                             if(ra_debug) printf(
                                 "move: %s:%04x -> %s:%04x, cycle breaker: %04x\n",
@@ -701,7 +703,7 @@ void Proc::allocRegs()
                     if(ra_debug) printf("reload -> %s:%04x (%04x)\n",
                             regName(t), tregs[t], sregs[t]);
 
-                    uint16_t rr = newOp(ops::reload, ops[tregs[t]].flags.type);
+                    uint16_t rr = newOp(ops::reload, ops[tregs[t]].flags.type, b);
                     
                     ops[rr].reg = t;
                     ops[rr].in[0] = tregs[t];
@@ -732,7 +734,7 @@ void Proc::allocRegs()
             int b1 = blocks.size() + 1;
             blocks.resize(blocks.size() + 2);
 
-            blocks[b0].code.push_back(newOp(ops::jmp, Op::_none));
+            blocks[b0].code.push_back(newOp(ops::jmp, Op::_none, b0));
             ops[blocks[b0].code.back()].label[0] = op.label[0];
             memcpy(blocks[b0].regsIn, blocks[b].regsOut, sizeof(sregs));
             jumpShuffle(b0, op.label[0]);
@@ -746,7 +748,7 @@ void Proc::allocRegs()
                 newBlocks.push_back(b0);
             }
             
-            blocks[b1].code.push_back(newOp(ops::jmp, Op::_none));
+            blocks[b1].code.push_back(newOp(ops::jmp, Op::_none, b1));
             ops[blocks[b1].code.back()].label[0] = op.label[1];
             memcpy(blocks[b1].regsIn, blocks[b].regsOut, sizeof(sregs));
             jumpShuffle(b1, op.label[1]);
@@ -933,7 +935,7 @@ void Proc::findSCC()
                         printf("rename jump: %04x:[%04x] -> %04x:[%04x]\n",
                         s.val, ops[s.val].scc, a.phiop, ops[a.phiop].scc);
     
-                    uint16_t rr = newOp(ops::rename, ops[s.val].flags.type);
+                    uint16_t rr = newOp(ops::rename, ops[s.val].flags.type, b);
                     ops[rr].scc = nSCC++;   // play safe: alloc a fresh one
                     ops[rr].in[0] = s.val; s.val = rr;
 
