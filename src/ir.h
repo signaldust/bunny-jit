@@ -237,8 +237,6 @@ namespace bjit
 
         void compile(std::vector<uint8_t> & bytes)
         {
-            opt_dce();
-            
             allocRegs();
             arch_emit(bytes);
         }
