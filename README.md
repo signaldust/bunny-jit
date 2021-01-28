@@ -56,6 +56,9 @@ I would recommend opening an issue before working on anything too significant,
 because this will greatly increase the chance that your work is still useful
 by the time you're ready to send a pull-request.
 
+The reason for this is that the project is still young enough that I might make
+some drastic changes on a regular basis.
+
 ## Instructions?
 
 The first step is to create a `bjit::Proc` which takes a stack allocation size
