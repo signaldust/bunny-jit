@@ -8,11 +8,11 @@ This is work in relatively early progress. It sort of works, but some things lik
 function calls not done robustly yet. Please don't use it for production yet.
 
 Features:
-  * small simple, yet tries to avoid being naive
+  * small and simple, yet tries to avoid being naive
   * portable C++11 without dependencies (other than STL)
-  * works with low-level portable bytecode that models common architectures
+  * uses low-level portable bytecode that models common architectures
   * supports integers and double-floats (other types in the future)
-  * end-to-end SSA, with simple interface to generate valid SSA
+  * end-to-end SSA, with consistency checking and simple interface to generate valid SSA
   * performs DCE, global CSE, constant folding and register allocation (at this point)
   * assembles to native binary code (ready to be copied to executable memory)
   
