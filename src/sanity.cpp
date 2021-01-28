@@ -22,6 +22,8 @@ void Proc::sanity() const
         {
             auto & op = ops[c];
 
+            //debugOp(c);
+
             // sanity check that block/index are correct
             assert(op.index == c);
             assert(op.block == b);
