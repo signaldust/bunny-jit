@@ -388,6 +388,10 @@ struct AsmX64
 // this is actually necessary in order to get a dependency breaker
 #define _XORrr(r0,r1)       a64._RR((r0==r1)?0:1, REG(r0), REG(r1), 0x33)
 
+// increment, decrement
+#define _INC(r0)            a64._RR(1, 0, REG(r0), 0xFF)
+#define _DEC(r0)            a64._RR(1, 1, REG(r0), 0xFF)
+
 // these do either imm8, imm32 or RIP-relative .rodata64
 #define _ADDri(r0,v)        a64._XXriX(0, REG(r0), v)
 #define _SUBri(r0,v)        a64._XXriX(5, REG(r0), v)

@@ -399,8 +399,11 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
             case ops::iaddI:
                 // use LEA for different input/output registers
-                // we don't track CCs anyway
-                _LEA(i.reg, ops[i.in[0]].reg, i.imm32);
+                if(i.reg == ops[i.in[0]].reg)
+                {
+                    _ADDri(i.reg, i.imm32);
+                }
+                else _LEA(i.reg, ops[i.in[0]].reg, i.imm32);
                 break;
                 
             case ops::isub:
@@ -418,8 +421,24 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
 
             case ops::isubI:
-                if(i.reg != ops[i.in[0]].reg) _MOVrr(i.reg, ops[i.in[0]].reg);
-                _SUBri(i.reg, i.imm32);
+                {
+                    bool sameReg = (i.reg == ops[i.in[0]].reg);
+                        
+                    if(i.imm32 == 0x80000000)
+                    {
+                        if(!sameReg) _MOVrr(i.reg, ops[i.in[0]].reg);
+                        _SUBri(i.reg, i.imm32);
+                    }
+                    else if(!sameReg)
+                    {
+                        _LEA(i.reg, ops[i.in[0]].reg, -i.imm32);
+                    }
+                    else if(i.imm32 == 1)
+                    {
+                        _DEC(i.reg);
+                    }
+                    else _SUBri(i.reg, i.imm32);
+                }
                 break;
             
             case ops::ineg:
