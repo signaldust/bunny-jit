@@ -7,20 +7,19 @@ but the code itself should (hopefully) work on Windows as well.
 This is work in relatively early progress. It sort of works, but some things like
 function calls not done robustly yet. Please don't use it for production yet.
 
-It provides a relatively simple interface for generating bytecode in SSA form,
-then performs basic optimisations (DCE, CSE, constant folding, register allocation)
-and assembles the result into native code in memory. Some additional optimisations
-are highly likely in the future, but the goal is to keep things simple.
-
+Features:
+  * small simple, yet tries to avoid being naive
+  * supports integers and double-floats (other types in the future)
+  * end-to-end SSA, with simple interface to generate valid SSA
+  * performs DCE, global CSE, constant folding and register allocation
+  * generates native binary code (ready to be copied to executable memory)
+  
 It is intended for situations where it is desirable to create some native code
 on the fly (eg. for performance reasons), but including something like LLVM would
-be overkill. However, we want a simple JIT, not a naive one.
-
-BJIT currently supports integers and double-precision floats only. It will probably
-support single-precision and SIMD-operations at some point in the future.
+be a total overkill.
 
 It comes with some sort of simple front-end language, but this is intended more
-for testing than as a serious programming language; the focus is on the backend.
+for testing (and I guess example) than as a serious programming language.
 
 The test-driver currently parses this simple language from `stdin` and compiles
 it into native code, which is written to `out.bin` for disassembly purposes with
@@ -50,11 +49,114 @@ I should paste this into every file, but for the time being:
 
 ## Contributing?
 
-You are free to send pull-requests, but given that this project is still very
-volatile and doing significant editing all over the place, I highly suggest
-opening an issue first to discuss your plans as this will greatly increase
-the chance that I haven't completely rewritten everything your contributions
-were based on.
+I would recommend opening an issue before working on anything too significant,
+because this will greatly increase the chance that your work is still useful
+by the time you're ready to send a pull-request.
+
+## Instructions?
+
+The first step is to create a `bjit::Proc` which takes a stack allocation size
+and a string representing arguments (`i` for integer, `f` for double).
+This will initialize `env[0]` with an SSA value for the pointer to a block
+of the requested size on the stack (in practice, it represents stack
+pointer) and `env[1..]` as the SSA values of the arguments. More on `env`
+below. Pass `0` and `""` if you don't care about allocations or arguments.
+
+To generate instructions, you call the instruction methods on `Proc`.
+When done, `Proc::opt()` will optimize and `Proc::compile()` generate code.
+Compile always does a few passes of DCE, but otherwise optimization is optional.
+
+Most instructions take their parameters as SSA values. The exceptions are
+`lci`/`lcf` which take immediate constants and jump-labels which should be
+the block-indexes returned by `Proc::newLabel()`. For instructions
+with output values, the methods return the new SSA values and other
+instructions return `void`.
+
+`Proc` has a public `std::vector` member `env` which stores the "environment".
+When a new label is create with `Proc::newLabel()` the number and types of
+incoming arguments to the block are fixed to those contained in `env` and when
+jumps are emitted, we check that the contents of `env` are compatible (same
+number of values of same types). When `Proc::emitLabel()` is called to generate
+code for the label, we replace the contents of `env` with fresh phi-values.
+So even though we only handle SSA values, elements of `env` behave essentially
+like regular variables (eg. "assignments" can simply store a new SSA value
+into `env`). Note that you can adjust the size of `env` as you please as long
+as constraints match for jump-sites, but keep in mind that `emitLabel()` will
+resize `env` back to what it was at the time of `newLabel()`.
+
+Instructions expect their parameter types to be correct. Passing floating-point
+values to instructions that expect integer values or vice versa will result
+in undefined behaviour (ie. invalid code or `assert`).
+The compiler should never fail with valid data, so we
+do not provide error reporting other than `assert`. This is a conscious design
+decision, as error checking should be done at higher levels.
+
+The type system is very primitive though and mostly exists for the purpose of
+tracking which registers we can use to store values. In particular, anything
+stored in general purpose registers is called `_ptr` (or simply integers).
+
+Instructions starting `i` are for integers, `u` are unsigned variants when
+there is a distinction and `f` is floating point (though we might change the
+double-precision variants to `d` if we add single-precision versions). Note
+that floating-point comparisons return integers, even though they expect
+`_f64` parameters.
+
+### The compiler currently exposes the following instructions:
+
+`lci i64` and `lcf f64` specify constants, `jmp label` is unconditional jump
+and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise,
+`iret a` returns from the function with integer value and `fret a` returns with
+a floating point value.
+
+`ieq a b` and `ine a b` compare two integers for equality or inequality and
+produce `0` or `1`.
+
+`ilt a b`, `ile a b`, `ige a b` and `igt a b` compare signed integers
+for less, less-or-equal, greater-or-equal and greater respectively
+
+`ult a b`, `ule a b`, `uge a b` and `ugt a b` perform unsigned comparisons
+
+`feq a b`, `fne a b`, `flt a b`, `fle a b`, `fge a b` and `fgt a b` are
+floating point version of the same (still produce integer `0` or `1`).
+
+`iadd a b`, `isub a b` and `imul a b` perform (signed or unsigned) integer
+addition, subtraction and multiplication, while `ineg a` negates an integer
+
+`idiv a b` and `imod a b` perform signed division and modulo
+
+`udiv a b` and `umod a b` perform unsigned division and modulo
+
+`inot a`, `iand a b`, `ior a b` and `ixor a b` perform bitwise logical operations
+
+`ishr a b` and `ushr a b` are signed and unsigned right-shift while 
+left-shift (signed or unsigned) is `ishl a b` and we specify that the number
+of bits to shift is modulo the bitsize of integers (eg. 64 on x64 which does
+this natively, but it's easy enough to mask on hardware that might not)
+
+`fadd a b`, `fsub a b`, `fmul a b`, `fdiv a b` and `fneg a` are floating point
+versions of arithmetic operations
+
+`cf2i a` converts doubles to integers while `ci2f` converts integers to doubles
+
+`bcf2i a` and `bci2f a` bit-cast (ie. reinterpret) without conversion
+
+`i8 a`, `i16 a` and `i32 a` can be used to sign-extend the low 8/16/32 bits
+
+`u8 a`, `u16 a` and `u32 a` can be used to zero-extend the low 8/16/32 bits
+
+Loads follow the form `lXX ptr imm32` where `ptr` is integer SSA value and `imm32`
+is an immediate offset (eg. for field offsets). The variants defined are 
+`li8/16/32/64`, `lu8/16/32` and `lf64`. The integer `i` variants sign-extend
+while the `u` variants zero-extend.
+
+Stores follow the form `sXX ptr imm32 value` where `ptr` and `imm32` are like loads
+while `value` is the SSA value to store. Variants are like loads, but without
+the unsigned versions.
+
+Internal we have additional instructions that the fold-engine will use (in the
+future the exact set might vary between platforms, so we rely on fold), but they
+should be fairly obvious when seen in debug, eg. `jugeI`is a conditional jump on
+`uge` comparison with the second operand converted to an `imm32` field.
 
 ## What it does?
 
@@ -204,111 +306,6 @@ This is obviously a simple example, but the quality of code is generally
 roughly similar for more complicated functions as well: not necessarily
 the best possible, but still somewhat reasonable. Hope this gives you
 and idea what I'm going for with this project.
-
-## Instructions?
-
-The first step is to create a `bjit::Proc` which takes a stack allocation size
-and a string representing arguments (`i` for integer, `f` for double).
-This will initialize `env[0]` with an SSA value for the pointer to a block
-of the requested size on the stack (in practice, it represents stack
-pointer) and `env[1..]` as the SSA values of the arguments. More on `env`
-below. Pass `0` and `""` if you don't care about allocations or arguments.
-
-To generate instructions, you call the instruction methods on `Proc`.
-When done, `Proc::opt()` will optimize and `Proc::compile()` generate code.
-Compile always does a few passes of DCE, but otherwise optimization is optional.
-
-Most instructions take their parameters as SSA values. The exceptions are
-`lci`/`lcf` which take immediate constants and jump-labels which should be
-the block-indexes returned by `Proc::newLabel()`. For instructions
-with output values, the methods return the new SSA values and other
-instructions return `void`.
-
-`Proc` has a public `std::vector` member `env` which stores the "environment".
-When a new label is create with `Proc::newLabel()` the number and types of
-incoming arguments to the block are fixed to those contained in `env` and when
-jumps are emitted, we check that the contents of `env` are compatible (same
-number of values of same types). When `Proc::emitLabel()` is called to generate
-code for the label, we replace the contents of `env` with fresh phi-values.
-So even though we only handle SSA values, elements of `env` behave essentially
-like regular variables (eg. "assignments" can simply store a new SSA value
-into `env`). Note that you can adjust the size of `env` as you please as long
-as constraints match for jump-sites, but keep in mind that `emitLabel()` will
-resize `env` back to what it was at the time of `newLabel()`.
-
-Instructions expect their parameter types to be correct. Passing floating-point
-values to instructions that expect integer values or vice versa will result
-in undefined behaviour (ie. invalid code or `assert`).
-The compiler should never fail with valid data, so we
-do not provide error reporting other than `assert`. This is a conscious design
-decision, as error checking should be done at higher levels.
-
-The type system is very primitive though and mostly exists for the purpose of
-tracking which registers we can use to store values. In particular, anything
-stored in general purpose registers is called `_ptr` (or simply integers).
-
-Instructions starting `i` are for integers, `u` are unsigned variants when
-there is a distinction and `f` is floating point (though we might change the
-double-precision variants to `d` if we add single-precision versions). Note
-that floating-point comparisons return integers, even though they expect
-`_f64` parameters.
-
-### The compiler currently exposes the following instructions:
-
-`lci i64` and `lcf f64` specify constants, `jmp label` is unconditional jump
-and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise,
-`iret a` returns from the function with integer value and `fret a` returns with
-a floating point value.
-
-`ieq a b` and `ine a b` compare two integers for equality or inequality and
-produce `0` or `1`.
-
-`ilt a b`, `ile a b`, `ige a b` and `igt a b` compare signed integers
-for less, less-or-equal, greater-or-equal and greater respectively
-
-`ult a b`, `ule a b`, `uge a b` and `ugt a b` perform unsigned comparisons
-
-`feq a b`, `fne a b`, `flt a b`, `fle a b`, `fge a b` and `fgt a b` are
-floating point version of the same (still produce integer `0` or `1`).
-
-`iadd a b`, `isub a b` and `imul a b` perform (signed or unsigned) integer
-addition, subtraction and multiplication, while `ineg a` negates an integer
-
-`idiv a b` and `imod a b` perform signed division and modulo
-
-`udiv a b` and `umod a b` perform unsigned division and modulo
-
-`inot a`, `iand a b`, `ior a b` and `ixor a b` perform bitwise logical operations
-
-`ishr a b` and `ushr a b` are signed and unsigned right-shift while 
-left-shift (signed or unsigned) is `ishl a b` and we specify that the number
-of bits to shift is modulo the bitsize of integers (eg. 64 on x64 which does
-this natively, but it's easy enough to mask on hardware that might not)
-
-`fadd a b`, `fsub a b`, `fmul a b`, `fdiv a b` and `fneg a` are floating point
-versions of arithmetic operations
-
-`cf2i a` converts doubles to integers while `ci2f` converts integers to doubles
-
-`bcf2i a` and `bci2f a` bit-cast (ie. reinterpret) without conversion
-
-`i8 a`, `i16 a` and `i32 a` can be used to sign-extend the low 8/16/32 bits
-
-`u8 a`, `u16 a` and `u32 a` can be used to zero-extend the low 8/16/32 bits
-
-Loads follow the form `lXX ptr imm32` where `ptr` is integer SSA value and `imm32`
-is an immediate offset (eg. for field offsets). The variants defined are 
-`li8/16/32/64`, `lu8/16/32` and `lf64`. The integer `i` variants sign-extend
-while the `u` variants zero-extend.
-
-Stores follow the form `sXX ptr imm32 value` where `ptr` and `imm32` are like loads
-while `value` is the SSA value to store. Variants are like loads, but without
-the unsigned versions.
-
-Internal we have additional instructions that the fold-engine will use (in the
-future the exact set might vary between platforms, so we rely on fold), but they
-should be fairly obvious when seen in debug, eg. `jugeI`is a conditional jump on
-`uge` comparison with the second operand converted to an `imm32` field.
 
 ## SSA?
 
