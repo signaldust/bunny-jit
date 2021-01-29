@@ -90,6 +90,8 @@ void Proc::opt_dce()
                     if(ops[i].label[0] == ops[i].label[1])
                     {
                         ops[i].opcode = ops::jmp;
+                        ops[i].in[0] = noVal;
+                        ops[i].in[1] = noVal;
                         progress = true;
                     }
                 }
@@ -194,50 +196,49 @@ void Proc::opt_dce()
                 if(ops[i].opcode <= ops::iretI) deadTail = true;
             }
         }
-    
-        // cleanup using a stack
-        std::vector<unsigned>   deadOps;
-        for(auto & b : blocks)
+
+        for(auto bi : live)
         {
-            if(!b.flags.live) continue;
+            auto & b = blocks[bi];
+            
+            // loop backwards to figure ou what's dead
+            for(int i = b.code.size(); i--;)
+            {
+                if(b.code[i] == noVal) continue;
+                
+                auto & op = ops[b.code[i]];
+                if(op.opcode == ops::nop) continue;
+                if(op.hasSideFX() || op.nUse) continue;
+
+                switch(op.nInputs())
+                {
+                case 2: --ops[op.in[1]].nUse;
+                case 1: --ops[op.in[0]].nUse;
+                default:
+                    if(op.opcode == ops::phi)
+                    {
+                        blocks[op.block].args[op.phiIndex].alts.clear();
+                    }
+                    op.opcode = ops::nop;
+                    op.in[0] = noVal;
+                    op.in[1] = noVal;
+                    progress = true;
+                }
+            }
+
+            // loop forward to cleanup
             int j = 0;
             for(int i = 0; i < b.code.size(); ++i)
             {
                 if(b.code[i] == noVal) continue;
                 if(ops[b.code[i]].opcode == ops::nop) continue;
-                if(!ops[b.code[i]].hasSideFX() && !ops[b.code[i]].nUse)
-                {
-                    deadOps.push_back(b.code[i]);
-                }
-    
+                if(!ops[b.code[i]].hasSideFX() && !ops[b.code[i]].nUse) continue;
+                
                 if(j != i) b.code[j] = b.code[i];
                 ++j;
             }
+
             b.code.resize(j);
-        }
-        
-        while(deadOps.size())
-        {
-            auto i = deadOps.back(); deadOps.pop_back();
-    
-            //printf("dead: "); debugOp(i);
-            
-            switch(ops[i].nInputs())
-            {
-            case 2:
-                if(!--ops[ops[i].in[1]].nUse) deadOps.push_back(ops[i].in[1]);
-            case 1:
-                if(!--ops[ops[i].in[0]].nUse) deadOps.push_back(ops[i].in[0]);
-            default:
-                if(ops[i].opcode == ops::phi)
-                {
-                    blocks[ops[i].block].args[ops[i].phiIndex].alts.clear();
-                }
-                ops[i].opcode = ops::nop;
-                ops[i].in[0] = noVal;
-                ops[i].in[1] = noVal;
-                progress = true;
-            }
         }
     }
 
