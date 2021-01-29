@@ -1089,17 +1089,74 @@ bool Proc::opt_fold()
                     
                     if(ptr)
                     {
-                        rename.add(bc, ptr->index);
-                        ops[ptr->index].nUse += op.nUse;
-                        
-                        op.opcode = ops::nop;
-                        op.i64 = ~0ull;
-                        progress = true;
-                        continue;
-                    }
-                    else
-                    {
+                        // closest common dominator
+                        int ccd = 0;
+                        int iMax = std::min(
+                            blocks[b].dom.size(), blocks[ptr->block].dom.size());
+                        for(int i = 0; i < iMax; ++i)
+                        {
+                            if(blocks[b].dom[i] == blocks[ptr->block].dom[i])
+                                ccd = i;
+                            else break;
+                        }
 
+                        printf("CCD %04x + %04x B%d\n", op.index, ptr->index, ccd);
+
+                        if(ccd == ptr->block)
+                        {
+                            rename.add(bc, ptr->index);
+                            ops[ptr->index].nUse += op.nUse;
+                            
+                            op.opcode = ops::nop;
+                            op.i64 = ~0ull;
+                            progress = true;
+                            continue;
+                        }
+                        else
+                        {
+                            bc = noVal;
+                            op.block = ccd;
+    
+                            // try to move the new op backwards
+                            int k = blocks[ccd].code.size();
+                            blocks[ccd].code.push_back(op.index);
+                            while(k--)
+                            {
+                                // don't move past anything with sideFX
+                                // but DO move past jumps
+                                if(blocks[ccd].code[k] != noVal
+                                && ops[blocks[ccd].code[k]].opcode > ops::jmp
+                                && !ops[blocks[ccd].code[k]].canMove()) break;
+                                
+                                // sanity check that we don't move past inputs
+                                bool canMove = true;
+                                for(int j = 0; j < op.nInputs(); ++j)
+                                {
+                                    if(blocks[ccd].code[k] != op.in[j]) continue;
+                                    canMove = false;
+                                    break;
+                                }
+
+                                if(!canMove) break;
+    
+                                // move
+                                std::swap(blocks[ccd].code[k],
+                                    blocks[ccd].code[k+1]);
+                            }
+
+                            auto & other = ops[ptr->index];
+                            cseTable.remove(other);
+
+                            rename.add(other.index, op.index);
+                            op.nUse += other.nUse;
+                            other.opcode = ops::nop;
+                            other.i64 = ~0ull;
+
+                            cseTable.insert(op);
+                        }
+                    }
+                    else 
+                    {
                         // walk up the idom chain
                         auto mblock = b;
                         while(mblock)
@@ -1149,8 +1206,7 @@ bool Proc::opt_fold()
                             }
                         }
                         
-                        OpCSE cse(op);
-                        cseTable.insert(cse);
+                        cseTable.insert(op);
                     }
                 }
             }

@@ -323,6 +323,7 @@ void Proc::allocRegs()
             {
                 regstate[ops[op.in[0]].reg] = noVal;
                 prefer = ops[op.in[0]].reg;
+                rename.add(ops[op.in[0]].index, op.index);
             }
 
             // clobbers - could try to save, but whatever

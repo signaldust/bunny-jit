@@ -325,6 +325,7 @@ void Proc::opt_dce()
         }
     }
 
+#if 0 // FIXME: are we guaranteed to always have dominators in order from above?
     // find immediate dominators
     for(auto & b : live)
     {
@@ -339,7 +340,22 @@ void Proc::opt_dce()
                 if(dd == blocks[b].idom) { blocks[b].idom = d; break; }
             }
         }
+
+        assert(b == 0 || blocks[b].idom == blocks[b].dom[blocks[b].dom.size()-2]);
     }
+#else
+    for(auto & b : live)
+    {
+        for(auto & d : blocks[b].dom)
+        {
+            for(int i = 0; i < blocks[d].dom.size(); ++i)
+            {
+                assert(blocks[d].dom[i] == blocks[b].dom[i]);
+            }
+        }
+        blocks[b].idom = !b ? 0 : blocks[b].dom[blocks[b].dom.size()-2];
+    }
+#endif
 
     // cleanup dead phi alternatives
     for(auto & b : live)

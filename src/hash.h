@@ -124,6 +124,10 @@ namespace bjit
             }
         }
 
+        // if Item provides a converting constructor, allow direct call
+        template <typename T>
+        void insert(T & t) { Item tmp(t); insert(tmp); }
+
         // clear the whole table
         void clear()
         {

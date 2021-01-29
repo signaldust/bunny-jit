@@ -191,7 +191,7 @@
     _(icallp, 1+BJIT_SIDEFX, 1), \
     _(fcallp, 1+BJIT_SIDEFX, 1), \
     /* this is user-requested allocation with reg = stack pointer */ \
-    _(alloc, 1+BJIT_SIDEFX, BJIT_IMM32), \
+    _(alloc, 1+BJIT_SIDEFX+BJIT_NOMOVE, BJIT_IMM32), \
     /* pseudo-ops: polymorphic */ \
     _(phi,    1+BJIT_NOMOVE, 0), \
     _(rename, 1, 1), \
