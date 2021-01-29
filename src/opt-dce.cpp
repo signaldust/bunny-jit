@@ -325,6 +325,22 @@ void Proc::opt_dce()
         }
     }
 
+    // find immediate dominators
+    for(auto & b : live)
+    {
+        blocks[b].idom = 0;
+        
+        for(auto & d : blocks[b].dom)
+        {
+            if(d == b) continue;
+
+            for(auto & dd : blocks[d].dom)
+            {
+                if(dd == blocks[b].idom) { blocks[b].idom = d; break; }
+            }
+        }
+    }
+
     // cleanup dead phi alternatives
     for(auto & b : live)
     for(auto & a : blocks[b].args)
