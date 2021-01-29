@@ -22,6 +22,7 @@ void Proc::opt_dce()
     
             for(auto & i : b.code)
             {
+                if(i == noVal) continue;
                 // NOTE: nUse aliases on labels
                 if(ops[i].opcode > ops::jmp) ops[i].nUse = 0;
             }
@@ -40,6 +41,8 @@ void Proc::opt_dce()
             
             for(auto i : blocks[b].code)
             {
+                if(i == noVal) continue;
+            
                 switch(ops[i].nInputs())
                 {
                     case 2: ++ops[ops[i].in[1]].nUse;
@@ -52,7 +55,8 @@ void Proc::opt_dce()
                 {
                     if(k && ops[i].opcode == ops::jmp) break;
                     
-                    while(ops[blocks[ops[i].label[k]].code[0]].opcode == ops::jmp
+                    while(blocks[ops[i].label[k]].code[0] != noVal
+                    && ops[blocks[ops[i].label[k]].code[0]].opcode == ops::jmp
                     && i != blocks[ops[i].label[k]].code[0])    // check infinite
                     {
                         // patch target phis
@@ -99,6 +103,8 @@ void Proc::opt_dce()
             bool deadTail = false;
             for(auto i : b.code)
             {
+                if(i == noVal) continue;
+                
                 if(deadTail)
                 {
                     ops[i].opcode = ops::nop;
@@ -197,6 +203,7 @@ void Proc::opt_dce()
             int j = 0;
             for(int i = 0; i < b.code.size(); ++i)
             {
+                if(b.code[i] == noVal) continue;
                 if(ops[b.code[i]].opcode == ops::nop) continue;
                 if(!ops[b.code[i]].hasSideFX() && !ops[b.code[i]].nUse)
                 {
