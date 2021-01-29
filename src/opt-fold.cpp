@@ -222,8 +222,40 @@ bool Proc::opt_fold()
                         if(s.val == r.src) s.val = r.dst;
                     }
                 }
+
+                // for associative operations and comparisons where neither
+                // operand is constant, sort operands to improve CSE
+                if(!C0 && !C1)
+                switch(op.opcode)
+                {
+                    case ops::feq: case ops::fne:
+                    case ops::iadd: case ops::imul:
+                    case ops::fadd: case ops::fmul:
+                    case ops::iand: case ops::ior: case ops::ixor:
+                        if(op.in[0] < op.in[1])
+                        {
+                            std::swap(op.in[0], op.in[1]);
+                            progress = true;
+                        }
+                        break;
+                        
+                    case ops::ilt: case ops::ige: case ops::igt: case ops::ile:
+                    case ops::ult: case ops::uge: case ops::ugt: case ops::ule:
+                    case ops::flt: case ops::fge: case ops::fgt: case ops::fle:
+                        // (xor 2) relative to ilt swaps operands
+                        if(op.in[0] < op.in[1])
+                        {
+                            op.opcode = ops::ilt + (2^(op.opcode-ops::ilt));
+                            std::swap(op.in[0], op.in[1]);
+                            progress = true;
+                        }
+                        break;
+
+                    default: break;
+                }
+                
     
-                // relive constant to second operand for associative ops
+                // swap constant to second operand for associative ops
                 // also do this for comparisons, negating the condition
                 if(C0 && !C1)
                 switch(op.opcode)
@@ -253,45 +285,16 @@ bool Proc::opt_fold()
                     case ops::jilt: case ops::jige: case ops::jigt: case ops::jile:
                     case ops::jult: case ops::juge: case ops::jugt: case ops::jule:
                     case ops::jflt: case ops::jfge: case ops::jfgt: case ops::jfle:
+                        op.opcode = 2 ^ op.opcode;
+                        std::swap(op.in[0], op.in[1]);
+                        progress = true;
+                        break;
+                        
                     case ops::ilt: case ops::ige: case ops::igt: case ops::ile:
                     case ops::ult: case ops::uge: case ops::ugt: case ops::ule:
                     case ops::flt: case ops::fge: case ops::fgt: case ops::fle:
-                        // we don't have an invariant for swapping operands
-                        // for comparisons, so we have to do this manually
-                        switch(op.opcode)
-                        {
-                        case ops::jilt: op.opcode = ops::jigt; break;
-                        case ops::jige: op.opcode = ops::jile; break;
-                        case ops::jigt: op.opcode = ops::jilt; break;
-                        case ops::jile: op.opcode = ops::jige; break;
-                        
-                        case ops::jult: op.opcode = ops::jugt; break;
-                        case ops::juge: op.opcode = ops::jule; break;
-                        case ops::jugt: op.opcode = ops::jult; break;
-                        case ops::jule: op.opcode = ops::juge; break;
-                        
-                        case ops::jflt: op.opcode = ops::jfgt; break;
-                        case ops::jfge: op.opcode = ops::jfle; break;
-                        case ops::jfgt: op.opcode = ops::jflt; break;
-                        case ops::jfle: op.opcode = ops::jfge; break;
-    
-                        case ops::ilt: op.opcode = ops::igt; break;
-                        case ops::ige: op.opcode = ops::ile; break;
-                        case ops::igt: op.opcode = ops::ilt; break;
-                        case ops::ile: op.opcode = ops::ige; break;
-                        
-                        case ops::ult: op.opcode = ops::ugt; break;
-                        case ops::uge: op.opcode = ops::ule; break;
-                        case ops::ugt: op.opcode = ops::ult; break;
-                        case ops::ule: op.opcode = ops::uge; break;
-                        
-                        case ops::flt: op.opcode = ops::fgt; break;
-                        case ops::fge: op.opcode = ops::fle; break;
-                        case ops::fgt: op.opcode = ops::flt; break;
-                        case ops::fle: op.opcode = ops::fge; break;
-                        }
+                        op.opcode = ops::ilt + (2^(op.opcode-ops::ilt));
                         std::swap(op.in[0], op.in[1]);
-    
                         progress = true;
                         break;
                 }
