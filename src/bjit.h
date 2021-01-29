@@ -241,10 +241,6 @@ namespace bjit
             // do DCE first, then fold
             // repeat until neither does progress
             do opt_dce(); while(opt_fold());
-
-            // move values down paths that need them
-            // essentially opposite of PRE
-            opt_sink();
         }
 
         void compile(std::vector<uint8_t> & bytes)
