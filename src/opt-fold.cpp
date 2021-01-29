@@ -93,7 +93,6 @@ bool Proc::opt_fold()
 
     int iter = 0;
 
-    cseTable.clear();
     bool progress = true, anyProgress = false;
     while(progress)
     {
