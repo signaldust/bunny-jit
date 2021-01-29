@@ -182,6 +182,7 @@ namespace bjit
 
         // dominators
         std::vector<uint16_t>   dom;
+        uint16_t                idom;   // immediate dominator
 
         struct {
             bool live       : 1;    // livescan uses this

@@ -756,8 +756,9 @@ void Proc::allocRegs()
                 for(auto & cf : blocks[op.label[0]].comeFrom) if(cf == b) cf = b0;
                 
                 // fix dominators, satisfy sanity
-                blocks[b1].dom = blocks[b].dom;
-                blocks[b1].dom.push_back(b1);
+                blocks[b0].dom = blocks[b].dom;
+                blocks[b0].dom.push_back(b1);
+                blocks[b0].idom = b;
                 
                 // rename target PHI sources, satisfy sanity
                 for(auto & a : blocks[op.label[0]].args)
@@ -786,6 +787,7 @@ void Proc::allocRegs()
                 // fix dominators, satisfy sanity
                 blocks[b1].dom = blocks[b].dom;
                 blocks[b1].dom.push_back(b1);
+                blocks[b1].idom = b;
                 
                 // rename target PHI sources, satisfy sanity
                 for(auto & a : blocks[op.label[1]].args)
