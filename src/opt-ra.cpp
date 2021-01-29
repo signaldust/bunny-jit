@@ -139,9 +139,6 @@ void Proc::allocRegs()
         
         for(int c = 0; c < blocks[b].code.size(); ++c)
         {
-            // reserve some excess, so we can keep reference
-            // should be max ~5, but alloc safe
-            ops.reserve(ops.size() + 20);
             auto & op = ops[blocks[b].code[c]];
 
             uint16_t lastOp = codeOut.size() ? codeOut.back() : 0xffff;
