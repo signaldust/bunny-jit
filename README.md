@@ -337,9 +337,8 @@ the loop, as long as it shuffles correctly: this is the power of SSA.
 
 In this case we didn't need any slots (the `1` here was added by the assembler
 to align the stack for the calling convention), otherwise spills would show
-up in the `SLOT` field like `=[0123]=`. Because DCE was the last analysis
-pass, we have global `USE` counts here (we would have local counts if we'd
-dumped the state after a Live pass). We also know all the incoming control
+up in the `SLOT` field like `=[0123]=`. DCE fills in the global `USE` counts.
+We also know all the incoming control
 flow edges, the block dominators and the incoming and outgoing registers.
 
 So what does `out.bin` look like?
