@@ -125,24 +125,13 @@ bool Proc::opt_fold()
                     
                     if(ptr)
                     {
-                        // try to rewrite directly first
-                        bool isDom = false;
-                        for(auto & d : blocks[b].dom)
-                        {
-                            if(d == ptr->block) isDom = true;
-                        }
-
-                        if(isDom)
-                        {
-                            rename.add(bc, ptr->index);
-                            ops[ptr->index].nUse += op.nUse;
-                            
-                            op.opcode = ops::nop;
-                            op.i64 = ~0ull;
-                            progress = true;
-                            continue;
-                        }
-                        else assert(false);
+                        rename.add(bc, ptr->index);
+                        ops[ptr->index].nUse += op.nUse;
+                        
+                        op.opcode = ops::nop;
+                        op.i64 = ~0ull;
+                        progress = true;
+                        continue;
                     }
                     else
                     {
@@ -172,17 +161,6 @@ bool Proc::opt_fold()
                             }
 
                             if(found) mblock = ops[op.in[i]].block;
-                            else
-                            {
-                                // this loop is just for assert
-                                for(auto & d : blocks[mblock].dom)
-                                {
-                                    if(d != ops[op.in[i]].block) continue;
-                                    found = true;
-                                    break;
-                                }
-                                assert(found);
-                            }
                         }
 
                         // if mblock is the current block, then we can't move
@@ -216,7 +194,6 @@ bool Proc::opt_fold()
                                 // move
                                 std::swap(blocks[mblock].code[k],
                                     blocks[mblock].code[k+1]);
-                                assert(blocks[mblock].code[k] == op.index);
                             }
                         }
                         
