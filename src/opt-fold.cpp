@@ -1099,34 +1099,22 @@ bool Proc::opt_fold()
                     }
                     else
                     {
-                        // one of the inputs is necessarily defined in a block
-                        // that has all the other input blocks as dominators
-                        // find this block (or take 0 if this is constant)
-                        auto mblock = 0;
 
-                        // fast path
-                        for(int i = 0; i < op.nInputs(); ++i)
+                        // walk up the idom chain
+                        auto mblock = b;
+                        while(mblock)
                         {
-                            if(b == ops[op.in[i]].block) { mblock = b; break; }
-                        }
-                        
-                        // slow path
-                        for(int i = 0; i < op.nInputs(); ++i)
-                        {
-                            if(mblock == b) break;
-                            
-                            // if mblock dom in[i] then mblock = in[i].block
-                            bool found = false;
-                            for(auto & d : blocks[ops[op.in[i]].block].dom)
+                            bool done = false;
+                            for(int k = 0; k < op.nInputs(); ++k)
                             {
-                                if(mblock != d) continue;
-                                found = true;
+                                if(mblock != ops[op.in[k]].block) continue;
+                                done = true;
                                 break;
                             }
-
-                            if(found) mblock = ops[op.in[i]].block;
+                            if(done) break;
+                            mblock = blocks[mblock].idom;
                         }
-
+                        
                         // if mblock is the current block, then we can't move
                         if(mblock != b)
                         {
