@@ -1100,8 +1100,6 @@ bool Proc::opt_fold()
                             else break;
                         }
 
-                        printf("CCD %04x + %04x B%d\n", op.index, ptr->index, ccd);
-
                         if(ccd == ptr->block)
                         {
                             rename.add(bc, ptr->index);
