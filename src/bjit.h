@@ -204,6 +204,9 @@ namespace bjit
         //
         Proc(unsigned allocBytes, const char * args)
         {
+            // reserve space for maximum number of ops
+            // NOTE: opt-ra and opt-fold assume we don't realloc
+            ops.reserve(noVal);
             currentBlock = newLabel();
             emitLabel(currentBlock);
 

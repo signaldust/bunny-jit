@@ -105,9 +105,6 @@ bool Proc::opt_fold()
         {
             for(auto bc : blocks[b].code)
             {
-                // protect refs: really only need +1 but whatever
-                ops.reserve(ops.size() + 10);
-                
                 auto & op = ops[bc];
 
                 if(op.opcode == ops::nop)
