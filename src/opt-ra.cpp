@@ -12,7 +12,7 @@ void Proc::allocRegs()
     livescan();
     
     printf(" RA:BB\n");
-    
+
     std::vector<uint16_t>   codeOut;
 
     Rename rename;
@@ -316,6 +316,14 @@ void Proc::allocRegs()
                     }
                 }
             }
+            
+            // if this is rename from SCCs then always use same register
+            // this is fine, because we know how to reuse
+            if(op.opcode == ops::rename)
+            {
+                regstate[ops[op.in[0]].reg] = noVal;
+                prefer = ops[op.in[0]].reg;
+            }
 
             // clobbers - could try to save, but whatever
             RegMask lost = op.regsLost();
@@ -436,6 +444,7 @@ void Proc::allocRegs()
                 // never forcibly allocate a register to phi
                 continue;
             }
+
 
 
             RegMask mask = op.regsOut();
