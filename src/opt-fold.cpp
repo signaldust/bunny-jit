@@ -96,7 +96,7 @@ bool Proc::opt_fold()
     bool progress = true, anyProgress = false;
     while(progress)
     {
-        //debug();
+        debug();
         
         ++iter;
         progress = false;
@@ -123,6 +123,7 @@ bool Proc::opt_fold()
                 if(op.canCSE())
                 {
                     auto * ptr = cseTable.find(op);
+                    
                     if(ptr)
                     {
                         // try to rewrite directly first
@@ -138,88 +139,98 @@ bool Proc::opt_fold()
                             ops[ptr->index].nUse += op.nUse;
                             
                             op.opcode = ops::nop;
+                            op.i64 = ~0ull;
                             progress = true;
                             continue;
                         }
+                        else assert(false);
+                    }
+                    else
+                    {
+                        // one of the inputs is necessarily defined in a block
+                        // that has all the other input blocks as dominators
+                        // find this block (or take 0 if this is constant)
+                        auto mblock = 0;
+
+                        // fast path
+                        for(int i = 0; i < op.nInputs(); ++i)
+                        {
+                            if(b == ops[op.in[i]].block) { mblock = b; break; }
+                        }
                         
-                        // find common dominators
-                        std::vector<uint16_t> cDom;
-                        for(auto sd : blocks[ptr->block].dom)
+                        // slow path
+                        for(int i = 0; i < op.nInputs(); ++i)
                         {
-                            for(auto bd : blocks[b].dom)
-                            {
-                                if(bd == sd) cDom.push_back(bd);
-                            }
-                        }
-
-                        // for each input, prune blocks that
-                        // dominate input (but not the input block itself)
-                        std::vector<uint16_t> tmp;
-                        for(int j = 0; j < op.nInputs(); ++j)
-                        {
-                            for(auto cd : cDom)
-                            {
-                                bool found = false;
-                                if(cd != ops[op.in[j]].block)
-                                    for(auto jd : blocks[ops[op.in[j]].block].dom)
-                                {
-                                    if(jd == cd) { found = true; break; }
-                                }
-                                
-                                if(!found) tmp.push_back(cd);
-                            }
-                            std::swap(tmp, cDom); tmp.clear();
-                        }
-
-                        // we should still have some common dominators
-                        assert(cDom.size());
-
-                        // FIXME: is the closest always last?
-                        auto mblock = cDom.back();
-                        auto mm = addOp(op.opcode, op.flags.type, mblock);
-                        ops[mm].i64 = op.i64;
-                        ops[mm].nUse = op.nUse + ops[ptr->index].nUse;
-
-                        // try to move the new op backwards
-                        int k = blocks[mblock].code.size() - 1;
-                        while(k--)
-                        {
-                            // don't move past anything with sideFX
-                            // but DO move past jumps
-                            if(ops[blocks[mblock].code[k]].opcode > ops::jmp
-                            && ops[blocks[mblock].code[k]].canMove()) break;
+                            if(mblock == b) break;
                             
-                            // sanity check that we don't move past inputs
-                            bool canMove = true;
-                            for(int j = 0; j < op.nInputs(); ++j)
+                            // if mblock dom in[i] then mblock = in[i].block
+                            bool found = false;
+                            for(auto & d : blocks[ops[op.in[i]].block].dom)
                             {
-                                if(blocks[mblock].code[k] != op.in[j]) continue;
-                                canMove = false;
+                                if(mblock != d) continue;
+                                found = true;
                                 break;
                             }
 
-                            // move
-                            std::swap(blocks[mblock].code[k],
-                                blocks[mblock].code[k+1]);
-                            assert(blocks[mblock].code[k] == mm);
+                            if(found) mblock = ops[op.in[i]].block;
+                            else
+                            {
+                                // this loop is just for assert
+                                for(auto & d : blocks[mblock].dom)
+                                {
+                                    if(d != ops[op.in[i]].block) continue;
+                                    found = true;
+                                    break;
+                                }
+                                assert(found);
+                            }
                         }
 
-                        rename.add(ptr->index, mm);
-                        rename.add(op.index, mm);
+                        // if mblock is the current block, then we can't move
+                        if(mblock != b)
+                        {
+                            auto mm = addOp(op.opcode, op.flags.type, mblock);
+                            ops[mm].i64 = op.i64;
+                            ops[mm].nUse = op.nUse;
+    
+                            // try to move the new op backwards
+                            int k = blocks[mblock].code.size() - 1;
+                            while(k--)
+                            {
+                                // don't move past anything with sideFX
+                                // but DO move past jumps
+                                if(ops[blocks[mblock].code[k]].opcode > ops::jmp
+                                && !ops[blocks[mblock].code[k]].canMove()) break;
+                                
+                                // sanity check that we don't move past inputs
+                                bool canMove = true;
+                                for(int j = 0; j < op.nInputs(); ++j)
+                                {
+                                    if(blocks[mblock].code[k] != op.in[j]) continue;
+                                    canMove = false;
+                                    break;
+                                }
 
-                        ops[ptr->index].opcode = ops::nop;
-                        ops[ptr->index].i64 = ~0ull;
-                        op.opcode = ops::nop;
-                        op.i64 = ~0ull;
-                        
-                        rename.add(ptr->index, mm);
-                        cseTable.remove(*ptr);
-                        
-                        OpCSE cse(ops[mm]);
-                        cseTable.insert(cse);
-                        
-                        progress = true;
-                        continue;
+                                if(!canMove) break;
+    
+                                // move
+                                std::swap(blocks[mblock].code[k],
+                                    blocks[mblock].code[k+1]);
+                                assert(blocks[mblock].code[k] == mm);
+                            }
+    
+                            rename.add(op.index, mm);
+                            op.opcode = ops::nop;
+                            op.i64 = ~0ull;
+                            
+                            OpCSE cse(ops[mm]);
+                            cseTable.insert(cse);
+                        }
+                        else
+                        {
+                            OpCSE cse(op);
+                            cseTable.insert(cse);
+                        }
                     }
                 }
     
@@ -1154,10 +1165,6 @@ bool Proc::opt_fold()
                         break;
     
                 }
-
-                // if we're here, insert to CSE table
-                OpCSE cse(op);
-                cseTable.insert(cse);
             }
         }
         if(progress) anyProgress = true;
