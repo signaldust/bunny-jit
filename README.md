@@ -279,7 +279,7 @@ L6:
 ;----
 ```
 
-That looks incredibly silly, doesn't it? But we have an optimizer:
+That said, the code looks incredibly silly, doesn't it? But we have an optimizer:
 ```
 -- Optimizing:
  DCE:4+2 Fold:3
@@ -335,6 +335,13 @@ and then get rid of the unnecessary branches (they were the same after all).
 Note how the compiler realized that it can compute the final `(x+1)` inside
 the loop, as long as it shuffles correctly: this is the power of SSA.
 
+In this case we didn't need any slots (the `1` here was added by the assembler
+to align the stack for the calling convention), otherwise spills would show
+up in the `SLOT` field like `=[0123]=`. Because DCE was the last analysis
+pass, we have global `USE` counts here (we would have local counts if we'd
+dumped the state after a Live pass). We also know all the incoming control
+flow edges, the block dominators and the incoming and outgoing registers.
+
 So what does `out.bin` look like?
 ```
 $ gobjdump --insn-width=16 -mi386:x86-64:intel -d -D -b binary out.bin
@@ -369,6 +376,8 @@ Disassembly of section .data:
 
 This doesn't look too bad, does it? We still have the silly division, but after
 that the loop is roughly what you would expect without unrolling, isn't it?
+Our instruction selection is naive, but we're providing it with bytecode that
+still allows the naive approach to do a half-decent job.
 
 Loop unrolling is something I am divided about, because then we enter the
 territory of complicated heuristics of profitability. Perhaps some day Bunny-JIT
