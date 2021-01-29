@@ -87,7 +87,6 @@ namespace bjit
 
         struct {
             Type    type    : 4;    // see above, packed into flags
-            bool    keep    : 1;
             bool    spill   : 1;
         } flags = {};
 
@@ -100,6 +99,7 @@ namespace bjit
         RegMask     regsOut();      // in arch-XX-ops.cpp
         RegMask     regsLost();     // in arch-XX-ops.cpp
 
+        // rest are in ir-ops.cpp
         const char* strOpcode() const;
         
         unsigned    nInputs()   const;
