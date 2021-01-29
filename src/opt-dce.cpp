@@ -45,7 +45,7 @@ void Proc::opt_dce()
                     case 2: ++ops[ops[i].in[1]].nUse;
                     case 1: ++ops[ops[i].in[0]].nUse;
                 }
-    
+                
                 // only need to look at last op
                 if(ops[i].opcode <= ops::jmp)
                 for(int k = 0; k < 2; ++k)
@@ -92,7 +92,7 @@ void Proc::opt_dce()
             }
         }
     
-        // phi-uses - FIXME: get the breath-first from NNC?
+        // phi-uses
         for(auto & b : blocks)
         {
             if(!b.flags.live) continue;
