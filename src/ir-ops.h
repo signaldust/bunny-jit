@@ -15,12 +15,15 @@
 #define BJIT_F64    0x40    // has double constant
 
 #define BJIT_OPS(_) \
+    /* CAREFUL WITH THE ORDER HERE (see below also) */ \
     /* (xor 1): branch signed integer comparisons */ \
+    /* (xor 2): operations swapped */ \
     _(jilt, 0, 2), \
     _(jige, 0, 2), \
     _(jigt, 0, 2), \
     _(jile, 0, 2), \
     /* (xor 1): branch unsigned integer comparisons */ \
+    /* (xor 2): operations swapped */ \
     _(jult, 0, 2), \
     _(juge, 0, 2), \
     _(jugt, 0, 2), \
@@ -28,14 +31,15 @@
     /* (xor 1): branch integer equality (equal, not equal) */ \
     _(jieq, 0, 2), \
     _(jine, 0, 2), \
+    /* (xor 1): branch float equality (equal, not equal) */ \
+    _(jfeq, 0, 2), \
+    _(jfne, 0, 2), \
     /* (xor 1): branch float comparisons */ \
+    /* (xor 2): operations swapped */ \
     _(jflt, 0, 2), \
     _(jfge, 0, 2), \
     _(jfgt, 0, 2), \
     _(jfle, 0, 2), \
-    /* (xor 1): branch float equality (equal, not equal) */ \
-    _(jfeq, 0, 2), \
-    _(jfne, 0, 2), \
     /* (xor 1): integer zero, not-zero tests */ \
     _(jz,  0, 1), \
     _(jnz, 0, 1), \
@@ -79,14 +83,14 @@
     /* (xor 1): integer equality (equal, not equal) */ \
     _(ieq, BJIT_CSE+1, 2), \
     _(ine, BJIT_CSE+1, 2), \
+    /* (xor 1): float equality (equal, not equal) */ \
+    _(feq, BJIT_CSE+1, 2), \
+    _(fne, BJIT_CSE+1, 2), \
     /* (xor 1): floating point comparisons */ \
     _(flt, BJIT_CSE+1, 2), \
     _(fge, BJIT_CSE+1, 2), \
     _(fgt, BJIT_CSE+1, 2), \
     _(fle, BJIT_CSE+1, 2), \
-    /* (xor 1): float equality (equal, not equal) */ \
-    _(feq, BJIT_CSE+1, 2), \
-    _(fne, BJIT_CSE+1, 2), \
     /* */ \
     /* NOTE: THESE SHOULD MATCH THOSE STARTING FROM 'jilt' */ \
     /* SO MAKE SURE THE POSITIONS STAY RELATIVE */ \
