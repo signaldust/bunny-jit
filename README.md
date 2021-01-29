@@ -102,10 +102,11 @@ resize `env` back to what it was at the time of `newLabel()`.
 
 Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
-in undefined behaviour (ie. invalid code or `assert`).
-The compiler should never fail with valid data, so we
-do not provide error reporting other than `assert`. This is a conscious design
-decision, as error checking should be done at higher levels.
+in undefined behaviour (ie. invalid code or `assert`). The compiler should never
+fail with valid data unless bytecode size limit is exceeded (in which case we
+`throw bjit::too_many_ops` if compiled with exceptions; otherwise we `assert`),
+so we do not provide error reporting other than `assert` (lots of them). This
+is a conscious design decision, as error checking should be done at higher levels.
 
 The type system is very primitive though and mostly exists for the purpose of
 tracking which registers we can use to store values. In particular, anything
