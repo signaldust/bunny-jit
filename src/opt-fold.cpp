@@ -103,8 +103,10 @@ bool Proc::opt_fold()
         cseTable.clear();
         for(auto b : live)
         {
-            for(auto bc : blocks[b].code)
+            for(auto & bc : blocks[b].code)
             {
+                if(bc == noVal) continue;
+                
                 auto & op = ops[bc];
 
                 if(op.opcode == ops::nop)
@@ -186,17 +188,18 @@ bool Proc::opt_fold()
                         // if mblock is the current block, then we can't move
                         if(mblock != b)
                         {
-                            auto mm = addOp(op.opcode, op.flags.type, mblock);
-                            ops[mm].i64 = op.i64;
-                            ops[mm].nUse = op.nUse;
+                            bc = noVal;
+                            op.block = mblock;
     
                             // try to move the new op backwards
-                            int k = blocks[mblock].code.size() - 1;
+                            int k = blocks[mblock].code.size();
+                            blocks[mblock].code.push_back(op.index);
                             while(k--)
                             {
                                 // don't move past anything with sideFX
                                 // but DO move past jumps
-                                if(ops[blocks[mblock].code[k]].opcode > ops::jmp
+                                if(blocks[mblock].code[k] != noVal
+                                && ops[blocks[mblock].code[k]].opcode > ops::jmp
                                 && !ops[blocks[mblock].code[k]].canMove()) break;
                                 
                                 // sanity check that we don't move past inputs
@@ -213,21 +216,12 @@ bool Proc::opt_fold()
                                 // move
                                 std::swap(blocks[mblock].code[k],
                                     blocks[mblock].code[k+1]);
-                                assert(blocks[mblock].code[k] == mm);
+                                assert(blocks[mblock].code[k] == op.index);
                             }
-    
-                            rename.add(op.index, mm);
-                            op.opcode = ops::nop;
-                            op.i64 = ~0ull;
-                            
-                            OpCSE cse(ops[mm]);
-                            cseTable.insert(cse);
                         }
-                        else
-                        {
-                            OpCSE cse(op);
-                            cseTable.insert(cse);
-                        }
+                        
+                        OpCSE cse(op);
+                        cseTable.insert(cse);
                     }
                 }
     
