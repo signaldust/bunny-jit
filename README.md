@@ -285,7 +285,7 @@ That looks incredibly silly, doesn't it? But we have an optimizer:
  DCE:3+2 Fold:1
  DCE:1+2 Live:1
  RA:SCC DCE:1+2 Live:1
- RA:BB DCE:1+2 SANE RA:JMP DONE
+ RA:BB DCE:1+2 RA:JMP SANE DONE
 
 ;---- Slots: 1
 L0:
@@ -317,7 +317,7 @@ L3: <L1
 ; Out:
 
 L8: <L1
-; Dom:
+; Dom: ^L0 ^L1 ^L8
 ; Regs: rax:002c
 ; SLOT  VALUE    REG       OP USE TYPE  ARGS
  (ffff)  0030    rsi   rename   0  ptr  rax:002c
