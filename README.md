@@ -16,10 +16,10 @@ Features:
   * uses low-level portable bytecode that models common architectures
   * supports integers and double-floats (other types in the future)
   * end-to-end SSA, with consistency checking and simple interface to generate valid SSA
-  * performs DCE, global CSE, constant prop/folding and register allocation (likely more in the future)
+  * performs roughly DCE, CSE, LICM, const-prop and register allocation (as of now)
   * assembles to native binary code (ready to be copied to executable memory)
   * uses `std::vector` to manage memory, keeps `valgrind` happy
-  
+
 It is intended for situations where it is desirable to create some native code
 on the fly (eg. for performance reasons), but including something like LLVM would
 be a total overkill.
