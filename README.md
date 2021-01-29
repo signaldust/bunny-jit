@@ -16,14 +16,14 @@ Features:
   * uses low-level portable bytecode that models common architectures
   * supports integers and double-floats (other types in the future)
   * end-to-end SSA, with consistency checking and simple interface to generate valid SSA
-  * performs roughly<sup>1</sup>] DCE, CSE, LICM, const-prop and register allocation (as of now)
+  * performs roughly<sup>1</sup> DCE, CSE, LICM, const-prop and register allocation (as of now)
   * assembles to native binary code (ready to be copied to executable memory)
   * uses `std::vector` to manage memory, keeps `valgrind` happy
 
 <sup>1</sup>: I find it slightly challenging to relate exactly to traditional compiler
 optimisations that insist talking about variables. We don't have variables,
-we don't optimize variables, we simplify a data-flow graph. But this is roughly
-what we end up with.
+we don't optimize variables, we simplify a data-flow graph. But this is more or
+less what we end up with currently.
 
 It is intended for situations where it is desirable to create some native code
 on the fly (eg. for performance reasons), but including something like LLVM would
