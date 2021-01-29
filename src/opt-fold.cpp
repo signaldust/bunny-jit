@@ -228,6 +228,7 @@ bool Proc::opt_fold()
                 if(!C0 && !C1)
                 switch(op.opcode)
                 {
+                    case ops::ieq: case ops::ine:
                     case ops::feq: case ops::fne:
                     case ops::iadd: case ops::imul:
                     case ops::fadd: case ops::fmul:
