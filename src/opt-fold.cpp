@@ -96,7 +96,7 @@ bool Proc::opt_fold()
     bool progress = true, anyProgress = false;
     while(progress)
     {
-        debug();
+        //debug();
         
         ++iter;
         progress = false;
