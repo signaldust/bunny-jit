@@ -1090,23 +1090,68 @@ bool Proc::opt_fold()
                     if(ptr)
                     {
                         // closest common dominator
+                        auto & other = ops[ptr->index];
+                        auto pb = ptr->block;
                         int ccd = 0;
                         int iMax = std::min(
-                            blocks[b].dom.size(), blocks[ptr->block].dom.size());
+                            blocks[b].dom.size(), blocks[pb].dom.size());
                         for(int i = 0; i < iMax; ++i)
                         {
-                            if(blocks[b].dom[i] == blocks[ptr->block].dom[i])
-                                ccd = i;
+                            if(blocks[b].dom[i] == blocks[pb].dom[i]) ccd = i;
                             else break;
                         }
 
+                        // check if we skip conditional jumps
+                        bool bad = false;
+                        for(int i = blocks[b].dom.size(); i--;)
+                        {
+                            if(bad) break;
+                            
+                            int dom = blocks[b].dom[i];
+                            if(dom == ccd) break;
+                            if(ops[blocks[dom].code.back()].opcode < ops::jmp)
+                            {
+                                debugOp(blocks[dom].code.back());
+                                bad = true;
+                                break;
+                            }
+                        }
+
+                        // check if we skip conditional jumps
+                        for(int i = blocks[pb].dom.size(); i--;)
+                        {
+                            if(bad) break;
+                            
+                            int dom = blocks[pb].dom[i];
+                            if(dom == ccd) break;
+                            if(ops[blocks[dom].code.back()].opcode < ops::jmp)
+                            {
+                                debugOp(blocks[dom].code.back());
+                                bad = true;
+                                break;
+                            }
+                        }
+
+                        if(bad) { cseTable.insert(op); continue; }
+
                         if(ccd == ptr->block)
                         {
-                            rename.add(bc, ptr->index);
-                            ops[ptr->index].nUse += op.nUse;
-                            
+                            rename.add(op.index, ptr->index);
                             op.opcode = ops::nop;
                             op.i64 = ~0ull;
+                            
+                            progress = true;
+                            continue;
+                        }
+                        else if(ccd == b)
+                        {
+                            rename.add(other.index, op.index);
+
+                            other.opcode = ops::nop;
+                            other.i64 = ~0ull;
+                            
+                            cseTable.insert(op);
+                            
                             progress = true;
                             continue;
                         }
@@ -1142,15 +1187,12 @@ bool Proc::opt_fold()
                                     blocks[ccd].code[k+1]);
                             }
 
-                            auto & other = ops[ptr->index];
-                            cseTable.remove(other);
-
-                            rename.add(other.index, op.index);
-                            op.nUse += other.nUse;
                             other.opcode = ops::nop;
                             other.i64 = ~0ull;
-
+                            
+                            rename.add(other.index, op.index);
                             cseTable.insert(op);
+                            progress = true;
                         }
                     }
                     else 
@@ -1167,6 +1209,12 @@ bool Proc::opt_fold()
                                 break;
                             }
                             if(done) break;
+
+                            // sanity check conditional jumps
+                            auto idom = blocks[mblock].idom;
+                            if(ops[blocks[idom].code.back()].opcode < ops::jmp)
+                                break;
+                                
                             mblock = blocks[mblock].idom;
                         }
                         
