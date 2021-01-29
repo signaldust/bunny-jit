@@ -117,90 +117,6 @@ bool Proc::opt_fold()
                 }
                 
                 rename(op);
-
-                // CSE
-                if(op.canCSE())
-                {
-                    auto * ptr = cseTable.find(op);
-                    
-                    if(ptr)
-                    {
-                        rename.add(bc, ptr->index);
-                        ops[ptr->index].nUse += op.nUse;
-                        
-                        op.opcode = ops::nop;
-                        op.i64 = ~0ull;
-                        progress = true;
-                        continue;
-                    }
-                    else
-                    {
-                        // one of the inputs is necessarily defined in a block
-                        // that has all the other input blocks as dominators
-                        // find this block (or take 0 if this is constant)
-                        auto mblock = 0;
-
-                        // fast path
-                        for(int i = 0; i < op.nInputs(); ++i)
-                        {
-                            if(b == ops[op.in[i]].block) { mblock = b; break; }
-                        }
-                        
-                        // slow path
-                        for(int i = 0; i < op.nInputs(); ++i)
-                        {
-                            if(mblock == b) break;
-                            
-                            // if mblock dom in[i] then mblock = in[i].block
-                            bool found = false;
-                            for(auto & d : blocks[ops[op.in[i]].block].dom)
-                            {
-                                if(mblock != d) continue;
-                                found = true;
-                                break;
-                            }
-
-                            if(found) mblock = ops[op.in[i]].block;
-                        }
-
-                        // if mblock is the current block, then we can't move
-                        if(mblock != b)
-                        {
-                            bc = noVal;
-                            op.block = mblock;
-    
-                            // try to move the new op backwards
-                            int k = blocks[mblock].code.size();
-                            blocks[mblock].code.push_back(op.index);
-                            while(k--)
-                            {
-                                // don't move past anything with sideFX
-                                // but DO move past jumps
-                                if(blocks[mblock].code[k] != noVal
-                                && ops[blocks[mblock].code[k]].opcode > ops::jmp
-                                && !ops[blocks[mblock].code[k]].canMove()) break;
-                                
-                                // sanity check that we don't move past inputs
-                                bool canMove = true;
-                                for(int j = 0; j < op.nInputs(); ++j)
-                                {
-                                    if(blocks[mblock].code[k] != op.in[j]) continue;
-                                    canMove = false;
-                                    break;
-                                }
-
-                                if(!canMove) break;
-    
-                                // move
-                                std::swap(blocks[mblock].code[k],
-                                    blocks[mblock].code[k+1]);
-                            }
-                        }
-                        
-                        OpCSE cse(op);
-                        cseTable.insert(cse);
-                    }
-                }
     
                 // rename phis
                 if(op.opcode <= ops::jmp)
@@ -518,6 +434,15 @@ bool Proc::opt_fold()
                     std::swap(op.in[0], op.in[1]);
                     progress = true;
                 }
+
+                // a+a = a<<1
+                if(I(ops::iadd) && op.in[0] == op.in[1])
+                {
+                    op.opcode = ops::ishlI;
+                    op.in[1] = noVal;
+                    op.imm32 = 1;
+                    progress = true;
+                }
     
                 // addition immediate merges
                 if(I(ops::iaddI) && I0(ops::iaddI))
@@ -595,6 +520,24 @@ bool Proc::opt_fold()
                     progress = true;
                 }
     
+                // (a<<n)<<m = (a<<(n+m)), happens from adds/muls
+                if(I(ops::ishlI) && I0(ops::ishlI))
+                {
+                    int shift = op.imm32 + N0.imm32;
+                    // we need this rule, because (mod 64)
+                    if(shift >= 64)
+                    {
+                        op.opcode = ops::lci;
+                        op.i64 = 0;
+                    }
+                    else
+                    {
+                        op.in[0] = N0.in[0];
+                        op.imm32 = shift;
+                    }
+                    progress = true;
+                }
+                
                 // FIXME: add NAND and NOR to simplify
                 // some constructs involving bitwise NOT?
     
@@ -1136,6 +1079,90 @@ bool Proc::opt_fold()
                         progress = true;
                         break;
     
+                }
+                
+                // CSE: do this after simplification
+                if(op.canCSE())
+                {
+                    auto * ptr = cseTable.find(op);
+                    
+                    if(ptr)
+                    {
+                        rename.add(bc, ptr->index);
+                        ops[ptr->index].nUse += op.nUse;
+                        
+                        op.opcode = ops::nop;
+                        op.i64 = ~0ull;
+                        progress = true;
+                        continue;
+                    }
+                    else
+                    {
+                        // one of the inputs is necessarily defined in a block
+                        // that has all the other input blocks as dominators
+                        // find this block (or take 0 if this is constant)
+                        auto mblock = 0;
+
+                        // fast path
+                        for(int i = 0; i < op.nInputs(); ++i)
+                        {
+                            if(b == ops[op.in[i]].block) { mblock = b; break; }
+                        }
+                        
+                        // slow path
+                        for(int i = 0; i < op.nInputs(); ++i)
+                        {
+                            if(mblock == b) break;
+                            
+                            // if mblock dom in[i] then mblock = in[i].block
+                            bool found = false;
+                            for(auto & d : blocks[ops[op.in[i]].block].dom)
+                            {
+                                if(mblock != d) continue;
+                                found = true;
+                                break;
+                            }
+
+                            if(found) mblock = ops[op.in[i]].block;
+                        }
+
+                        // if mblock is the current block, then we can't move
+                        if(mblock != b)
+                        {
+                            bc = noVal;
+                            op.block = mblock;
+    
+                            // try to move the new op backwards
+                            int k = blocks[mblock].code.size();
+                            blocks[mblock].code.push_back(op.index);
+                            while(k--)
+                            {
+                                // don't move past anything with sideFX
+                                // but DO move past jumps
+                                if(blocks[mblock].code[k] != noVal
+                                && ops[blocks[mblock].code[k]].opcode > ops::jmp
+                                && !ops[blocks[mblock].code[k]].canMove()) break;
+                                
+                                // sanity check that we don't move past inputs
+                                bool canMove = true;
+                                for(int j = 0; j < op.nInputs(); ++j)
+                                {
+                                    if(blocks[mblock].code[k] != op.in[j]) continue;
+                                    canMove = false;
+                                    break;
+                                }
+
+                                if(!canMove) break;
+    
+                                // move
+                                std::swap(blocks[mblock].code[k],
+                                    blocks[mblock].code[k+1]);
+                            }
+                        }
+                        
+                        OpCSE cse(op);
+                        cseTable.insert(cse);
+                    }
                 }
             }
         }
