@@ -6,7 +6,9 @@ using namespace bjit;
 void Proc::opt_dce()
 {
     assert(!raDone);    // DCE destroys register allocation
-    
+
+
+    bool firstRun = !live.size();
     bool progress = true;
     //debug();
 
@@ -241,6 +243,9 @@ void Proc::opt_dce()
             b.code.resize(j);
         }
     }
+
+    // if we made no progress, then don't bother rebuild other info
+    if(!firstRun && iters == 1) { printf(" DCE:%d", iters); return; }
 
     // rebuild comeFrom, should delay this until iteration done
     for(int b = live.size();b--;) blocks[live[b]].comeFrom.clear();
