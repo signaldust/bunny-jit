@@ -29,6 +29,7 @@ void Proc::sanity() const
             assert(op.block == b);
 
             // sanity check that definitions dominate uses
+            // also check that non-locals are marked as livein
             for(int i = 0; i < op.nInputs(); ++i)
             {
                 bool inputDominates = false;
@@ -40,7 +41,18 @@ void Proc::sanity() const
                         break;
                     }
                 }
+                
                 assert(inputDominates);
+                
+                bool liveIn = (ops[op.in[i]].block == b);
+                if(!liveIn)
+                {
+                    for(auto & in : blocks[b].livein)
+                    {
+                        if(in == op.in[i]) liveIn = true;
+                    }
+                }
+                assert(liveIn);
             }
         }
     }

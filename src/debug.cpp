@@ -137,8 +137,9 @@ void bjit::Proc::debug() const
                         printf(" %s:%04x", regNames[i], blocks[b].regsOut[i]);
                     }
                 }
-                printf("\n\n");
+                printf("\n");
             }
+            printf("\n");
         }
     }
     else for(int b = 0; b < blocks.size(); ++b)

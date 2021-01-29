@@ -415,24 +415,24 @@ void Proc::livescan()
         // reverse live almost always requires less iteration
         for(int b = live.size();b--;)
         {
-            auto sz = blocks[b].livein.size();
+            auto sz = blocks[live[b]].livein.size();
 
-            findUsesBlock(b, true);
-            blocks[b].livein.clear();
+            findUsesBlock(live[b], true);
+            blocks[live[b]].livein.clear();
     
             for(int i = 0; i < ops.size(); ++i)
             {
                 // is this a variable that we need?
                 if(!ops[i].hasOutput() || !ops[i].nUse) continue;
 
-                if(0) printf(" v%04x live in %d\n", b, i);
-                blocks[b].livein.push_back(i);
+                //printf(" v%04x live in %d\n", i, live[b]);
+                blocks[live[b]].livein.push_back(i);
                 ops[i].nUse = 0;
             }
     
-            if(blocks[b].livein.size() != sz) progress = true;
+            if(blocks[live[b]].livein.size() != sz) progress = true;
         }
     }
 
-    printf(" Live:%d\n", iter);
+    printf(" Live:%d", iter);
 }

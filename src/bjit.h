@@ -171,6 +171,7 @@ namespace bjit
         std::vector<Phi>        args;
 
         std::vector<uint16_t>   livein;
+        std::vector<uint16_t>   liveout;
         std::vector<uint16_t>   comeFrom;   // which blocks we come from?
 
         // register state on input
@@ -239,6 +240,10 @@ namespace bjit
             // do DCE first, then fold
             // repeat until neither does progress
             do opt_dce(); while(opt_fold());
+
+            // move values down paths that need them
+            // essentially opposite of PRE
+            opt_sink();
         }
 
         void compile(std::vector<uint8_t> & bytes)
@@ -566,6 +571,9 @@ namespace bjit
 
         // opt-fold.cpp
         bool opt_fold();
+
+        // opt-sink.cpp
+        void opt_sink();
 
         // opt-dce.cpp
         void opt_dce();

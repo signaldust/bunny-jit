@@ -11,8 +11,7 @@ void Proc::allocRegs()
     findSCC();
     livescan();
     
-    printf(" RA:BB"); if(ra_debug) printf("\n");
-
+    printf(" RA:BB\n");
     
     std::vector<uint16_t>   codeOut;
 
@@ -482,7 +481,7 @@ void Proc::allocRegs()
         }
     }
 
-    printf(" RA:JMP"); if(ra_debug) printf("\n");
+    printf(" RA:JMP\n");
 
     std::vector<uint16_t>   newBlocks;
     
@@ -813,7 +812,7 @@ void Proc::allocRegs()
     // add the new blocks after loop
     for(auto n : newBlocks) live.push_back(n);
 
-    sanity();
+    livescan(); sanity();
 
     // find slots
     std::vector<bool>   sccUsed;
@@ -855,7 +854,7 @@ void Proc::findSCC()
     livescan(); // need live-in registers
 
     assert(!raDone);
-    printf(" RA:SCC");
+    printf(" RA:SCC\n");
 
     std::vector<bool>   sccUsed;
 
