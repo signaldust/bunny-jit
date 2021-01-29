@@ -93,6 +93,7 @@ bool Proc::opt_fold()
 
     int iter = 0;
 
+    cseTable.clear();
     bool progress = true, anyProgress = false;
     while(progress)
     {
@@ -100,7 +101,6 @@ bool Proc::opt_fold()
         
         ++iter;
         progress = false;
-        cseTable.clear();
         for(auto b : live)
         {
             for(auto & bc : blocks[b].code)
@@ -1085,6 +1085,8 @@ bool Proc::opt_fold()
                 if(op.canCSE())
                 {
                     auto * ptr = cseTable.find(op);
+
+                    if(ptr && ptr->index == op.index) continue;
                     
                     if(ptr)
                     {
