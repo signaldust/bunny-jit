@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <vector>
 
@@ -193,6 +194,8 @@ namespace bjit
         }
     };
 
+    struct too_many_ops {};
+
     struct Proc
     {
         // allocBytes is the size of an optional block allocated from the stack
@@ -250,6 +253,8 @@ namespace bjit
         unsigned newLabel()
         {
             unsigned label = blocks.size();
+            assert(label < noVal);
+            
             blocks.resize(label + 1);
             
             blocks[label].args.resize(env.size());
@@ -473,8 +478,13 @@ namespace bjit
         
         unsigned newOp(uint16_t opcode, Op::Type type, uint16_t block)
         {
+#if !defined(__cpp_exceptions) && !defined(_CPPUNWIND)
+            assert(ops.size() < noVal);
+#else
+            if(ops.size() == noVal) throw too_many_ops();
+#endif
             unsigned i = ops.size();
-            assert(i < 0xffff);
+            
             ops.resize(i + 1);
             ops[i].opcode = opcode;
             ops[i].in[0] = noVal;
