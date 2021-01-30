@@ -6,7 +6,7 @@ Unix environment (for now), but the code should work on Windows as well (simply
 compile everything in `src/`).
 
 This is work in relatively early progress. It sort of works, but some things like
-function calls not done robustly yet and there are likely serious bugs hiding.
+function calls are not done robustly yet and there are likely serious bugs hiding.
 Loads and stores in particular are not properly tested yet.
 
 **Please don't use it for production yet.**
