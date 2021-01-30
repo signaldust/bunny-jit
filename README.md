@@ -20,10 +20,10 @@ Features:
   * assembles to native binary code (ready to be copied to executable memory)
   * uses `std::vector` to manage memory, keeps `valgrind` happy
 
-<sup>1</sup> I find it slightly challenging to relate exactly to traditional compiler
+<sup>1</sup><i> I find it slightly challenging to relate exactly to traditional compiler
 optimisations that insist talking about variables and such things. We don't have
 variables, we don't optimize variables, we simplify a graph. But this is more or
-less what we end up with currently. See [below](#optimizations).
+less what we end up with currently. See [below](#optimizations).</i>
 
 Bunny-JIT is intended for situations where it is desirable to create some native code
 on the fly (eg. for performance reasons), but including something like LLVM would
