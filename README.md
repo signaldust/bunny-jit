@@ -15,19 +15,23 @@ Features:
   * portable C++11 without dependencies (other than STL)
   * uses low-level portable bytecode that models common architectures
   * supports integers and double-floats (other types in the future)
-  * end-to-end SSA, with consistency checking and simple interface to generate valid SSA
+  * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#env) to generate valid SSA
   * performs roughly<sup>1</sup> DCE, CSE, LICM, const-prop and register allocation (as of now)
   * assembles to native binary code (ready to be copied to executable memory)
   * uses `std::vector` to manage memory, keeps `valgrind` happy
 
 <sup>1</sup> I find it slightly challenging to relate exactly to traditional compiler
-optimisations that insist talking about variables. We don't have variables,
-we don't optimize variables, we simplify a data-flow graph. But this is more or
+optimisations that insist talking about variables and such things. We don't have
+variables, we don't optimize variables, we simplify a graph. But this is more or
 less what we end up with currently. See [below](#optimizations).
 
-It is intended for situations where it is desirable to create some native code
+Bunny-JIT is intended for situations where it is desirable to create some native code
 on the fly (eg. for performance reasons), but including something like LLVM would
-be a total overkill.
+be a total overkill. It is intended for situations where combinatorial expansion
+makes template expansion of all possible alternatives at compile time infeasible
+(or impossible, if the possible domain is infinite), yet one would like to avoid
+interpretive overhead. I suppose you could use it for dynamic languages too, but
+it is not a trace-compiler and might be a bit slow for the purpose.
 
 It comes with some sort of simple front-end language, but this is intended more
 for testing (and I guess example) than as a serious programming language.
