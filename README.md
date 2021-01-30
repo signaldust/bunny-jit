@@ -20,10 +20,10 @@ Features:
   * assembles to native binary code (ready to be copied to executable memory)
   * uses `std::vector` to manage memory, keeps `valgrind` happy
 
-<sup>1</sup>: I find it slightly challenging to relate exactly to traditional compiler
+<sup>1</sup> I find it slightly challenging to relate exactly to traditional compiler
 optimisations that insist talking about variables. We don't have variables,
 we don't optimize variables, we simplify a data-flow graph. But this is more or
-less what we end up with currently.
+less what we end up with currently. See [below](#optimizations).
 
 It is intended for situations where it is desirable to create some native code
 on the fly (eg. for performance reasons), but including something like LLVM would
@@ -92,6 +92,8 @@ Most instructions take their parameters as SSA values. The exceptions are
 the block-indexes returned by `Proc::newLabel()`. For instructions
 with output values, the methods return the new SSA values and other
 instructions return `void`.
+
+### Env?
 
 `Proc` has a public `std::vector` member `env` which stores the "environment".
 When a new label is create with `Proc::newLabel()` the number and types of
@@ -450,3 +452,65 @@ layout and register allocation: the latter can pretend that every value has a
 stack location, that any value can be reloaded at any time (as long as it's then
 marked for "spill" at the time the reload is done) yet we can trivially collapse
 the layout afterwards.
+
+## Optimizations
+
+At the beginning of this page I said above I find traditional compiler optimizations
+a bit confusing to relate to, because they talk about things like versions of
+variables and safety. In SSA, there is exactly one version of a value and values
+are referentially transparent: as long as the value is defined in some dominator
+block the value is safe.
+
+We treat redundant `phi`s as "dead code" so the DCE pass serves a dual purpose:
+it also performs "dataflow analysis" when it figures out which `phi`s it should
+get rid of. A `phi` is considered "dead" if there is only one non-`phi` value
+reachable from the (often cyclic) graph of source values. We resolve all the
+cycles and drop the `phi` unless we find at least two real (non-`phi`) values.
+We do this whenever DCE runs. We also find dominators for CSE-purposes.
+
+The Fold pass can fold constants. It doesn't explicitly "propagate" anything,
+but because the only way to know anything (is a constant?) about source operands
+is to look at the original value, we get "propagation" for free. Fold can also
+resolve constant jumps, which then potentially allows DCE to remove more `phi`s
+which then might allow Fold to treat more values as constants.
+
+I don't think we quite manage full "sparse conditional constant propagation"
+because we don't deal with any fancy lattice stuff and we don't try to track
+where we've been (other than by static liveliness). If there is a loop where a
+path must be taken in order for the same path to be taken, then we can't figure
+this out. I suppose this could be fixed, but it doesn't seem like a priority.
+On the other hand, if the path doesn't actually change the condition (ie. any
+phis are pass-thru) then we can certainly get rid of it.
+
+Fold can also deal with identical instructions: if the operation code and the
+operand values match and the instruction doesn't have side effects, then it will
+compute the same value. If two instructions have the same operands, then they
+must (necessarily) have at least one common dominator where both of the values are
+defined. So we can use a hashtable to match and then find this common dominator,
+move one of the operations there and rename the other. We pick the closest
+common dominator. CSE seems simple?
+
+Why not also move any single instruction the same way? In theory, in code without
+side-effects (or loads, which we treat as side-effects) we could turn all
+conditional branches into pure shuffles this way and part of me wants to explore
+the possibility, with conditional moves to eliminate the branches completely.
+
+However, in order to not increase computation on paths that never compute the
+value, we work up the dominator tree only until we see a branch. We don't need to
+worry about blocks other than dominators, because if they branch, they must
+also merge. As it turns out, if a "natural loop" has a header (ie. the edge that
+enters the loop is not critical), then this gives us loop invariant code motion
+without even having to find the loops. We don't add missing headers yet, but
+we probably soon will (it's just a matter of breaking critical edges).
+
+We make one exception to the branch rule: when merging two operations, if
+the closest common dominator (but not other dominators of either instruction
+along the path) contains a branch, we don't care: we just found an instruction
+that is computed separately on both sides of the branch, like in my silly
+division-by-zero bytecode dump above. In that example case, it then makes
+the `phi`s redundant, which means the two conditional block are empty, which
+means the jumps can be threaded and the thing collapses into it's final form.
+
+This is really all we currently do, but because we only worry about graph
+theory rather than variables, we get a fairly powerful set of optimisations
+essentially for free (well, some CPU is spent, but this isn't a stage0 JIT).
