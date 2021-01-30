@@ -504,8 +504,10 @@ value, we work up the dominator tree only until we see a branch. We don't need t
 worry about blocks other than dominators, because if they branch, they must
 also merge. As it turns out, if a "natural loop" has a header (ie. the edge that
 enters the loop is not critical), then this gives us loop invariant code motion
-without even having to find the loops. We don't add missing headers yet, but
-we probably soon will (it's just a matter of breaking critical edges).
+without even having to find the loops (well, at least with loop inversion, but
+we'll force this in the future; it doesn't really require finding loops either).
+We don't add missing headers yet, but we probably soon will (it's just a matter
+of breaking critical edges).
 
 We make one exception to the branch rule: when merging two operations, if
 the closest common dominator (but not other dominators of either instruction
