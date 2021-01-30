@@ -7,7 +7,7 @@ compile everything in `src/`).
 
 This is work in relatively early progress. It sort of works, but some things like
 function calls are not done robustly yet and there are likely serious bugs hiding.
-Loads and stores in particular are not properly tested yet.
+Loads and stores are also not properly tested yet.
 
 **Please don't use it for production yet.**
 
