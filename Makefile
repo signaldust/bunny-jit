@@ -2,21 +2,22 @@
 # No default rules
 .SUFFIXES:
 
-BIN_DIR ?= bin
-BUILD_DIR ?= build
+BJIT_BINDIR ?= bin
+BJIT_BUILDDIR ?= build
 
 # We assume clang on all platforms
-CC := clang
+BJIT_USE_CC ?= clang
+CC := $(BJIT_USE_CC)
 
 TARGET := bjit
 
 # FIXME: Windows
 BINEXT :=
 
-LIBRARY := $(BUILD_DIR)/$(TARGET).a
+LIBRARY := $(BJIT_BUILDDIR)/$(TARGET).a
 
 MAKEDIR := mkdir -p
-CLEANALL := rm -rf $(BUILD_DIR) $(BIN_DIR)
+CLEANALL := rm -rf $(BJIT_BUILDDIR) $(BJIT_BINDIR)
 LINKLIB := libtool -static
 LINKBIN := clang
 
@@ -35,21 +36,21 @@ LINKFLAGS := $(LIBRARY) -lc++
 # Automatically figure out source files
 LIB_SOURCES := $(wildcard src/*.cpp)
 
-OBJECTS := $(patsubst %,$(BUILD_DIR)/%.o,$(LIB_SOURCES))
+OBJECTS := $(patsubst %,$(BJIT_BUILDDIR)/%.o,$(LIB_SOURCES))
 DEPENDS := $(OBJECTS:.o=.d)
 
 # automatic target generation for any subdirectories of test
 define TestTarget
- DEPENDS += $(patsubst %,$(BUILD_DIR)/%.d,$(wildcard $1*.cpp))
- $(BIN_DIR)/$(patsubst test/%/,%,$1)$(BINEXT): $(LIBRARY) \
-  $(patsubst %,$(BUILD_DIR)/%.o,$(wildcard $1*.cpp))
+ DEPENDS += $(patsubst %,$(BJIT_BUILDDIR)/%.d,$(wildcard $1*.cpp))
+ $(BJIT_BINDIR)/$(patsubst test/%/,%,$1)$(BINEXT): $(LIBRARY) \
+  $(patsubst %,$(BJIT_BUILDDIR)/%.o,$(wildcard $1*.cpp))
 	@echo LINK $$@
-	@$(MAKEDIR) "$(BIN_DIR)"
-	@$(LINKBIN) -o $$@ $(patsubst %,$(BUILD_DIR)/%.o,$(wildcard $1*.cpp)) $(LINKFLAGS)
+	@$(MAKEDIR) "$(BJIT_BINDIR)"
+	@$(LINKBIN) -o $$@ $(patsubst %,$(BJIT_BUILDDIR)/%.o,$(wildcard $1*.cpp)) $(LINKFLAGS)
 endef
 
 TESTDIRS := $(wildcard test/*/)
-TESTS := $(patsubst test/%/,$(BIN_DIR)/%$(BINEXT),$(TESTDIRS))
+TESTS := $(patsubst test/%/,$(BJIT_BINDIR)/%$(BINEXT),$(TESTDIRS))
 
 .PHONY: all clean
 
@@ -57,8 +58,8 @@ all: $(LIBRARY) $(TESTS)
 	@echo DONE
 
 clean:
-	@echo Cleaning '$(BUILD_DIR)' and '$(BIN_DIR)'
 	@$(CLEANALL)
+	@echo "Removed '$(BJIT_BUILDDIR)' and '$(BJIT_BINDIR)'"
 
 $(foreach i,$(TESTDIRS),$(eval $(call TestTarget,$(i))))
 
@@ -67,12 +68,12 @@ $(LIBRARY): $(OBJECTS)
 	@$(MAKEDIR) "$(dir $@)"
 	@$(LINKLIB) -o $@ $(OBJECTS)
 
-$(BUILD_DIR)/%.c.o: %.c
+$(BJIT_BUILDDIR)/%.c.o: %.c
 	@echo CC $<
 	@$(MAKEDIR) "$(dir $@)"
 	@$(CC) -MMD -MP $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/%.cpp.o: %.cpp
+$(BJIT_BUILDDIR)/%.cpp.o: %.cpp
 	@echo CC $<
 	@$(MAKEDIR) "$(dir $@)"
 	@$(CC) -MMD -MP $(CFLAGS) $(CXXFLAGS) -c $< -o $@
