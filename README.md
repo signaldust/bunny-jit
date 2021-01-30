@@ -95,7 +95,9 @@ because this will greatly increase the chance that your work is still useful
 by the time you're ready to send a pull-request.
 
 The reason for this is that the project is still young enough that I might make
-some drastic changes on a regular basis.
+some drastic changes on a regular basis. I also recommend opening an issue if
+you want to start building something on top of it, so we can discuss stability
+of interfaces (which for the time being are subject to change without notice).
 
 ## Instructions?
 
