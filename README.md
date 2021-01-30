@@ -64,7 +64,8 @@ If `BUILD_DIR` and/or `BIN_DIR` are defined, these will be used instead of `buil
 Should you somehow run into issues with automatic dependencies, type `make clean`
 to start fresh. Standard stuff.
 
-The `Makefile` currently won't work on Windows, I will try to fix this eventually.
+The `Makefile` currently won't work on Windows (at least not without something
+like Cygwin; I haven't tried), I will try to fix this eventually.
 In the mean time, it should be possible to compile everything under `src/` into
 a static library and link with whatever other source files you have.
 
