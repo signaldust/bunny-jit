@@ -102,8 +102,9 @@ void bjit::Proc::debug() const
         {
             printf("L%d:", b);
             for(auto s : blocks[b].comeFrom) printf(" <L%d", s);
-            printf("\n; Dom: L%d", blocks[b].idom);
-            //for(auto s : blocks[b].dom) printf(" ^L%d", s);
+            printf("\n; Dom: L%d, Post: L%d", blocks[b].idom, blocks[b].pidom);
+            //printf("\n; "); for(auto s : blocks[b].dom) printf(" ^L%d", s);
+            //printf("\n; "); for(auto s : blocks[b].pdom) printf(" L%d^", s);
             //if(0)
             for(int i = 0; i < blocks[b].livein.size(); ++i)
             {

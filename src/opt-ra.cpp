@@ -446,8 +446,6 @@ void Proc::allocRegs()
                 continue;
             }
 
-
-
             RegMask mask = op.regsOut();
 
             // try to mask second operand if possible
@@ -769,6 +767,7 @@ void Proc::allocRegs()
                 blocks[b0].dom = blocks[b].dom;
                 blocks[b0].dom.push_back(b1);
                 blocks[b0].idom = b;
+                blocks[b0].pidom = blocks[b].pidom;
                 
                 // rename target PHI sources, satisfy sanity
                 for(auto & a : blocks[op.label[0]].args)
@@ -798,6 +797,7 @@ void Proc::allocRegs()
                 blocks[b1].dom = blocks[b].dom;
                 blocks[b1].dom.push_back(b1);
                 blocks[b1].idom = b;
+                blocks[b1].pidom = blocks[b].pidom;
                 
                 // rename target PHI sources, satisfy sanity
                 for(auto & a : blocks[op.label[1]].args)

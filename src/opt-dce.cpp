@@ -119,6 +119,10 @@ void Proc::opt_dce()
             
                 // don't short-circuit nUse=0 here because
                 // another phi might mark us as used
+                //
+                // FIXME: does this find all cases with regular iteration
+                // or do we need to add breath-first search to deal with
+                // some esoteric special case?
                 if(ops[i].opcode == ops::phi)
                 {
                     auto & alts = blocks[ops[i].block].args[ops[i].phiIndex].alts;
@@ -203,7 +207,7 @@ void Proc::opt_dce()
         {
             auto & b = blocks[bi];
             
-            // loop backwards to figure ou what's dead
+            // loop backwards to figure out what's dead
             for(int i = b.code.size(); i--;)
             {
                 if(b.code[i] == noVal) continue;
@@ -267,10 +271,19 @@ void Proc::opt_dce()
     for(auto & b : live)
     {
         // reset dominators
-        blocks[b].dom.clear();
-        if(!blocks[b].comeFrom.size())
+        if(!b) {
+            blocks[b].dom.clear();
             blocks[b].dom.push_back(b);
+        }
         else blocks[b].dom = live;
+
+        // reset postdominators
+        if(ops[blocks[b].code.back()].opcode > ops::jmp)
+        {
+            blocks[b].pdom.clear();
+            blocks[b].pdom.push_back(b);
+        }
+        else blocks[b].pdom = live;
     }    
 
     // find dominator
@@ -292,7 +305,8 @@ void Proc::opt_dce()
         for(auto & b : live)
         {
             // this is entry block
-            if(!blocks[b].comeFrom.size()) continue;
+            if(!b) continue;
+            assert(blocks[b].comeFrom.size());
 
             tdom = live;
             for(auto & f : blocks[b].comeFrom)
@@ -324,13 +338,94 @@ void Proc::opt_dce()
             std::swap(blocks[b].dom, tdom);
         }
     }
+    
+    iterate = true;
+    while(iterate)
+    {
+        iterate = false;
+        ++domIters;
 
-    // find immediate dominators
-    // NOTE: sanity() checks dominator order, so skip the check here
+        // backwards
+        for(int bi = live.size(); bi--;)
+        {
+            auto & b = blocks[live[bi]];
+            auto & jmp = ops[b.code.back()];
+            // this is an exit block
+            if(jmp.opcode > ops::jmp) continue;
+
+            int nLabel = (jmp.opcode == ops::jmp) ? 1 : 2;
+
+            tdom = live;
+            for(int k = 0; k < nLabel; ++k)
+            {
+                for(int t = 0; t < tdom.size();)
+                {
+                    bool found = false;
+                    for(auto & d : blocks[jmp.label[k]].pdom)
+                    {
+                        if(d == tdom[t]) found = true;
+                    }
+                    
+                    if(found) { ++t; }
+                    else
+                    {
+                        std::swap(tdom[t], tdom.back());
+                        tdom.pop_back();
+                    }
+                }
+            }
+            
+            bool foundSelf = false;
+            for(auto & t : tdom)
+            { if(t != live[bi]) continue; foundSelf = true; break; }
+    
+            if(!foundSelf) tdom.push_back(live[bi]);
+            if(tdom.size() != b.pdom.size()) iterate = true;
+
+            // save copy, we'll reset tdom above anyway
+            std::swap(b.pdom, tdom);
+        }
+    }
+
+    // push theoretical exit-block (unifies multiple returns)
+    for(auto & b : live) { blocks[b].pdom.push_back(noVal); }
+
+    // find immediate dominators: we use the fact that the immediate
+    // dominator must have exactly one less dominator
     for(auto & b : live)
     {
-        blocks[b].idom = !b ? 0 : blocks[b].dom[blocks[b].dom.size()-2];
-        assert(!b || blocks[b].idom != b);
+        blocks[b].idom = 0;
+        blocks[b].pidom = noVal;
+        
+        for(auto & d : blocks[b].dom)
+        {
+            if(blocks[d].dom.size() == blocks[b].dom.size() - 1)
+            {
+                blocks[b].idom = d;
+                break;
+            }
+        }
+        
+        for(auto & d : blocks[b].pdom)
+        {
+            if(d == noVal) continue;   // no common post-dominator
+            if(blocks[d].pdom.size() == blocks[b].pdom.size() - 1)
+            {
+                blocks[b].pidom = d;
+                break;
+            }
+        }
+    }
+
+    // order dominators, don't care about post-doms here
+    for(auto & b : live)
+    {
+        for(auto & d : blocks[b].dom) d = noVal;
+        for(int d = b, i = blocks[b].dom.size(); i--;)
+        {
+            blocks[b].dom[i] = d;
+            d = blocks[d].idom;
+        }
     }
 
     // cleanup dead phi alternatives

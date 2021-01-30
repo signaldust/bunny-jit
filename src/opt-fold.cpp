@@ -1093,43 +1093,32 @@ bool Proc::opt_fold()
                         auto & other = ops[ptr->index];
                         auto pb = ptr->block;
                         int ccd = 0;
+                        
                         int iMax = std::min(
                             blocks[b].dom.size(), blocks[pb].dom.size());
+                            
                         for(int i = 0; i < iMax; ++i)
                         {
                             if(blocks[b].dom[i] == blocks[pb].dom[i]) ccd = i;
                             else break;
                         }
 
-                        // check if we skip conditional jumps
+                        // check post-dominator condition
                         bool bad = false;
-                        for(int i = blocks[b].dom.size(); i--;)
+                        if(b != ccd)
+                        for(int i = b ;; i = blocks[i].idom)
                         {
+                            if(ccd == blocks[i].idom) break; // this is fine
                             if(bad) break;
-                            
-                            int dom = blocks[b].dom[i];
-                            if(dom == ccd) break;
-                            if(ops[blocks[dom].code.back()].opcode < ops::jmp)
-                            {
-                                debugOp(blocks[dom].code.back());
-                                bad = true;
-                                break;
-                            }
+                            if(blocks[blocks[i].idom].pidom != i) bad = true;
                         }
 
-                        // check if we skip conditional jumps
-                        for(int i = blocks[pb].dom.size(); i--;)
+                        // check post-dominator condition
+                        for(int i = ptr->block; i; i = blocks[i].idom)
                         {
+                            if(ccd == blocks[i].idom) break; // this is fine
                             if(bad) break;
-                            
-                            int dom = blocks[pb].dom[i];
-                            if(dom == ccd) break;
-                            if(ops[blocks[dom].code.back()].opcode < ops::jmp)
-                            {
-                                debugOp(blocks[dom].code.back());
-                                bad = true;
-                                break;
-                            }
+                            if(blocks[blocks[i].idom].pidom != i) bad = true;
                         }
 
                         if(bad) { cseTable.insert(op); continue; }
@@ -1210,10 +1199,9 @@ bool Proc::opt_fold()
                             }
                             if(done) break;
 
-                            // sanity check conditional jumps
+                            // sanity check post-dominators
                             auto idom = blocks[mblock].idom;
-                            if(ops[blocks[idom].code.back()].opcode < ops::jmp)
-                                break;
+                            if(blocks[idom].pidom != mblock) break;
                                 
                             mblock = blocks[mblock].idom;
                         }
