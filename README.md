@@ -1,8 +1,9 @@
 # Bunny JIT
 
 This is a tiny optimising SSA-based JIT backend, currently targeting x64, but
-designed to be (somewhat) portable. The Makefile expects a Unix-like system,
-but the code itself should (hopefully) work on Windows as well.
+designed to be (somewhat) portable. The [build-system](#how-to-build) expects
+Unix environment (for now), but the code should work on Windows as well (simply
+compile everything in `src/`).
 
 This is work in relatively early progress. It sort of works, but some things like
 function calls not done robustly yet and there are likely serious bugs hiding.
@@ -48,6 +49,24 @@ You can certainly run it too, but you'll have to copy it to executable memory.
 ## Why Bunny?
 
 Bunnies are cute.
+
+## How to build?
+
+On Unix-like system with `clang` installed, simply run `make` (or `make -j`).
+
+Any source files in `src/` are linked to `build/bjit.a` and for each directory
+in `test/` we compile `test/<name>/*.cpp` into `bin/<name>` with all `.cpp` files.
+
+If you want to use another compiler, then changing `CC :=` near the top of the
+`Makefile` should be enough (yes, I'll add an override for it). If `BUILD_DIR`
+or `BIN_DIR` are defined, these will be used instead of `build/` and `bin/`.
+
+Should you somehow run into issues with automatic dependencies, type `make clean`
+to start fresh. Standard stuff.
+
+The `Makefile` currently won't work on Windows, I will try to fix this eventually.
+In the mean time, it should be possible to compile everything under `src/` into
+a static library and link with whatever other source files you have.
 
 ## License?
 
