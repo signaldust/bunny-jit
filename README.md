@@ -480,9 +480,10 @@ of slots to the assembler.
 
 The beauty of this design is that it completely decouples the concerns of stack
 layout and register allocation: the latter can pretend that every value has a
-stack location, that any value can be reloaded at any time (as long as it's then
-marked for "spill" at the time the reload is done) yet we can trivially collapse
-the layout afterwards.
+stack location, that any value can be thrown away and reloaded at any time (as
+long as it's then marked for "spill" at the time the reload is done) yet we can
+trivially collapse the layout afterwards. The assembler will then generate the
+actual stores after the operations that need them (valid because of SSA).
 
 ## Optimizations
 
