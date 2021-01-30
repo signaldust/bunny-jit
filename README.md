@@ -96,7 +96,7 @@ some drastic changes on a regular basis.
 
 ## Instructions?
 
-The first step is to include `bjit.h`.
+The first step is to include `src/bjit.h`.
 
 The second step is to create a `bjit::Proc` which takes a stack allocation size
 and a string representing arguments (`i` for integer, `f` for double).
