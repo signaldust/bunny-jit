@@ -325,37 +325,13 @@ void Proc::opt_dce()
         }
     }
 
-#if 0 // FIXME: are we guaranteed to always have dominators in order from above?
     // find immediate dominators
+    // NOTE: sanity() checks dominator order, so skip the check here
     for(auto & b : live)
     {
-        blocks[b].idom = 0;
-        
-        for(auto & d : blocks[b].dom)
-        {
-            if(d == b) continue;
-
-            for(auto & dd : blocks[d].dom)
-            {
-                if(dd == blocks[b].idom) { blocks[b].idom = d; break; }
-            }
-        }
-
-        assert(b == 0 || blocks[b].idom == blocks[b].dom[blocks[b].dom.size()-2]);
-    }
-#else
-    for(auto & b : live)
-    {
-        for(auto & d : blocks[b].dom)
-        {
-            for(int i = 0; i < blocks[d].dom.size(); ++i)
-            {
-                assert(blocks[d].dom[i] == blocks[b].dom[i]);
-            }
-        }
         blocks[b].idom = !b ? 0 : blocks[b].dom[blocks[b].dom.size()-2];
+        assert(!b || blocks[b].idom != b);
     }
-#endif
 
     // cleanup dead phi alternatives
     for(auto & b : live)
