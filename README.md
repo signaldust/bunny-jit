@@ -17,7 +17,7 @@ Features:
   * uses low-level portable bytecode that models common architectures
   * supports integers and double-floats (other types in the future)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#env) to generate valid SSA
-  * performs roughly<sup>1</sup> DCE, CSE, LICM, const-prop and register allocation (as of now)
+  * performs roughly<sup>1</sup> DCE, CSE (PRE?), LICM, const-prop and register allocation (as of now)
   * assembles to native x64 binary code (ready to be copied to executable memory)
   * uses `std::vector` to manage memory, keeps `valgrind` happy
 
@@ -540,6 +540,8 @@ that is computed separately on both sides of the branch, like in my silly
 division-by-zero bytecode dump above. In that example case, it then makes
 the `phi`s redundant, which means the two conditional block are empty, which
 means the jumps can be threaded and the thing collapses into it's final form.
+In the case where one operation post-dominates the other, this would seem to
+result in PRE, but I don't know; it's really just a special case.
 
 This is really all we currently do, but because we only worry about graph
 theory rather than variables, we get a fairly powerful set of optimisations
