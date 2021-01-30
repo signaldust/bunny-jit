@@ -3,6 +3,8 @@
 !Makefile
 !*.md
 !/src
+!/test
+!/test/*/
 !**/*.h
 !**/*.c
 !**/*.cpp
