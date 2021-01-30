@@ -58,8 +58,8 @@ Any source files in `src/` are linked to `build/bjit.a` and for each directory
 in `test/` we compile `bin/<name>` with `test/<name>/*.cpp`.
 
 If you want to use another compiler, then changing `CC :=` near the top of the
-`Makefile` should be enough (yes, I'll add an override for it). If `BUILD_DIR`
-or `BIN_DIR` are defined, these will be used instead of `build/` and `bin/`.
+`Makefile` should be enough (yes, I'll add an override for it eventtually).
+If `BUILD_DIR` and/or `BIN_DIR` are defined, these will be used instead of `build/` and `bin/`.
 
 Should you somehow run into issues with automatic dependencies, type `make clean`
 to start fresh. Standard stuff.
