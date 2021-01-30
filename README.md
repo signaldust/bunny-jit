@@ -33,8 +33,9 @@ on the fly (eg. for performance reasons), but including something like LLVM woul
 be a total overkill. It is intended for situations where combinatorial expansion
 makes template expansion of all possible alternatives at compile time infeasible
 (or impossible, if the possible domain is infinite), yet one would like to avoid
-interpretive overhead. I suppose you could use it for dynamic languages too, but
-it is not a trace-compiler and might be a bit slow for the purpose.
+interpretive overhead. Because we're trying to gain performance, we're willing to
+spend some time on optimization, but because we're still aiming at interactive uses
+we try not to go crazy with heavy-weight analysis or funky heuristics.
 
 It comes with some sort of simple front-end language, but this is intended more
 for testing (and I guess example) than as a serious programming language.
