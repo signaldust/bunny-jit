@@ -119,6 +119,10 @@ void Proc::opt_dce()
             
                 // don't short-circuit nUse=0 here because
                 // another phi might mark us as used
+                //
+                // FIXME: does this find all cases with regular iteration
+                // or do we need to add breath-first search to deal with
+                // some esoteric special case?
                 if(ops[i].opcode == ops::phi)
                 {
                     auto & alts = blocks[ops[i].block].args[ops[i].phiIndex].alts;
@@ -203,7 +207,7 @@ void Proc::opt_dce()
         {
             auto & b = blocks[bi];
             
-            // loop backwards to figure ou what's dead
+            // loop backwards to figure out what's dead
             for(int i = b.code.size(); i--;)
             {
                 if(b.code[i] == noVal) continue;
