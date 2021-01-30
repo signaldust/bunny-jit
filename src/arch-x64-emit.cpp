@@ -46,7 +46,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
     std::vector<int>    savedRegs;
 
-    // push callee-saved registers
+    // push callee-saved registers, goes first
     int nPush = 0;
     for(int i = 0; regs::calleeSaved[i] != regs::none; ++i)
     {
@@ -56,7 +56,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             if((1ull<<savedRegs.back()) & regs::mask_float)
             {
                 // force alignment if necessary
-                if(!(nSlots&1))
+                if(!(nPush&1))
                 {
                     savedRegs.back() = regs::none;
                     savedRegs.push_back(regs::calleeSaved[i]);
@@ -82,9 +82,10 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     assert(ops[0].opcode == ops::alloc);
     unsigned    frameOffset = ((ops[0].imm32+0xf)&~0xf);;
 
-    // need 8 mod 16 - emit "prelude" if necessary
-    nSlots += 1 ^ ((nPush+nSlots) & 1);
-    int frameBytes = 8*nSlots + frameOffset;
+    // need 8 mod 16 - add slots, emit "prelude" if necessary
+    nPush = 1 ^ ((nPush + nSlots) & 1);
+    // add user-requested frame on top
+    int frameBytes = 8*nPush + frameOffset;
     if(frameBytes) { _SUBri(regs::rsp, frameBytes); }
 
     // block todo-stack
@@ -368,7 +369,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 // fall through
             case ops::iret:
             case ops::fret:
-                if(nSlots) { _ADDri(regs::rsp, frameBytes); }
+                if(frameBytes) { _ADDri(regs::rsp, frameBytes); }
                 for(int r = savedRegs.size(); r--;)
                 {
                     if((1ull<<savedRegs[r]) & regs::mask_float)
