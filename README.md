@@ -427,6 +427,7 @@ on `env` to automatically add `phi`s for all cross-block variables initially.
 While there is no need to add temporaries to the environment, always adding `phi`s
 for any actual local variables still creates a lot more `phi`s than necessary. We choose
 to let DCE clean this up, by simplifying those `phi`s with only one real source.
+This cleanup is fundamental to the design as it acts as a dataflow analysis pass.
 
 We keep the SSA structure all the way. The code is valid SSA even after register
 allocation. Registers are not SSA values, but each value has one register. When we
