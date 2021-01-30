@@ -241,7 +241,6 @@ namespace bjit
 
         void opt()
         {
-            opt_dce(); debug();
             // do DCE first, then fold
             // repeat until neither does progress
             do opt_dce(); while(opt_fold());
