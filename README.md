@@ -520,3 +520,8 @@ means the jumps can be threaded and the thing collapses into it's final form.
 This is really all we currently do, but because we only worry about graph
 theory rather than variables, we get a fairly powerful set of optimisations
 essentially for free (well, some CPU is spent, but this isn't a stage0 JIT).
+
+On the other hand Bunny-JIT does not perform any sort of aliasing analysis
+for memory. It probably never will, because this is such a huge can of worms.
+Bunny-JIT will not be an efficient compiler for high-level object-oriented
+languages. I don't care, it's really not the focus.
