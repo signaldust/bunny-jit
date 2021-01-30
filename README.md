@@ -526,7 +526,8 @@ the possibility, with conditional moves to eliminate the branches completely.
 However, in order to not increase computation on paths that never compute the
 value, we work up the dominator tree only until we see a branch. We don't need to
 worry about blocks other than dominators, because if they branch, they must
-also merge. As it turns out, if a "natural loop" has a header (ie. the edge that
+also merge (FIXME: might need to add check for a post-dominator).
+As it turns out, if a "natural loop" has a header (ie. the edge that
 enters the loop is not critical), then this gives us loop invariant code motion
 without even having to find the loops (well, at least with loop inversion, but
 we'll force this in the future; it doesn't really require finding loops either).
