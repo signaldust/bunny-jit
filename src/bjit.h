@@ -182,7 +182,10 @@ namespace bjit
 
         // dominators
         std::vector<uint16_t>   dom;
+        std::vector<uint16_t>   pdom;
+        
         uint16_t                idom;   // immediate dominator
+        uint16_t                pidom;  // immediate post-dominator
 
         struct {
             bool live       : 1;    // livescan uses this
@@ -238,6 +241,7 @@ namespace bjit
 
         void opt()
         {
+            opt_dce(); debug();
             // do DCE first, then fold
             // repeat until neither does progress
             do opt_dce(); while(opt_fold());
