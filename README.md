@@ -12,7 +12,7 @@ Loads and stores are also not properly tested yet.
 **Please don't use it for production yet.**
 
 Features:
-  * small and simple, yet tries to avoid being naive
+  * small and simple (by virtue of elegant design), yet tries to avoid being naive
   * portable C++11 without dependencies (other than STL)
   * uses low-level portable bytecode that models common architectures
   * supports integers and double-floats (other types in the future)
