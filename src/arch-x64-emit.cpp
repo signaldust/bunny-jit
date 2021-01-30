@@ -184,8 +184,16 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 
             case ops::icallp:
             case ops::fcallp:
+#ifdef _WIN32
+                // "home locations" for registers
+                a64._SUBri(regs::rsp, 4 * sizeof(uint64_t));
+#endif
                 // generate indirect near-call: FF /2
                 a64._RR(0, 2, REG(ops[i.in[0]].reg), 0xFF);
+#ifdef _WIN32
+                // "home locations" for registers
+                a64._ADDri(regs::rsp, 4 * sizeof(uint64_t));
+#endif
                 break;
                 
             case ops::jmp:
