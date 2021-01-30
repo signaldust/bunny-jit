@@ -18,7 +18,7 @@ Features:
   * supports integers and double-floats (other types in the future)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#env) to generate valid SSA
   * performs roughly<sup>1</sup> DCE, CSE, LICM, const-prop and register allocation (as of now)
-  * assembles to native binary code (ready to be copied to executable memory)
+  * assembles to native x64 binary code (ready to be copied to executable memory)
   * uses `std::vector` to manage memory, keeps `valgrind` happy
 
 <sup>1</sup><i>
