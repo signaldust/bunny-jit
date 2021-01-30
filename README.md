@@ -556,4 +556,5 @@ essentially for free (well, some CPU is spent, but this isn't a stage0 JIT).
 On the other hand Bunny-JIT does not perform any sort of aliasing analysis
 for memory. It probably never will, because this is such a huge can of worms.
 Bunny-JIT will not be an efficient compiler for high-level object-oriented
-languages. I don't care, it's really not the focus.
+languages. I don't care, it's really not the focus. I will reconsider if I
+can come up with an elegant enough algorithm.
