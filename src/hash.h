@@ -189,12 +189,13 @@ namespace bjit
         std::vector<Slot>   slots;
 
         // the ultimate hash probe of death:
-        //   - use a 2nd hash to seed the probe
+        //   - use a 2nd hash (upper 32 bits) to seed the probe
         //   - force the 2nd hash to be odd (all slots for pow2)
         //   - then use quadratic probe order on that
-        unsigned probe2(uint64_t hash, uint64_t hash2, unsigned j)
+        //   - terrible for cache, but shouldn't cluster
+        uint32_t probe(uint64_t hash, unsigned j)
         {
-            return (hash + (hash2|1)*((j+j*j)/2)) & (slots.size() - 1);
+            return (hash + ((hash>>32)|1)*((j+j*j)/2)) & (slots.size() - 1);
         }
 
         // find a slot for a given key, or a free slot to insert into
@@ -202,12 +203,11 @@ namespace bjit
         Slot & internalFind(const Key & k, bool doInsert)
         {
             uint64_t hash = Item::getHash(k);
-            uint64_t hash2 = hash64(hash);  // second hash for probe
 
             // probe loop
             for(int j = 0; j < slots.size(); ++j)
             {
-                unsigned i = probe2(hash, hash2, j);
+                unsigned i = probe(hash, j);
 
                 Slot & s = slots[i];
 
@@ -229,7 +229,7 @@ namespace bjit
                 {
                     while(++j < slots.size())
                     {
-                        i = probe2(hash, hash2, j);
+                        i = probe(hash, j);
 
                         Slot & ss = slots[i];
 
