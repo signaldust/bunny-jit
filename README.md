@@ -55,7 +55,7 @@ Bunnies are cute.
 On Unix-like system with `clang` installed, simply run `make` (or `make -j`).
 
 Any source files in `src/` are linked to `build/bjit.a` and for each directory
-in `test/` we compile `test/<name>/*.cpp` into `bin/<name>` with all `.cpp` files.
+in `test/` we compile `bin/<name>` with `test/<name>/*.cpp`.
 
 If you want to use another compiler, then changing `CC :=` near the top of the
 `Makefile` should be enough (yes, I'll add an override for it). If `BUILD_DIR`
