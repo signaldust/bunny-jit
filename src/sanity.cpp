@@ -18,6 +18,17 @@ void Proc::sanity() const
     
     for(auto & b : live)
     {
+        for(auto & b : live)
+
+        // sanity check that dominators are in order
+        for(auto & d : blocks[b].dom)
+        {
+            for(int i = 0; i < blocks[d].dom.size(); ++i)
+            {
+                assert(blocks[d].dom[i] == blocks[b].dom[i]);
+            }
+        }
+        
         for(auto & c : blocks[b].code)
         {
             auto & op = ops[c];
