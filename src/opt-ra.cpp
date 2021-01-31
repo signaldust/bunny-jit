@@ -265,13 +265,20 @@ void Proc::allocRegs()
                 {
                     if(ra_debug) printf("; need reload for %04x into %s\n",
                         op.in[i], regName(r));
+
+                    auto in = op.in[i];
                         
                     // undo renames/reloads before reloading
                     // we don't want to flag those for spill
-                    while(ops[op.in[i]].opcode == ops::rename
-                    || ops[op.in[i]].opcode == ops::reload)
-                        op.in[i] = ops[op.in[i]].in[0];
-                        
+                    while(ops[in].opcode == ops::rename
+                    || ops[in].opcode == ops::reload)
+                    {
+                        // do not follow renames to a different SCC
+                        if(ops[ops[in].in[0]].scc != ops[op.in[i]].scc) break;
+
+                        in = ops[in].in[0];
+                    }
+                    
                     if(ra_debug) printf("; need reload for %04x into %s\n",
                         op.in[i], regName(r));
 
@@ -286,18 +293,21 @@ void Proc::allocRegs()
                     }
                     else
                     {
-                        ops[op.in[i]].flags.spill = true;
-                        ops[rr].in[0] = op.in[i];
-                        ops[rr].scc = ops[op.in[i]].scc;
+                        ops[in].flags.spill = true;
+                        ops[rr].in[0] = in;
+                        assert(ops[op.in[i]].scc == ops[in].scc);
+                        ops[rr].scc = ops[in].scc;
                     }
 
                     ops[rr].reg = r;
                     regstate[r] = rr;
                     ops[rr].nUse = ops[op.in[i]].nUse;
-                    
+
+                    printf("; rename %04x -> %04x\n", op.in[i], rr);
                     rename.add(op.in[i], rr);
                     rename(op);
                     if(ra_debug) debugOp(rr);
+                    if(ra_debug) debugOp(op.index);
 
                     std::swap(codeOut.back(), rr);
                     codeOut.push_back(rr);
