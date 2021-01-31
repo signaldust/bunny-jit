@@ -824,8 +824,6 @@ void Proc::allocRegs()
     // add the new blocks after loop
     for(auto n : newBlocks) live.push_back(n);
 
-    sanity();
-
     // find slots
     std::vector<bool>   sccUsed;
     
@@ -857,8 +855,10 @@ void Proc::allocRegs()
 
     for(auto & op : ops) if(op.hasOutput()) op.scc = slots[op.scc];
 
-    printf(" DONE\n");
     raDone = true;
+    sanity();
+
+    printf(" DONE\n");
 }
 
 void Proc::findSCC()

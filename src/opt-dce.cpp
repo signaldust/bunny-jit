@@ -5,9 +5,6 @@ using namespace bjit;
 
 void Proc::opt_dce()
 {
-    assert(!raDone);    // DCE destroys register allocation
-
-
     bool firstRun = !live.size();
     bool progress = true;
     //debug();
