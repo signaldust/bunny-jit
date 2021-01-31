@@ -321,8 +321,8 @@ L6:
          0024             jmp           L1
 ;----
 ```
-
-That said, the code looks incredibly silly, doesn't it? But we have an optimizer:
+We'll ignore the front-end (it's not focus), but note that the code
+looks incredibly silly, doesn't it? Yet we have an optimizer:
 ```
 -- Optimizing:
  DCE:4+5 Fold:3
