@@ -113,6 +113,9 @@
     _(isub, BJIT_CSE+1, 2), \
     _(ineg, BJIT_CSE+1, 1), \
     _(imul, BJIT_CSE+1, 2), \
+    /* don't CSE divisions for now, because we don't want to */ \
+    /* move exceptions to the other side of a load or store  */ \
+    /* FIXME: is this a case where should accept UB? */ \
     _(idiv, BJIT_SIDEFX+1, 2), \
     _(imod, BJIT_SIDEFX+1, 2), \
     /* unsigned integer arithmetic */ \
