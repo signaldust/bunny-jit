@@ -330,15 +330,15 @@ That said, the code looks incredibly silly, doesn't it? But we have an optimizer
  DCE:1 Live:2 SINK DCE:1 Live:2 RA:SCC
  DCE:1 Live:2 RA:BB
  DCE:1 RA:JMP
- DCE:1 Live:2
+ DCE:1 Live:2 DCE:1
 ;---- Slots: 0
 L0:
 ; Dom: L0, PDom: L1
 ; In:
 ; SLOT  VALUE    REG       OP USE TYPE  ARGS
  (ffff)  0000    rsp    alloc   0  ptr  +0
- (ffff)  0001    rax      lci   0  ptr  i64:0
- (ffff)  002b    rsi   rename   0  ptr  rax:0001
+ (ffff)  0001    rax      lci   3  ptr  i64:0
+ (ffff)  002b    rsi   rename   1  ptr  rax:0001
  (ffff)  0004    rax     idiv   0  ptr  rax:0001 rax:0001
          0008             jmp           L1
 ; Out: rsi:002b
@@ -347,9 +347,9 @@ L1: <L8 <L0
 ; Dom: L0, PDom: L3
 ; In: rsi:0006
 ; SLOT  VALUE    REG       OP USE TYPE  ARGS
- (ffff)  0006    rsi      phi   0  ptr  L0:[ffff]:002b L8:[ffff]:002e
- (ffff)  0026    rax    iaddI   0  ptr  rsi:0006 +1
- (ffff)  002a    rax       -    0  ptr  rax:0026
+ (ffff)  0006    rsi      phi   2  ptr  L0:[ffff]:002b L8:[ffff]:002e
+ (ffff)  0026    rax    iaddI   1  ptr  rsi:0006 +1
+ (ffff)  002a    rax       -    2  ptr  rax:0026
          0011           jigeI           rsi:0006 +10 L3 L8
 ; Out: rax:002a
 
@@ -366,7 +366,7 @@ L8: <L1
 ; Live:  [ffff]:002a
 ; In: rax:002a
 ; SLOT  VALUE    REG       OP USE TYPE  ARGS
- (ffff)  002e    rsi   rename   0  ptr  rax:002a
+ (ffff)  002e    rsi   rename   1  ptr  rax:002a
          002d             jmp           L1
 ; Out: rsi:002e
 
