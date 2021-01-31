@@ -217,7 +217,6 @@ void bjit::parse(std::vector<uint8_t> & codeOut)
     p.opt();
 
     p.compile(codeOut);
-    p.debug();
 }
 
 // helper to figure out what to do with statements

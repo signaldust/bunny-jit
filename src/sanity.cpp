@@ -10,11 +10,12 @@ using namespace bjit;
 // Note that in some cases we can violate invariants temporarily,
 // but they should always check out after each DCE pass.
 // 
-void Proc::sanity() const
+void Proc::sanity()
 {
     assert(live.size());    // must have one pass DCE
 
-    //debug();
+    debug();
+    livescan();
     
     for(auto & b : live)
     {

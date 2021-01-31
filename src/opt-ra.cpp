@@ -824,7 +824,7 @@ void Proc::allocRegs()
     // add the new blocks after loop
     for(auto n : newBlocks) live.push_back(n);
 
-    livescan(); sanity();
+    sanity();
 
     // find slots
     std::vector<bool>   sccUsed;

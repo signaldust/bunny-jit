@@ -232,7 +232,7 @@ namespace bjit
         }
 
         // sanity.cpp: checks internal invariants
-        void sanity() const;
+        void sanity();
 
         // debug.cpp
         void debug() const;
