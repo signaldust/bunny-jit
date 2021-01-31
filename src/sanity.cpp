@@ -15,6 +15,7 @@ void Proc::sanity()
     assert(live.size());    // must have one pass DCE
 
     livescan();
+    opt_dce();  // do another round to get use counts?
     debug();
     
     for(auto & b : live)
@@ -76,5 +77,5 @@ void Proc::sanity()
         }
     }
 
-    printf(" SANE");
+    printf(" SANE\n");
 }

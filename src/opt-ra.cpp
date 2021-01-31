@@ -867,10 +867,10 @@ void Proc::allocRegs()
 
     raDone = true;
 
+    printf(" DONE\n");
+
     // this won't work unless we fixed it :)
     if(fix_sanity) sanity();
-
-    printf(" DONE\n");
 }
 
 void Proc::findSCC()
