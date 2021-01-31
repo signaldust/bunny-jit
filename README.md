@@ -38,7 +38,9 @@ makes template expansion of all possible alternatives at compile time infeasible
 (or impossible, if the possible domain is infinite), yet one would like to avoid
 interpretive overhead. Because we're trying to gain performance, we're willing to
 spend some time on optimization, but because we're still aiming at interactive uses
-we try not to go crazy with heavy-weight analysis or funky heuristics.
+we try not to go crazy with funky heuristics. Instead we aim to find a set of
+simple and general optimizations that will always lead to a fixed-point. This rules
+out optimizations such as loop-unrolling where profitability is not clear.
 
 It comes with some sort of simple front-end language, but this is intended more
 for testing (and I guess example) than as a serious programming language.
