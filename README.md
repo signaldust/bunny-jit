@@ -71,8 +71,9 @@ use this if you don't want to use `clang` for some weird reason. If `BJIT_BUILDD
 and/or `BJIT_BINDIR` are defined, these will be used instead of `build/` and `bin/`.
 
 Should you somehow run into issues with automatic dependencies, type `make clean`
-to start fresh. Standard stuff. I hereby place the `Makefile` into public domain
-so please adapt it for your own projects if you don't know how to write one properly.
+to start fresh. Should not happen, but just in case. I hereby place the `Makefile`
+into public domain so please adapt it for your own projects if you don't know how
+to write one properly.
 
 The `Makefile` currently won't work on Windows though (at least not without something
 like Cygwin; I haven't tried), I will fix this eventually (it can be fixed, I'm just lazy).
