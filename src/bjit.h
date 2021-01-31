@@ -243,7 +243,7 @@ namespace bjit
         {
             // do DCE first, then fold
             // repeat until neither does progress
-            do opt_dce(); while(opt_fold());
+            do opt_dce(); while(opt_fold() || opt_sink());
         }
 
         void compile(std::vector<uint8_t> & bytes)
@@ -573,7 +573,7 @@ namespace bjit
         bool opt_fold();
 
         // opt-sink.cpp
-        void opt_sink();
+        bool opt_sink();
 
         // opt-dce.cpp
         void opt_dce();

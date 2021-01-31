@@ -884,9 +884,11 @@ void Proc::findSCC()
         // reserve all SCCs of live-in registers
         for(auto in : b.livein)
         {
-            // since we're doing live-scan live any live-in
+            // since we're doing live-scan order any live-in
             // variables should already have their SCC allocated
-            assert(ops[in].scc != noSCC);
+            // unless it's a loop-thru PHI which we fix below
+            assert(ops[in].scc != noSCC
+            || (ops[in].opcode == ops::phi && ops[in].block == bi));
             // this is just a sanity check
             assert(ops[in].scc < sccUsed.size());
             sccUsed[ops[in].scc] = true;

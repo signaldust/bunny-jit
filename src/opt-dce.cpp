@@ -503,7 +503,7 @@ void Proc::livescan()
     for(auto & op : ops)
     {
         // NOTE: nUse aliases on labels
-        if(op.opcode > ops::jmp) op.nUse = 0;
+        if(op.hasOutput()) op.nUse = 0;
     }
 
     for(auto & b : live) blocks[b].livein.clear();
