@@ -325,50 +325,53 @@ L6:
 That said, the code looks incredibly silly, doesn't it? But we have an optimizer:
 ```
 -- Optimizing:
- DCE:4+2 Fold:3
- DCE:3+2 Fold:1
- DCE:1+2 Live:1
- RA:SCC DCE:1+2 Live:1
- RA:BB DCE:1+2 RA:JMP SANE DONE
-
-;---- Slots: 1
+ DCE:4+5 Fold:3
+ DCE:3+4 Fold:1
+ DCE:1 Live:2 SINK DCE:1 Live:2 RA:SCC
+ DCE:1 Live:2 RA:BB
+ DCE:1 RA:JMP
+ DCE:1 Live:2
+;---- Slots: 0
 L0:
-; Dom: ^L0
-; Regs:
+; Dom: L0, PDom: L1
+; In:
 ; SLOT  VALUE    REG       OP USE TYPE  ARGS
  (ffff)  0000    rsp    alloc   0  ptr  +0
- (ffff)  0001    rax      lci   3  ptr  i64:0
- (ffff)  002d    rsi   rename   1  ptr  rax:0001
+ (ffff)  0001    rax      lci   0  ptr  i64:0
+ (ffff)  002b    rsi   rename   0  ptr  rax:0001
  (ffff)  0004    rax     idiv   0  ptr  rax:0001 rax:0001
          0008             jmp           L1
-; Out: rsi:002d
+; Out: rsi:002b
 
 L1: <L8 <L0
-; Dom: ^L0 ^L1
-; Regs: rsi:0006
+; Dom: L0, PDom: L3
+; In: rsi:0006
 ; SLOT  VALUE    REG       OP USE TYPE  ARGS
- (ffff)  0006    rsi      phi   2  ptr  L0:[ffff]:002d L8:[ffff]:0030
- (ffff)  002b    rax    iaddI   1  ptr  rsi:0006 +1
- (ffff)  002c    rax       -    2  ptr  rax:002b
+ (ffff)  0006    rsi      phi   0  ptr  L0:[ffff]:002b L8:[ffff]:002e
+ (ffff)  0026    rax    iaddI   0  ptr  rsi:0006 +1
+ (ffff)  002a    rax       -    0  ptr  rax:0026
          0011           jigeI           rsi:0006 +10 L3 L8
-; Out: rax:002c
+; Out: rax:002a
 
 L3: <L1
-; Dom: ^L0 ^L1 ^L3
-; Regs: rax:002c
+; Dom: L1, PDom: exit
+; Live:  [ffff]:002a
+; In: rax:002a
 ; SLOT  VALUE    REG       OP USE TYPE  ARGS
-         0027            iret           rax:002c
+         0027            iret           rax:002a
 ; Out:
 
 L8: <L1
-; Dom: ^L0 ^L1 ^L8
-; Regs: rax:002c
+; Dom: L1, PDom: L3
+; Live:  [ffff]:002a
+; In: rax:002a
 ; SLOT  VALUE    REG       OP USE TYPE  ARGS
- (ffff)  0030    rsi   rename   0  ptr  rax:002c
-         002f             jmp           L1
-; Out: rsi:0030
+ (ffff)  002e    rsi   rename   0  ptr  rax:002a
+         002d             jmp           L1
+; Out: rsi:002e
 
 ;----
+ SANE DONE
  - Wrote out.bin
 ```
 
@@ -378,11 +381,11 @@ and then get rid of the unnecessary branches (they were the same after all).
 Note how the compiler realized that it can compute the final `(x+1)` inside
 the loop, as long as it shuffles correctly: this is the power of SSA.
 
-In this case we didn't need any slots (the `1` here was added by the assembler
-to align the stack for the calling convention), otherwise spills would show
-up in the `SLOT` field like `=[0123]=`. DCE fills in the global `USE` counts.
-We also know all the incoming control
-flow edges, the block dominators and the incoming and outgoing registers.
+In this case we didn't need any slots, otherwise spills would show up in the
+`SLOT` field like `=[0123]=`. DCE fills in the global `USE` counts. We also
+know all the incoming control flow edges, live-in variables, the block
+dominators and the incoming and outgoing registers. This is essentially all
+the actual analysis we do.
 
 So what does `out.bin` look like?
 ```
@@ -413,7 +416,6 @@ Disassembly of section .data:
   2d:	90                                              	nop
   2e:	90                                              	nop
   2f:	90                                              	nop
-
 ```
 
 This doesn't look too bad, does it? We still have the silly division, but after
