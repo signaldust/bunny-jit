@@ -143,6 +143,13 @@ into `env`). Note that you can adjust the size of `env` as you please as long
 as constraints match for jump-sites, but keep in mind that `emitLabel()` will
 resize `env` back to what it was at the time of `newLabel()`.
 
+I should emphasis that you don't necessarily need to put everything into `env`
+if your front-end already knows that it doesn't need any `phi`s because it's
+never assigned to (locally or globally). If you understand SSA, then you can
+certainly be more intelligent and only keep stuff in `env` when `phi`s are
+potentially required, but this is not a requirement: the very first pass of
+DCE will get rid of any excess `phi`s just fine.
+
 Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
 in undefined behaviour (ie. invalid code or `assert`). The compiler should never
