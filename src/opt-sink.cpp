@@ -5,7 +5,17 @@ using namespace bjit;
 
 bool Proc::opt_sink()
 {
-    livescan(); // need live-out information
+    livescan(); // need live-in information
+
+    // livescan doesn't find phi-inputs, we need them here
+    for(auto b : live)
+    {
+        for(auto & a : blocks[b].args)
+        for(auto & s : a.alts)
+        {
+            blocks[b].livein.push_back(s.val);
+        }
+    }
 
     printf(" SINK");
 
@@ -60,7 +70,7 @@ bool Proc::opt_sink()
                 for(auto l : blocks[jmp.label[1]].livein)
             {
                 if(op.index != l) continue;
-                live0 = true;
+                live1 = true;
                 continue;
             }
 
