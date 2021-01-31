@@ -41,16 +41,16 @@ DEPENDS := $(OBJECTS:.o=.d)
 
 # automatic target generation for any subdirectories of test
 define TestTarget
- DEPENDS += $(patsubst %,$(BJIT_BUILDDIR)/%.d,$(wildcard $1*.cpp))
- $(BJIT_BINDIR)/$(patsubst test/%/,%,$1)$(BINEXT): $(LIBRARY) \
-  $(patsubst %,$(BJIT_BUILDDIR)/%.o,$(wildcard $1*.cpp))
+ DEPENDS += $(patsubst %,$(BJIT_BUILDDIR)/%.d,$1)
+ $(BJIT_BINDIR)/$(patsubst test/%.cpp,%,$1)$(BINEXT): $(LIBRARY) \
+  $(patsubst %,$(BJIT_BUILDDIR)/%.o,$1)
 	@echo LINK $$@
 	@$(MAKEDIR) "$(BJIT_BINDIR)"
-	@$(LINKBIN) -o $$@ $(patsubst %,$(BJIT_BUILDDIR)/%.o,$(wildcard $1*.cpp)) $(LINKFLAGS)
+	@$(LINKBIN) -o $$@ $(patsubst %,$(BJIT_BUILDDIR)/%.o,$1) $(LINKFLAGS)
 endef
 
-TESTDIRS := $(wildcard test/*/)
-TESTS := $(patsubst test/%/,$(BJIT_BINDIR)/%$(BINEXT),$(TESTDIRS))
+TESTS_CPP := $(wildcard test/*.cpp)
+TESTS := $(patsubst test/%.cpp,$(BJIT_BINDIR)/%$(BINEXT),$(TESTS_CPP))
 
 .PHONY: all clean
 
@@ -61,7 +61,7 @@ clean:
 	@$(CLEANALL)
 	@echo "Removed '$(BJIT_BUILDDIR)' and '$(BJIT_BINDIR)'"
 
-$(foreach i,$(TESTDIRS),$(eval $(call TestTarget,$(i))))
+$(foreach i,$(TESTS_CPP),$(eval $(call TestTarget,$(i))))
 
 $(LIBRARY): $(OBJECTS)
 	@echo LIB $@
