@@ -329,7 +329,7 @@ looks incredibly silly, doesn't it? Yet we have an optimizer:
  DCE:3+4 Fold:1
  DCE:1 Live:2 SINK DCE:1 Live:2 RA:SCC
  DCE:1 Live:2 RA:BB
- DCE:1 RA:JMP
+ DCE:1 RA:JMP DONE
  DCE:1 Live:2 DCE:1
 ;---- Slots: 0
 L0:
@@ -371,7 +371,7 @@ L8: <L1
 ; Out: rsi:002e
 
 ;----
- SANE DONE
+ SANE
  - Wrote out.bin
 ```
 
