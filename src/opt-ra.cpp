@@ -491,7 +491,7 @@ void Proc::allocRegs()
         }
     }
 
-    printf(" RA:JMP\n");
+    printf(" RA:JMP");
 
     std::vector<uint16_t>   newBlocks;
     
