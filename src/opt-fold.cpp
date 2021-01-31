@@ -1205,6 +1205,14 @@ bool Proc::opt_fold()
                                 
                             mblock = blocks[mblock].idom;
                         }
+
+                        // don't hoist if the actual target branches
+                        // we allow CSE in this case, but don't pull single
+                        // operations outside loops into them
+                        if(ops[blocks[mblock].code.back()].opcode < ops::jmp)
+                        {
+                            mblock = b;
+                        }
                         
                         // if mblock is the current block, then we can't move
                         if(mblock != b)
