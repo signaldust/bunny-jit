@@ -547,7 +547,10 @@ division-by-zero bytecode dump above. In that example case, it then makes
 the `phi`s redundant, which means the two conditional block are empty, which
 means the jumps can be threaded and the thing collapses into it's final form.
 In the case where one operation post-dominates the other, this would seem to
-result in PRE, but I don't know; it's really just a special case.
+result in PRE, but I don't know; it's really just a special case. We don't
+handle the case where one branch computes an operation on a value that is
+operand to a phi that is later used to compute the same operation, so I guess
+we don't get quite full PRE yet. This could be fixed, I guess.
 
 Sometimes it happens that further folding can make an instruction redundant
 on one path, but not the other. To deal with this, we do a further pass to
