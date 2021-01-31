@@ -62,8 +62,9 @@ Bunnies are cute.
 
 On Unix-like system with `clang` installed, simply run `make` (or `make -j`).
 
-Any source files in `src/` are linked to `build/bjit.a` and for each directory
-in `test/` we compile `bin/<name>` with `test/<name>/*.cpp`.
+Any source files in `src/` are linked to `build/bjit.a` and each `test/<name>.cpp`
+is compiled into a separate `bin/<name>` for testing purposes. After building
+you can use `bin/bjit` to test the library with the interactive front-end parser.
 
 We override `clang` for `CC` but if `BJIT_USE_CC` is defined, then this is used;
 use this if you don't want to use `clang` for some weird reason. If `BJIT_BUILDDIR`
