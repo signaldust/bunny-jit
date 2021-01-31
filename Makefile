@@ -39,7 +39,7 @@ LIB_SOURCES := $(wildcard src/*.cpp)
 OBJECTS := $(patsubst %,$(BJIT_BUILDDIR)/%.o,$(LIB_SOURCES))
 DEPENDS := $(OBJECTS:.o=.d)
 
-# automatic target generation for any subdirectories of test
+# automatic target generation for any .cpp files in test/
 define TestTarget
  DEPENDS += $(patsubst %,$(BJIT_BUILDDIR)/%.d,$1)
  $(BJIT_BINDIR)/$(patsubst test/%.cpp,%,$1)$(BINEXT): $(LIBRARY) \
