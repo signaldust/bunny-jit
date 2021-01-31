@@ -74,8 +74,8 @@ Should you somehow run into issues with automatic dependencies, type `make clean
 to start fresh. Standard stuff. I hereby place the `Makefile` into public domain
 so please adapt it for your own projects if you don't know how to write one properly.
 
-The `Makefile` currently won't work on Windows (at least not without something
-like Cygwin; I haven't tried), I will try to fix this eventually.
+The `Makefile` currently won't work on Windows though (at least not without something
+like Cygwin; I haven't tried), I will fix this eventually (it can be fixed, I'm just lazy).
 In the mean time, it should be possible to compile everything under `src/` into
 a static library and link with whatever other source files you have.
 
