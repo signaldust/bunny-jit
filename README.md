@@ -549,6 +549,12 @@ means the jumps can be threaded and the thing collapses into it's final form.
 In the case where one operation post-dominates the other, this would seem to
 result in PRE, but I don't know; it's really just a special case.
 
+Sometimes it happens that further folding can make an instruction redundant
+on one path, but not the other. To deal with this, we do a further pass to
+move such instructions down the path where they are useful. This basically
+the reverse of loop-invariant code-motion, where we move values out of loops
+when they are only needed after the loop exits.
+
 This is really all we currently do, but because we only worry about graph
 theory rather than variables, we get a fairly powerful set of optimisations
 essentially for free (well, some CPU is spent, but this isn't a stage0 JIT).
