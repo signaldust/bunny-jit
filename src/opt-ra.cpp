@@ -6,6 +6,8 @@ using namespace bjit;
 static const bool ra_debug = false;     // print lots of debug spam
 static const bool scc_debug = false;    // print lots of debug spam
 
+static const bool fix_sanity = true;    // whether to fix sanity for shuffles
+
 void Proc::allocRegs()
 {
     findSCC();
@@ -764,20 +766,24 @@ void Proc::allocRegs()
                 for(auto & cf : blocks[op.label[0]].comeFrom) if(cf == b) cf = b0;
                 
                 // fix dominators, satisfy sanity
-                blocks[b0].dom = blocks[b].dom;
-                blocks[b0].dom.push_back(b1);
-                blocks[b0].idom = b;
-                blocks[b0].pidom = blocks[b].pidom;
-                
-                // rename target PHI sources, satisfy sanity
-                for(auto & a : blocks[op.label[0]].args)
-                for(auto & s : a.alts)
+                // DCE won't rebuild, 'cos nothing dead
+                if(fix_sanity)
                 {
-                    if(ops[s.val].block == b) s.src = b0;
+                    blocks[b0].dom = blocks[b].dom;
+                    blocks[b0].dom.push_back(b1);
+                    blocks[b0].idom = b;
+                    blocks[b0].pidom = blocks[b].pidom;
+                    blocks[b0].comeFrom.push_back(b);
+                    blocks[b0].flags.live = true;
+                
+                    // rename target PHI sources, satisfy sanity
+                    for(auto & a : blocks[op.label[0]].args)
+                    for(auto & s : a.alts)
+                    {
+                        if(ops[s.val].block == b0) s.src = b0;
+                    }
                 }
                 
-                blocks[b0].comeFrom.push_back(b);
-                blocks[b0].flags.live = true;
                 ops[blocks[b].code.back()].label[0] = b0;
                 newBlocks.push_back(b0);
             }
@@ -794,20 +800,24 @@ void Proc::allocRegs()
                 for(auto & cf : blocks[op.label[1]].comeFrom) if(cf == b) cf = b1;
 
                 // fix dominators, satisfy sanity
-                blocks[b1].dom = blocks[b].dom;
-                blocks[b1].dom.push_back(b1);
-                blocks[b1].idom = b;
-                blocks[b1].pidom = blocks[b].pidom;
-                
-                // rename target PHI sources, satisfy sanity
-                for(auto & a : blocks[op.label[1]].args)
-                for(auto & s : a.alts)
+                // DCE won't rebuild, 'cos nothing dead
+                if(fix_sanity)
                 {
-                    if(ops[s.val].block == b) s.src = b1;
+                    blocks[b1].dom = blocks[b].dom;
+                    blocks[b1].dom.push_back(b1);
+                    blocks[b1].idom = b;
+                    blocks[b1].pidom = blocks[b].pidom;
+                    blocks[b1].comeFrom.push_back(b);
+                    blocks[b1].flags.live = true;
+                    
+                    // rename target PHI sources, satisfy sanity
+                    for(auto & a : blocks[op.label[1]].args)
+                    for(auto & s : a.alts)
+                    {
+                        if(ops[s.val].block == b1) s.src = b1;
+                    }
                 }
                 
-                blocks[b1].comeFrom.push_back(b);
-                blocks[b1].flags.live = true;
                 ops[blocks[b].code.back()].label[1] = b1;
                 newBlocks.push_back(b1);
             }
@@ -823,8 +833,6 @@ void Proc::allocRegs()
 
     // add the new blocks after loop
     for(auto n : newBlocks) live.push_back(n);
-
-    sanity();
 
     // find slots
     std::vector<bool>   sccUsed;
@@ -857,8 +865,12 @@ void Proc::allocRegs()
 
     for(auto & op : ops) if(op.hasOutput()) op.scc = slots[op.scc];
 
-    printf(" DONE\n");
     raDone = true;
+
+    // this won't work unless we fixed it :)
+    if(fix_sanity) sanity();
+
+    printf(" DONE\n");
 }
 
 void Proc::findSCC()

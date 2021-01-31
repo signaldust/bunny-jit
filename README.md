@@ -46,11 +46,8 @@ It comes with some sort of simple front-end language, but this is intended more
 for testing (and I guess example) than as a serious programming language.
 
 The test-driver currently parses this simple language from `stdin` and compiles
-it into native code, which is written to `out.bin` for disassembly purposes with
-something like:
-```
-gobjdump --insn-width=16 -mi386:x86-64:intel -d -D -b binary out.bin
-```
+it into native code, which is written to `out.bin` for disassembly purposes
+(eg. with the included `./dump-bin.sh` if you have `gobjdump` in path).
 
 You can certainly run it too, but you'll have to copy it to executable memory.
 

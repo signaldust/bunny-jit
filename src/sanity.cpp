@@ -14,8 +14,8 @@ void Proc::sanity()
 {
     assert(live.size());    // must have one pass DCE
 
-    debug();
     livescan();
+    debug();
     
     for(auto & b : live)
     {
@@ -29,6 +29,24 @@ void Proc::sanity()
             assert(op.index == c);
             assert(op.block == b);
 
+            if(op.opcode == ops::phi)
+            {
+                int phiSourcesFound = 0;
+                for(auto & s : blocks[b].args[op.phiIndex].alts)
+                {
+                    bool phiSourceInComeFrom = false;
+                    for(auto cf : blocks[b].comeFrom)
+                    {
+                        if(s.src != cf) continue;
+                        phiSourceInComeFrom = true;
+                        break;
+                    }
+                    assert(phiSourceInComeFrom);
+                    ++phiSourcesFound;
+                }
+                assert(phiSourcesFound == blocks[b].args[op.phiIndex].alts.size());
+            }
+            
             // sanity check that definitions dominate uses
             // also check that non-locals are marked as livein
             for(int i = 0; i < op.nInputs(); ++i)
