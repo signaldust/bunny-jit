@@ -635,8 +635,53 @@ namespace bjit
 
         // arch-XX-emit.cpp
         void arch_emit(std::vector<uint8_t> & bytes);
+    };
 
+    // This will eventually become a proper module linking class.
+    // For now it handles loading code into executable memory.
+    //
+    // Note that we don't allow compiling additional Procs while
+    // the module is loaded, but we DO allow compiling them again
+    // if the module is temporarily unloaded.
+    struct Module
+    {
+        ~Module() { if(exec_mem) unload(); }
+
+        // load compiled procedures into executable memory
+        // returns true on success
+        //
+        // use getProcPtr() to get pointers to procedures
+        bool load();
+
+        // unload module from executable memory
+        void unload();
+
+        // returns the address of a proc in executable memory
+        template <typename T>
+        T * getProcPtr(int index)
+        {
+            void    *vptr = offsets[index] + (uint8_t*)exec_mem;
+            return reinterpret_cast<T*&>(vptr);
+        }
+
+        // returns Proc index
+        int compile(Proc & proc)
+        {
+            assert(!exec_mem);
+            
+            int index = offsets.size();
+            offsets.push_back(bytes.size());
+            
+            proc.compile(bytes);
+
+            return index;
+        }
         
+    private:
+        std::vector<uint32_t>   offsets;
+        std::vector<uint8_t>    bytes;
+        void    *exec_mem = 0;
+
     };
 
 }

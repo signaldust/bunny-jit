@@ -1339,7 +1339,9 @@ bool Proc::opt_fold()
                         }
 
                         // if target branches, then just give up, for now
-                        // we might need to insert phis here
+                        // we don't want to hoist stuff back into loops
+                        //
+                        // we should add loop headers elsewhere
                         if(ops[blocks[mblock].code.back()].opcode < ops::jmp)
                         {
                             mblock = b;

@@ -33,5 +33,13 @@ cat << END | bin/bjit
 END
 echo "Test pass"
 
+cat << END | bin/bjit
+    x := 0; y := 0/0; while(x < 10) { if(y != 2) x = x+1; else x = x+1; } return (x+1);
+END
+
+bin/test_add_ii
+bin/test_add_ff
+
+
 echo "Looks like it didn't crash, at least... ;-)"
 
