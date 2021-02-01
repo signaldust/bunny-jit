@@ -135,6 +135,9 @@ void Proc::opt_dce()
                 
                     for(auto & src : alts)
                     {
+                        // if this happens, then CSE messed up
+                        assert(ops[src.val].opcode != ops::nop);
+                        
                         while(ops[src.val].opcode == ops::phi
                         && blocks[ops[src.val].block]
                             .args[ops[src.val].phiIndex].alts.size() == 1)
