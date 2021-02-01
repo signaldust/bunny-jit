@@ -100,7 +100,7 @@ RegMask Op::regsIn(int i)
             return regs::mask_int | (i ? 0 : (1ull<<regs::rsp));
 
         // allow iadd and iaddI to take RSP too, saves moves if we use LEA
-        case ops::iadd: case iaddI;
+        case ops::iadd: case ops::iaddI:
             return regs::mask_int | (1ull<<regs::rsp);
         
         // integer division takes RDX:RAX as 128-bit first operand
