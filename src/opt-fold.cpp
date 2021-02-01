@@ -1169,32 +1169,42 @@ bool Proc::opt_fold()
                             if(blocks[blocks[i].idom].pdom != i) bad = true;
                         }
 
+                        //printf("CSE: %04x, %04x: %s\n",
+                        //    op.index, other.index, bad ? "BAD" : "GOOD");
+
                         if(bad) { cseTable.insert(op); continue; }
 
                         if(ccd == ptr->block)
                         {
-                            rename.add(op.index, ptr->index);
                             if(renameThis)
                             {
                                 op.opcode = ops::rename;
                                 op.in[0] = other.index;
                                 op.in[1] = noVal;
-                            } else op.makeNOP();
+                            }
+                            else
+                            {
+                                rename.add(op.index, ptr->index);
+                                op.makeNOP();
+                            }
                             
                             progress = true;
                             continue;
                         }
                         else if(ccd == b)
                         {
-                            rename.add(other.index, op.index);
-
                             if(renameOther)
                             {
                                 other.opcode = ops::rename;
                                 other.in[0] = op.index;
                                 other.in[1] = noVal;
 
-                            } else other.makeNOP();
+                            }
+                            else
+                            {
+                                rename.add(other.index, op.index);
+                                other.makeNOP();
+                            }
                             
                             cseTable.insert(op);
                             
@@ -1241,8 +1251,8 @@ bool Proc::opt_fold()
                             }
                             else
                             {
-                                other.makeNOP();
                                 rename.add(other.index, op.index);
+                                other.makeNOP();
                             }
                             cseTable.insert(op);
                             progress = true;
@@ -1292,12 +1302,15 @@ bool Proc::opt_fold()
                             }
                             else
                             {
-                                op.makeNOP();
                                 rename.add(op.index, other.index);
+                                op.makeNOP();
                             }
                         }
                         else
                         {
+                            // Can this actually happen?
+                            //printf("Need rename both sides, bail out\n");
+                            
                             // bail out if both sides need phis
                             cseTable.insert(op); continue;
                         }
@@ -1324,9 +1337,8 @@ bool Proc::opt_fold()
                             mblock = blocks[mblock].idom;
                         }
 
-                        // don't hoist if the actual target branches
-                        // we allow CSE in this case, but don't pull single
-                        // operations outside loops into them
+                        // if target branches, then just give up, for now
+                        // we might need to insert phis here
                         if(ops[blocks[mblock].code.back()].opcode < ops::jmp)
                         {
                             mblock = b;
@@ -1374,6 +1386,7 @@ bool Proc::opt_fold()
         if(progress) anyProgress = true;
     }
 
+    //debug();
     printf(" Fold:%d\n", iter);
 
     return anyProgress;
