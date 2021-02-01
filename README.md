@@ -60,17 +60,17 @@ Bunnies are small and cute and will take over the world in the near future.
 
 On Unix-like system with `clang` installed, simply run `make` (or `make -j`).
 
-Any source files in `src/` are linked to `build/bjit.a` and each `tests/<name>.cpp`
-is compiled into a separate `bin/<name>` for testing purposes. After building
-you can use `bin/bjit` to test the library with the interactive front-end parser.
-If you add files, there's no need to touch the `Makefile` as it's all magic.
+We override `clang` for `CC` but if `BJIT_USE_CC` is defined, then this is used;
+use this if you don't want to use `clang` for some weird reason. If `BJIT_BUILDDIR`
+and/or `BJIT_BINDIR` are defined, these will be used instead of `build/` and `bin/`.
 
 There is also `make test` that will build everything and then run `run-tests.sh`
 to do some basic sanity checking (very limited for now).
 
-We override `clang` for `CC` but if `BJIT_USE_CC` is defined, then this is used;
-use this if you don't want to use `clang` for some weird reason. If `BJIT_BUILDDIR`
-and/or `BJIT_BINDIR` are defined, these will be used instead of `build/` and `bin/`.
+Any source files in `src/` are linked to `build/bjit.a` and each `tests/<name>.cpp`
+is compiled into a separate `bin/<name>` for testing purposes. After building
+you can use `bin/bjit` to test the library with the interactive front-end parser.
+If you add files, there's no need to touch the `Makefile` as it's all magic.
 
 Should you somehow run into issues with automatic dependencies, type `make clean`
 to start fresh. Should not happen, but just in case. I hereby place the `Makefile`
