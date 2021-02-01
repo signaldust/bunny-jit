@@ -52,11 +52,14 @@ endef
 TESTS_CPP := $(wildcard test/*.cpp)
 TESTS := $(patsubst test/%.cpp,$(BJIT_BINDIR)/%$(BINEXT),$(TESTS_CPP))
 
-.PHONY: all clean
+.PHONY: all test clean
 
 all: $(LIBRARY) $(TESTS)
 	@echo DONE
 
+test: all
+	/bin/bash -e ./run-test.sh
+    
 clean:
 	@$(CLEANALL)
 	@echo "Removed '$(BJIT_BUILDDIR)' and '$(BJIT_BINDIR)'"
