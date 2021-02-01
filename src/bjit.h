@@ -491,7 +491,7 @@ namespace bjit
             blocks.resize(blocks.size() + 1);
 
             blocks[b].comeFrom.push_back(from);
-            auto & jmp = ops[newOp(ops::jmp, Op::_void, b);
+            auto & jmp = ops[newOp(ops::jmp, Op::_none, b)];
             jmp.label[0] = to;
 
             // fix live-in for edge block
@@ -508,7 +508,7 @@ namespace bjit
             {
                 blocks[to].idom = b;
                 blocks[to].dom.back() = b;
-                blocks[to].dom.push_back() = to;
+                blocks[to].dom.push_back(to);
             }
 
             // fix target comeFrom
