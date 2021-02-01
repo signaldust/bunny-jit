@@ -142,8 +142,8 @@ There is no symbol resolution step yet, but you can call `Module::load()` to
 load the module into executable memory and `Module::unload()` to unload it.
 *(NOTE: This only works on Unix for now. Windows support "soon"(tm))*.
 
-When a `Module` is loaded call `Module::getProcPtr<T>()` which takes an index
-returned by `Module::compile()` and returns a pointer to your function (with `T`
+When a `Module` is loaded call `Module::getPointer<T>()` with an index
+returned by `Module::compile()` to get a pointer to your function (with `T`
 being the type of the function; we don't check this, we just typecast for you).
 See one of the tests (eg. `tests/test_add_ii.cpp`) for an example.
 

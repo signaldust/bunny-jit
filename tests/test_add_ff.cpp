@@ -15,7 +15,7 @@ int main()
 
     assert(module.load());
 
-    double (*ptr)(double,double) = module.getProcPtr<double(double,double)>(i);
+    double (*ptr)(double,double) = module.getPointer<double(double,double)>(i);
 
     printf(" 2 + 5 = %f\n", ptr(2, 5));
 

@@ -658,7 +658,7 @@ namespace bjit
 
         // returns the address of a proc in executable memory
         template <typename T>
-        T * getProcPtr(int index)
+        T * getPointer(int index)
         {
             void    *vptr = offsets[index] + (uint8_t*)exec_mem;
             return reinterpret_cast<T*&>(vptr);
