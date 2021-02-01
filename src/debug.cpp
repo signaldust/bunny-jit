@@ -14,6 +14,7 @@ const char * bjit::Proc::regName(int r) const { return regNames[r]; }
 
 void bjit::Proc::debugOp(uint16_t iop) const
 {
+    if(iop == noVal) { printf("           -- removed op -- \n"); return; }
     auto & op = ops[iop];
 
     if(op.hasOutput())
