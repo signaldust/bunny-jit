@@ -59,7 +59,7 @@ all: $(LIBRARY) $(TESTS)
 
 test: all
 	@echo Running tests with output to 'test.out'
-	@/bin/bash -e ./run-tests.sh 2>&1 > test.out || /bin/bash -e ./run-tests.sh
+	@/bin/bash -e ./run-tests.sh > test.out 2>&1 || /bin/bash -e ./run-tests.sh
 	@echo Tests done.
     
 clean:
