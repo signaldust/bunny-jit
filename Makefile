@@ -39,18 +39,18 @@ LIB_SOURCES := $(wildcard src/*.cpp)
 OBJECTS := $(patsubst %,$(BJIT_BUILDDIR)/%.o,$(LIB_SOURCES))
 DEPENDS := $(OBJECTS:.o=.d)
 
-# automatic target generation for any .cpp files in test/
+# automatic target generation for any .cpp files in tests/
 define TestTarget
  DEPENDS += $(patsubst %,$(BJIT_BUILDDIR)/%.d,$1)
- $(BJIT_BINDIR)/$(patsubst test/%.cpp,%,$1)$(BINEXT): $(LIBRARY) \
+ $(BJIT_BINDIR)/$(patsubst tests/%.cpp,%,$1)$(BINEXT): $(LIBRARY) \
   $(patsubst %,$(BJIT_BUILDDIR)/%.o,$1)
 	@echo LINK $$@
 	@$(MAKEDIR) "$(BJIT_BINDIR)"
 	@$(LINKBIN) -o $$@ $(patsubst %,$(BJIT_BUILDDIR)/%.o,$1) $(LINKFLAGS)
 endef
 
-TESTS_CPP := $(wildcard test/*.cpp)
-TESTS := $(patsubst test/%.cpp,$(BJIT_BINDIR)/%$(BINEXT),$(TESTS_CPP))
+TESTS_CPP := $(wildcard tests/*.cpp)
+TESTS := $(patsubst tests/%.cpp,$(BJIT_BINDIR)/%$(BINEXT),$(TESTS_CPP))
 
 .PHONY: all test clean
 
@@ -58,7 +58,7 @@ all: $(LIBRARY) $(TESTS)
 	@echo DONE
 
 test: all
-	/bin/bash -e ./run-test.sh
+	/bin/bash -e ./run-tests.sh
     
 clean:
 	@$(CLEANALL)
