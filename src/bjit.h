@@ -185,7 +185,7 @@ namespace bjit
         std::vector<uint16_t>   dom;
         
         uint16_t                idom;   // immediate dominator
-        uint16_t                pidom;  // immediate post-dominator
+        uint16_t                pdom;  // immediate post-dominator
 
         struct {
             bool live       : 1;    // livescan uses this
@@ -501,7 +501,7 @@ namespace bjit
             blocks[b].dom.push_back(b);
 
             blocks[b].idom = from;
-            blocks[b].pidom = to;
+            blocks[b].pdom = to;
 
             if(blocks[to].idom == from)
             {

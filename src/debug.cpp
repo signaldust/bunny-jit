@@ -103,7 +103,7 @@ void bjit::Proc::debug() const
             printf("L%d:", b);
             for(auto s : blocks[b].comeFrom) printf(" <L%d", s);
             printf("\n; Dom: L%d,", blocks[b].idom);
-            if(blocks[b].pidom != noVal) printf(" PDom: L%d", blocks[b].pidom);
+            if(blocks[b].pdom != noVal) printf(" PDom: L%d", blocks[b].pdom);
             else printf(" PDom: exit");
             //printf("\n; "); for(auto s : blocks[b].dom) printf(" ^L%d", s);
             //printf("\n; "); for(auto s : blocks[b].pdom) printf(" L%d^", s);

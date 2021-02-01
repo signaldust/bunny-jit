@@ -93,13 +93,13 @@ void Proc::opt_dom()
     // dominator must have exactly one less dominator
     for(auto & b : live)
     {
-        blocks[b].pidom = noVal;
+        blocks[b].pdom = noVal;
         for(auto & d : blocks[b].dom)
         {
             if(d == noVal) continue;   // no common post-dominator
             if(blocks[d].dom.size() == blocks[b].dom.size() - 1)
             {
-                blocks[b].pidom = d;
+                blocks[b].pdom = d;
                 break;
             }
         }
@@ -176,7 +176,7 @@ void Proc::opt_dom()
         
     }
 
-    // order dominators, don't care about post-doms here
+    // order dominators; we use these for CCD in CSE
     for(auto & b : live)
     {
         for(auto & d : blocks[b].dom) d = noVal;

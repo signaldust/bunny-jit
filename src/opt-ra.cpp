@@ -859,7 +859,7 @@ void Proc::allocRegs()
                     blocks[b0].dom = blocks[b].dom;
                     blocks[b0].dom.push_back(b1);
                     blocks[b0].idom = b;
-                    blocks[b0].pidom = blocks[b].pidom;
+                    blocks[b0].pdom = blocks[b].pdom;
                     blocks[b0].comeFrom.push_back(b);
                     blocks[b0].flags.live = true;
                 
@@ -893,7 +893,7 @@ void Proc::allocRegs()
                     blocks[b1].dom = blocks[b].dom;
                     blocks[b1].dom.push_back(b1);
                     blocks[b1].idom = b;
-                    blocks[b1].pidom = blocks[b].pidom;
+                    blocks[b1].pdom = blocks[b].pdom;
                     blocks[b1].comeFrom.push_back(b);
                     blocks[b1].flags.live = true;
                     
