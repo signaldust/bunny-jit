@@ -1122,7 +1122,6 @@ bool Proc::opt_fold()
                         auto & other = ops[ptr->index];
                         auto pb = ptr->block;
                         int ccd = 0;
-                        
                         int iMax = std::min(
                             blocks[b].dom.size(), blocks[pb].dom.size());
                             
@@ -1132,23 +1131,43 @@ bool Proc::opt_fold()
                             else break;
                         }
 
-                        // check post-dominator condition
+                        // we need to sanity check phis and post-doms
                         bool bad = false;
-                        if(b != ccd)
-                        for(int i = b ;; i = blocks[i].idom)
+                        bool renameOther = false;
+                        
+                        // check post-dominator condition
+                        for(int i = b ; i; i = blocks[i].idom)
                         {
+                            // if we are skipping phis, then we'll force
+                            // force the other to be kept as a rename
+                            for(auto & a : blocks[i].args)
+                            for(auto & s : a.alts)
+                            {
+                                if(ptr->index == s.val) renameOther = true;
+                            }
+                            
                             if(ccd == blocks[i].idom) break; // this is fine
                             if(bad) break;
                             if(blocks[blocks[i].idom].pidom != i) bad = true;
                         }
 
                         // check post-dominator condition
-                        for(int i = ptr->block; i; i = blocks[i].idom)
+                        if(!bad)
+                        for(int i = pb; i; i = blocks[i].idom)
                         {
+                            // if the other one skips phis, then we'll bail out
+                            // and we'll try again the other way later
+                            for(auto & a : blocks[i].args)
+                            for(auto & s : a.alts)
+                            {
+                                if(op.index == s.val) bad = true;
+                            }
+                            
                             if(ccd == blocks[i].idom) break; // this is fine
                             if(bad) break;
                             if(blocks[blocks[i].idom].pidom != i) bad = true;
                         }
+
 
                         if(bad) { cseTable.insert(op); continue; }
 
@@ -1203,9 +1222,17 @@ bool Proc::opt_fold()
                                     blocks[ccd].code[k+1]);
                             }
 
-                            other.makeNOP();
-                            
-                            rename.add(other.index, op.index);
+                            if(renameOther)
+                            {
+                                other.opcode = ops::rename;
+                                other.in[0] = op.index;
+                                other.in[1] = noVal;
+                            }
+                            else
+                            {
+                                other.makeNOP();
+                                rename.add(other.index, op.index);
+                            }
                             cseTable.insert(op);
                             progress = true;
                         }
@@ -1239,7 +1266,7 @@ bool Proc::opt_fold()
                         {
                             mblock = b;
                         }
-                        
+
                         // if mblock is the current block, then we can't move
                         if(mblock != b)
                         {
