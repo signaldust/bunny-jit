@@ -7,7 +7,7 @@
 // output flags
 #define BJIT_SIDEFX 0x10    // never DCE
 #define BJIT_CSE    0x20    // can CSE
-#define BJIT_NOMOVE 0x40    // don't move inside the block
+#define BJIT_NOMOVE 0x40    // must be in the beginning of a block
 
 // input flags
 #define BJIT_IMM32  0x10    // has imm32 operand
