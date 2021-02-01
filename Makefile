@@ -58,7 +58,9 @@ all: $(LIBRARY) $(TESTS)
 	@echo DONE
 
 test: all
-	/bin/bash -e ./run-tests.sh
+	@echo Running tests with output to 'test.out'
+	@/bin/bash -e ./run-tests.sh 2>&1 > test.out || /bin/bash -e ./run-tests.sh
+	@echo Tests done.
     
 clean:
 	@$(CLEANALL)

@@ -5,7 +5,7 @@ using namespace bjit;
 
 void Proc::opt_dce()
 {
-    bool firstRun = !live.size();
+    auto hadLiveSize = live.size();
     bool progress = true;
     //debug();
 
@@ -74,6 +74,7 @@ void Proc::opt_dce()
                         }
                     
                         ops[i].label[k] = target;
+                        progress = true;    // need at least new DOMs
                     }
     
                     if(!blocks[ops[i].label[k]].flags.live)
@@ -244,9 +245,11 @@ void Proc::opt_dce()
             b.code.resize(j);
         }
     }
-
+    
+    printf(" DCE:%d", iters);
+    
     // if we made no progress, then don't bother rebuild other info
-    if(!firstRun && iters == 1) { printf(" DCE:%d", iters); return; }
+    if(live.size() == hadLiveSize && iters == 1) { return; }
 
     // rebuild comeFrom, should delay this until iteration done
     for(int b = live.size();b--;) blocks[live[b]].comeFrom.clear();
@@ -262,166 +265,6 @@ void Proc::opt_dce()
         if(op.opcode <= ops::jmp)
         {
             blocks[op.label[0]].comeFrom.push_back(live[b]);
-        }
-    }
-
-    for(auto & b : live)
-    {
-        // reset dominators
-        if(!b) {
-            blocks[b].dom.clear();
-            blocks[b].dom.push_back(b);
-        }
-        else blocks[b].dom = live;
-
-        // reset postdominators
-        if(ops[blocks[b].code.back()].opcode > ops::jmp)
-        {
-            blocks[b].pdom.clear();
-            blocks[b].pdom.push_back(b);
-        }
-        else blocks[b].pdom = live;
-    }    
-
-    // find dominator
-    //
-    // start with every node dominating itself
-    // iterate blocks n until no change:
-    //   tdom(n) = blocks
-    //   for p in comeFrom(n):
-    //     tdom(n) = sdom(n) intersect dom(p)
-    //   dom(n) = { n } union sdom(n)
-    int domIters = 0;
-    bool iterate = true;
-    std::vector<uint16_t>   tdom;
-    while(iterate)
-    {
-        iterate = false;
-        ++domIters;
-
-        for(auto & b : live)
-        {
-            // this is entry block
-            if(!b) continue;
-            assert(blocks[b].comeFrom.size());
-
-            tdom = live;
-            for(auto & f : blocks[b].comeFrom)
-            {
-                for(int t = 0; t < tdom.size();)
-                {
-                    bool found = false;
-                    for(auto & d : blocks[f].dom)
-                    {
-                        if(d == tdom[t]) found = true;
-                    }
-                    
-                    if(found) { ++t; }
-                    else
-                    {
-                        std::swap(tdom[t], tdom.back());
-                        tdom.pop_back();
-                    }
-                }
-            }
-            
-            bool foundSelf = false;
-            for(auto & t : tdom) { if(t != b) continue; foundSelf = true; break; }
-    
-            if(!foundSelf) tdom.push_back(b);
-            if(tdom.size() != blocks[b].dom.size()) iterate = true;
-
-            // save copy, we'll reset tdom above anyway
-            std::swap(blocks[b].dom, tdom);
-        }
-    }
-    
-    iterate = true;
-    while(iterate)
-    {
-        iterate = false;
-        ++domIters;
-
-        // backwards
-        for(int bi = live.size(); bi--;)
-        {
-            auto & b = blocks[live[bi]];
-            auto & jmp = ops[b.code.back()];
-            // this is an exit block
-            if(jmp.opcode > ops::jmp) continue;
-
-            int nLabel = (jmp.opcode == ops::jmp) ? 1 : 2;
-
-            tdom = live;
-            for(int k = 0; k < nLabel; ++k)
-            {
-                for(int t = 0; t < tdom.size();)
-                {
-                    bool found = false;
-                    for(auto & d : blocks[jmp.label[k]].pdom)
-                    {
-                        if(d == tdom[t]) found = true;
-                    }
-                    
-                    if(found) { ++t; }
-                    else
-                    {
-                        std::swap(tdom[t], tdom.back());
-                        tdom.pop_back();
-                    }
-                }
-            }
-            
-            bool foundSelf = false;
-            for(auto & t : tdom)
-            { if(t != live[bi]) continue; foundSelf = true; break; }
-    
-            if(!foundSelf) tdom.push_back(live[bi]);
-            if(tdom.size() != b.pdom.size()) iterate = true;
-
-            // save copy, we'll reset tdom above anyway
-            std::swap(b.pdom, tdom);
-        }
-    }
-
-    // push theoretical exit-block (unifies multiple returns)
-    for(auto & b : live) { blocks[b].pdom.push_back(noVal); }
-
-    // find immediate dominators: we use the fact that the immediate
-    // dominator must have exactly one less dominator
-    for(auto & b : live)
-    {
-        blocks[b].idom = 0;
-        blocks[b].pidom = noVal;
-        
-        for(auto & d : blocks[b].dom)
-        {
-            if(blocks[d].dom.size() == blocks[b].dom.size() - 1)
-            {
-                blocks[b].idom = d;
-                break;
-            }
-        }
-        
-        for(auto & d : blocks[b].pdom)
-        {
-            if(d == noVal) continue;   // no common post-dominator
-            if(blocks[d].pdom.size() == blocks[b].pdom.size() - 1)
-            {
-                blocks[b].pidom = d;
-                break;
-            }
-        }
-    }
-
-    // order dominators, don't care about post-doms here
-    for(auto & b : live)
-    {
-        for(auto & d : blocks[b].dom) d = noVal;
-        for(int d = b, i = blocks[b].dom.size(); i--;)
-        {
-            blocks[b].dom[i] = d;
-            d = blocks[d].idom;
         }
     }
 
@@ -446,7 +289,8 @@ void Proc::opt_dce()
         if(j != a.alts.size()) { a.alts.resize(j); progress = true; }
     }
 
-    printf(" DCE:%d+%d", iters, domIters);
+    // rebuild dominators when control flow changes
+    opt_dom();
 }
 
 void Proc::findUsesBlock(int b, bool inOnly)

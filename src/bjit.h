@@ -183,10 +183,9 @@ namespace bjit
 
         // dominators
         std::vector<uint16_t>   dom;
-        std::vector<uint16_t>   pdom;
         
         uint16_t                idom;   // immediate dominator
-        uint16_t                pidom;  // immediate post-dominator
+        uint16_t                pdom;  // immediate post-dominator
 
         struct {
             bool live       : 1;    // livescan uses this
@@ -482,6 +481,47 @@ namespace bjit
         std::vector<Op>         ops;
 
         unsigned currentBlock;
+
+        // used to break critical edges, returns the new block
+        // tries to fix most info, but not necessarily all
+        uint16_t breakEdge(uint16_t from, uint16_t to)
+        {
+            printf(" BCE[%d,%d]", from, to);
+            uint16_t b = blocks.size();
+            blocks.resize(blocks.size() + 1);
+
+            blocks[b].comeFrom.push_back(from);
+            auto & jmp = ops[addOp(ops::jmp, Op::_none, b)];
+            jmp.label[0] = to;
+
+            // fix live-in for edge block
+            blocks[b].livein = blocks[to].livein;
+
+            // fix doms, don't care about pdoms
+            blocks[b].dom = blocks[from].dom;
+            blocks[b].dom.push_back(b);
+
+            blocks[b].idom = from;
+            blocks[b].pdom = to;
+            blocks[b].flags.live = true;
+            live.push_back(b);
+
+            if(blocks[to].idom == from)
+            {
+                blocks[to].idom = b;
+                blocks[to].dom.back() = b;
+                blocks[to].dom.push_back(to);
+            }
+
+            // fix target comeFrom
+            for(auto & cf : blocks[to].comeFrom) if(cf == from) cf = b;
+
+            // for target phis
+            for(auto & a : blocks[to].args)
+            for(auto & s : a.alts) if(s.src == from) s.src == b;
+
+            return b;
+        }
         
         unsigned newOp(uint16_t opcode, Op::Type type, uint16_t block)
         {
@@ -579,6 +619,9 @@ namespace bjit
 
         // opt-dce.cpp
         void opt_dce();
+
+        // opt-dom.cpp - used by opt-dce()
+        void opt_dom();
 
         // opt-dce.cpp
         // compute live-in variables, set all nUse = 0

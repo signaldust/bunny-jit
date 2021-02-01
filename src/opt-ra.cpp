@@ -859,7 +859,7 @@ void Proc::allocRegs()
                     blocks[b0].dom = blocks[b].dom;
                     blocks[b0].dom.push_back(b1);
                     blocks[b0].idom = b;
-                    blocks[b0].pidom = blocks[b].pidom;
+                    blocks[b0].pdom = blocks[b].pdom;
                     blocks[b0].comeFrom.push_back(b);
                     blocks[b0].flags.live = true;
                 
@@ -893,7 +893,7 @@ void Proc::allocRegs()
                     blocks[b1].dom = blocks[b].dom;
                     blocks[b1].dom.push_back(b1);
                     blocks[b1].idom = b;
-                    blocks[b1].pidom = blocks[b].pidom;
+                    blocks[b1].pdom = blocks[b].pdom;
                     blocks[b1].comeFrom.push_back(b);
                     blocks[b1].flags.live = true;
                     
@@ -1066,12 +1066,35 @@ void Proc::findSCC()
         }
     }
 
-    // second pass, add renames to invalid jmps
+    // second pass, break critical edges
+    for(auto b : live)
+    {
+        auto c = blocks[b].code.back();
+        
+        if(ops[c].opcode < ops::jmp)
+        for(int k = 0; k < 2; ++k)
+        {
+            if(blocks[ops[c].label[k]].comeFrom.size() < 2) continue;
+
+            auto shuffle = breakEdge(b, ops[c].label[k]);
+            
+            for(auto & a : blocks[ops[c].label[k]].args)
+            for(auto & s : a.alts)
+            {
+                if(s.src == b) s.src = shuffle;
+            }
+
+            ops[c].label[k] = shuffle;
+        }
+    }
+
+    // third pass, add renames to invalid jmps
     for(auto b : live)
     {
         assert(blocks[b].flags.live);
         
         int nSCC = sccUsed.size();
+        
         auto c = blocks[b].code.back();
         
         if(ops[c].opcode <= ops::jmp)

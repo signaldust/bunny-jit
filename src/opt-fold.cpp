@@ -1148,7 +1148,7 @@ bool Proc::opt_fold()
                             
                             if(ccd == blocks[i].idom) break; // this is fine
                             if(bad) break;
-                            if(blocks[blocks[i].idom].pidom != i) bad = true;
+                            if(blocks[blocks[i].idom].pdom != i) bad = true;
                         }
 
                         // check post-dominator condition
@@ -1165,7 +1165,7 @@ bool Proc::opt_fold()
                             
                             if(ccd == blocks[i].idom) break; // this is fine
                             if(bad) break;
-                            if(blocks[blocks[i].idom].pidom != i) bad = true;
+                            if(blocks[blocks[i].idom].pdom != i) bad = true;
                         }
 
 
@@ -1254,7 +1254,7 @@ bool Proc::opt_fold()
 
                             // sanity check post-dominators
                             auto idom = blocks[mblock].idom;
-                            if(blocks[idom].pidom != mblock) break;
+                            if(blocks[idom].pdom != mblock) break;
                                 
                             mblock = blocks[mblock].idom;
                         }
