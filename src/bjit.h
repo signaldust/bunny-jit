@@ -513,12 +513,14 @@ namespace bjit
                 blocks[to].dom.push_back(to);
             }
 
+            if(blocks[from].pdom == to) blocks[from].pdom = b;
+
             // fix target comeFrom
             for(auto & cf : blocks[to].comeFrom) if(cf == from) cf = b;
 
             // for target phis
             for(auto & a : blocks[to].args)
-            for(auto & s : a.alts) if(s.src == from) s.src == b;
+            for(auto & s : a.alts) if(s.src == from) s.src = b;
 
             return b;
         }
