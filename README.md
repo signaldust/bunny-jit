@@ -136,9 +136,9 @@ optional, but you will typically get very poor code if you skip this as by defau
 the compiler only does simple DCE and register allocation.
 
 Next you can either call `Proc::compile()` to obtain native code, or you can
-create a `bjit::Module` and pass the `Proc` to `Module::compile` which will
+create a `bjit::Module` and pass the `Proc` to `Module::compile()` which will
 return an index. Multiple procedures can be compiled into the same module.
-There is no symbol resolution step yet, but you can call `Module::load() to
+There is no symbol resolution step yet, but you can call `Module::load()` to
 load the module into executable memory and `Module::unload()` to unload it.
 
 When a `Module` is loaded call `Module::getProcPtr<T>()` which takes an index
