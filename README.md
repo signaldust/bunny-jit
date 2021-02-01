@@ -112,10 +112,9 @@ of interfaces (which for the time being are subject to change without notice).
 The first step is to include `src/bjit.h`.
 
 The second step is to create a `bjit::Proc` which takes a stack allocation size
-and a string representing arguments (`i` for integer, `f` for double).
-This will initialize `env[0]` with an SSA value for the pointer to a block
-of the requested size on the stack (in practice, it represents stack
-pointer) and `env[1..]` as the SSA values of the arguments (at most 4 for now).
+and a string representing arguments (`i` for integer, `f` for double). The allocated
+block will always be the SSA value `0` (in practice this is the stack pointer) and
+the arguments will be placed in `env[0..n]` (left to right, at most 4 for now).
 More on `env` below. Pass `0` and `""` if you don't care about allocations or arguments.
 At this time we only support single procedures, some day we might have modules.
 
