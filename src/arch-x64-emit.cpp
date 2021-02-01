@@ -38,8 +38,6 @@ namespace bjit
 
 void Proc::arch_emit(std::vector<uint8_t> & out)
 {
-    out.clear();
-    
     for(auto & b : blocks) { b.flags.codeDone = false; }
 
     AsmX64 a64(out, blocks.size());
