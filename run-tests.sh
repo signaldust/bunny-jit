@@ -38,3 +38,4 @@ END
 echo "Test pass"
 
 echo "Looks like it didn't crash, at least... ;-)"
+
