@@ -1066,12 +1066,35 @@ void Proc::findSCC()
         }
     }
 
-    // second pass, add renames to invalid jmps
+    // second pass, break critical edges
+    for(auto b : live)
+    {
+        auto c = blocks[b].code.back();
+        
+        if(ops[c].opcode < ops::jmp)
+        for(int k = 0; k < 2; ++k)
+        {
+            if(blocks[ops[c].label[k]].comeFrom.size() < 2) continue;
+
+            auto shuffle = breakEdge(b, ops[c].label[k]);
+            
+            for(auto & a : blocks[ops[c].label[k]].args)
+            for(auto & s : a.alts)
+            {
+                if(s.src == b) s.src = shuffle;
+            }
+
+            ops[c].label[k] = shuffle;
+        }
+    }
+
+    // third pass, add renames to invalid jmps
     for(auto b : live)
     {
         assert(blocks[b].flags.live);
         
         int nSCC = sccUsed.size();
+        
         auto c = blocks[b].code.back();
         
         if(ops[c].opcode <= ops::jmp)

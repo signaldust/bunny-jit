@@ -486,11 +486,12 @@ namespace bjit
         // tries to fix most info, but not necessarily all
         uint16_t breakEdge(uint16_t from, uint16_t to)
         {
+            printf(" BCE[%d,%d]", from, to);
             uint16_t b = blocks.size();
             blocks.resize(blocks.size() + 1);
 
             blocks[b].comeFrom.push_back(from);
-            auto & jmp = ops[newOp(ops::jmp, Op::_none, b)];
+            auto & jmp = ops[addOp(ops::jmp, Op::_none, b)];
             jmp.label[0] = to;
 
             // fix live-in for edge block
@@ -502,6 +503,8 @@ namespace bjit
 
             blocks[b].idom = from;
             blocks[b].pdom = to;
+            blocks[b].flags.live = true;
+            live.push_back(b);
 
             if(blocks[to].idom == from)
             {

@@ -5,7 +5,7 @@ using namespace bjit;
 
 void Proc::opt_dce()
 {
-    bool firstRun = !live.size();
+    auto hadLiveSize = live.size();
     bool progress = true;
     //debug();
 
@@ -74,6 +74,7 @@ void Proc::opt_dce()
                         }
                     
                         ops[i].label[k] = target;
+                        progress = true;    // need at least new DOMs
                     }
     
                     if(!blocks[ops[i].label[k]].flags.live)
@@ -244,9 +245,11 @@ void Proc::opt_dce()
             b.code.resize(j);
         }
     }
-
+    
+    printf(" DCE:%d", iters);
+    
     // if we made no progress, then don't bother rebuild other info
-    if(!firstRun && iters == 1) { printf(" DCE:%d", iters); return; }
+    if(live.size() == hadLiveSize && iters == 1) { return; }
 
     // rebuild comeFrom, should delay this until iteration done
     for(int b = live.size();b--;) blocks[live[b]].comeFrom.clear();
@@ -286,8 +289,7 @@ void Proc::opt_dce()
         if(j != a.alts.size()) { a.alts.resize(j); progress = true; }
     }
 
-    printf(" DCE:%d", iters);
-    
+    // rebuild dominators when control flow changes
     opt_dom();
 }
 

@@ -80,7 +80,14 @@ bool Proc::opt_sink()
             // do not move into blocks that merge paths
             // this prevents us from sinking loop invariants
             // back into the loop, which would be silly
-            if(blocks[jmp.label[live0?0:1]].comeFrom.size() > 1) continue;
+            if(blocks[jmp.label[live0?0:1]].comeFrom.size() > 1)
+            {
+                // if the edge is not critical, don't sink at all
+                if(jmp.opcode == ops::jmp) continue;
+
+                // otherwise break the edge
+                jmp.label[live0?0:1] = breakEdge(b, jmp.label[live0?0:1]);
+            }
 
             // pick the block where this is live
             (live0 ? tmp0 : tmp1).push_back(op.index);
