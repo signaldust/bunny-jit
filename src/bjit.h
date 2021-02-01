@@ -183,7 +183,6 @@ namespace bjit
 
         // dominators
         std::vector<uint16_t>   dom;
-        std::vector<uint16_t>   pdom;
         
         uint16_t                idom;   // immediate dominator
         uint16_t                pidom;  // immediate post-dominator
@@ -617,6 +616,9 @@ namespace bjit
 
         // opt-dce.cpp
         void opt_dce();
+
+        // opt-dom.cpp - used by opt-dce()
+        void opt_dom();
 
         // opt-dce.cpp
         // compute live-in variables, set all nUse = 0
