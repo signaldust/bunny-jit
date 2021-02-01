@@ -12,7 +12,7 @@ void Proc::allocRegs()
 {
     findSCC();
     livescan();
-    
+
     printf(" RA:BB\n");
 
     std::vector<uint16_t>   codeOut;
@@ -21,8 +21,15 @@ void Proc::allocRegs()
 
     for(auto b : live)
     {
-        // FIXME: this is terribly inefficient
-        for(auto & op : ops) if(op.opcode > ops::jmp) op.nUse = 0;
+        // clear live-in use-counts
+        for(auto & in : blocks[b].livein) ops[in].nUse = 0;
+
+        // clear phi-in use-counts
+        for(auto & a : blocks[b].args)
+        for(auto & s : a.alts)
+        {
+            ops[s.val].nUse = 0;
+        }
         
         // work out the actual use-counts
         findUsesBlock(b, false);
@@ -36,11 +43,69 @@ void Proc::allocRegs()
             }
         }
 
+        // cleanup stale renames
+        for(auto & r : rename.map)
+        {
+            bool found = false;
+            int idom = b;
+            while(idom)
+            {
+                idom = blocks[idom].idom;
+                if(ops[r.dst].block == idom) found = true;
+            }
+
+            if(!found) r.src = r.dst;   // won't match anything
+        }
+
+        {
+            int j = 0;
+            for(int i = 0; i < rename.map.size(); ++i)
+            {
+                if(rename.map[i].dst == rename.map[i].src) continue;
+                if(i != j) rename.map[j] = rename.map[i];
+                ++j;
+            }
+        }
+
+        if(ops[blocks[b].code.back()].opcode <= ops::jmp)
+        for(int k = 0; k < 2; ++k)
+        {
+            if(k && ops[blocks[b].code.back()].opcode == ops::jmp) break;
+
+            for(auto & i : blocks[ops[blocks[b].code.back()].label[k]].livein)
+            {
+                for(auto & r : rename.map) { if(r.src == i) i = r.dst; }
+                //ops[i].nUse += 1;
+            }
+        }
+
         if(ra_debug) printf("L%d:\n", b);
 
         uint16_t    regstate[regs::nregs];
         memcpy(regstate, blocks[b].regsIn, sizeof(regstate));
         blocks[b].flags.regsDone = true;
+
+        // cleanup stuff that is neither live-in or phi-argh
+        for(int r = 0; r < regs::nregs; ++r)
+        {
+            bool found = false;
+            for(auto & i : blocks[b].livein)
+            {
+                if(i != regstate[r]) continue;
+                found = true;
+                break;
+            }
+
+            if(!found) for(auto & a : blocks[b].args)
+            if(!found) for(auto & s : a.alts)
+            {
+                if(s.src != b && s.val != regstate[r]) continue;
+                found = true;
+                break;
+            }
+
+            if(!found) regstate[r] = noVal;
+        }
 
         // FIXME: this should do a parallel search
         auto findBest = [&](RegMask mask, int reg, int c) -> int
@@ -142,7 +207,6 @@ void Proc::allocRegs()
         {
             auto & op = ops[blocks[b].code[c]];
 
-            uint16_t lastOp = codeOut.size() ? codeOut.back() : 0xffff;
             if(ra_debug) if(codeOut.size()) debugOp(codeOut.back());
 
             rename(op);
@@ -156,7 +220,7 @@ void Proc::allocRegs()
                 for(auto & s : a.alts)
                 for(auto & r : rename.map)
                 {
-                    if(s.val == r.src) s.val = r.dst;
+                    if(s.src == b && s.val == r.src) s.val = r.dst;
                 }
             }
 
@@ -230,15 +294,33 @@ void Proc::allocRegs()
 
                     // was this the last op we just output?
                     // try to patch it in case it's something simple
-                    if(op.in[i] == lastOp && ops[op.in[i]].nInputs()<2
+                    if(op.in[i] == (codeOut.size() > 1
+                        ? codeOut[codeOut.size()-2] : noVal)
+                    && (ops[op.in[i]].nInputs()<2
+                        || ops[ops[op.in[i]].in[1]].reg != r)
                     && (ops[op.in[i]].regsOut() & (1ull<<r)))
                     {
+                        if(ra_debug) printf("; Can patch...\n");
                         regstate[ops[op.in[i]].reg] = noVal;
                         ops[op.in[i]].reg = r;
                         regstate[r] = op.in[i];
                     }
                     else
                     {
+                        if(ra_debug)
+                        {
+                            printf("; Can't patch: ");
+                            if(op.in[i] != (codeOut.size() > 1
+                                ? codeOut[codeOut.size()-2] : noVal))
+                                printf("last %04x\n",
+                                    (codeOut.size() > 1
+                                    ? codeOut[codeOut.size()-2] : noVal));
+                            if(!((ops[op.in[i]].nInputs()<2
+                            || ops[ops[op.in[i]].in[1]].reg != r)))
+                                printf("in[1] reg\n");
+                            if(!(ops[op.in[i]].regsOut() & (1ull<<r)))
+                                printf("out mask\n");
+                        }
                         uint16_t rr = newOp(ops::rename, ops[op.in[0]].flags.type, b);
                         
                         ops[rr].in[0] = op.in[i];
@@ -303,17 +385,20 @@ void Proc::allocRegs()
                     regstate[r] = rr;
                     ops[rr].nUse = ops[op.in[i]].nUse;
 
-                    printf("; rename %04x -> %04x\n", op.in[i], rr);
                     rename.add(op.in[i], rr);
                     rename(op);
-                    if(ra_debug) debugOp(rr);
-                    if(ra_debug) debugOp(op.index);
 
                     std::swap(codeOut.back(), rr);
                     codeOut.push_back(rr);
                 }
             }
 
+            // sanity check that we got the renames right
+            for(int i = 0; i < op.nInputs(); ++i)
+            {
+                assert(regstate[ops[op.in[i]].reg] == op.in[i]);
+            }
+            
             // check to free once all inputs are done
             for(int i = 0; i < op.nInputs(); ++i)
             {
@@ -327,15 +412,6 @@ void Proc::allocRegs()
                         if(!i) prefer = ops[op.in[i]].reg;
                     }
                 }
-            }
-            
-            // if this is rename from SCCs then always use same register
-            // this is fine, because we know how to reuse
-            if(op.opcode == ops::rename)
-            {
-                regstate[ops[op.in[0]].reg] = noVal;
-                prefer = ops[op.in[0]].reg;
-                rename.add(ops[op.in[0]].index, op.index);
             }
 
             // clobbers - could try to save, but whatever
@@ -414,7 +490,7 @@ void Proc::allocRegs()
                     }
                 }
             }
-            
+
             if(!op.hasOutput()) continue;
 
             if(op.opcode == ops::phi)
@@ -467,7 +543,8 @@ void Proc::allocRegs()
             
             op.reg = findBest(mask, prefer, c+1);
             assert(op.reg < regs::nregs);
-            regstate[op.reg] = blocks[b].code[c];
+            regstate[op.reg] = op.index; // blocks[b].code[c];
+            
         }
 
         std::swap(blocks[b].code, codeOut);
