@@ -54,7 +54,7 @@ You can certainly run it too, but you'll have to copy it to executable memory.
 
 ## Why Bunny?
 
-Bunnies are small and cute and will take over the world.
+Bunnies are small and cute and will take over the world in the near future.
 
 ## How to build?
 
