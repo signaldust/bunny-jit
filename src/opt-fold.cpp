@@ -1169,9 +1169,6 @@ bool Proc::opt_fold()
                             if(blocks[blocks[i].idom].pdom != i) bad = true;
                         }
 
-                        // don't try to rename both (could be fixed)
-                        if(renameThis && renameOther) bad = true;
-
                         if(bad) { cseTable.insert(op); continue; }
 
                         if(ccd == ptr->block)
