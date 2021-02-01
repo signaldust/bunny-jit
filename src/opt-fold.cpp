@@ -1134,6 +1134,7 @@ bool Proc::opt_fold()
                         // we need to sanity check phis and post-doms
                         bool bad = false;
                         bool renameOther = false;
+                        bool renameThis = false;
                         
                         // check post-dominator condition
                         for(int i = b ; i; i = blocks[i].idom)
@@ -1160,7 +1161,7 @@ bool Proc::opt_fold()
                             for(auto & a : blocks[i].args)
                             for(auto & s : a.alts)
                             {
-                                if(op.index == s.val) bad = true;
+                                if(op.index == s.val) renameThis = true;
                             }
                             
                             if(ccd == blocks[i].idom) break; // this is fine
@@ -1168,13 +1169,20 @@ bool Proc::opt_fold()
                             if(blocks[blocks[i].idom].pdom != i) bad = true;
                         }
 
+                        // don't try to rename both (could be fixed)
+                        if(renameThis && renameOther) bad = true;
 
                         if(bad) { cseTable.insert(op); continue; }
 
                         if(ccd == ptr->block)
                         {
                             rename.add(op.index, ptr->index);
-                            op.makeNOP();
+                            if(renameThis)
+                            {
+                                op.opcode = ops::rename;
+                                op.in[0] = other.index;
+                                op.in[1] = noVal;
+                            } else op.makeNOP();
                             
                             progress = true;
                             continue;
@@ -1196,12 +1204,12 @@ bool Proc::opt_fold()
                             progress = true;
                             continue;
                         }
-                        else
+                        else if(!renameThis)
                         {
                             bc = noVal;
                             op.block = ccd;
     
-                            // try to move the new op backwards
+                            // try to move this op backwards
                             int k = blocks[ccd].code.size();
                             blocks[ccd].code.push_back(op.index);
                             while(k--)
@@ -1241,6 +1249,10 @@ bool Proc::opt_fold()
                             }
                             cseTable.insert(op);
                             progress = true;
+                        }
+                        else
+                        {
+                            cseTable.insert(op); continue;
                         }
                     }
                     else 
