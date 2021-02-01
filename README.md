@@ -145,6 +145,7 @@ load the module into executable memory and `Module::unload()` to unload it.
 When a `Module` is loaded call `Module::getProcPtr<T>()` which takes an index
 returned by `Module::compile()` and returns a pointer to your function (with `T`
 being the type of the function; we don't check this, we just typecast for you).
+See one of the tests (eg. `tests/test_add_ii.cpp`) for an example.
 
 
 ### Env?
