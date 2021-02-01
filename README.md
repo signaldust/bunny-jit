@@ -158,8 +158,11 @@ values to instructions that expect integer values or vice versa will result
 in undefined behaviour (ie. invalid code or `assert`). The compiler should never
 fail with valid data unless bytecode size limit is exceeded (we
 <code>throw&nbsp;bjit::too_many_ops</code> if compiled with exceptions; otherwise we `assert`),
-so we do not provide error reporting other than `assert` (lots of them). This
-is a conscious design decision, as error checking should be done at higher levels.
+so we do not provide error reporting other than `assert` (lots of them). 
+
+This is a conscious design decision, as error checking should be done at higher
+levels. At some point in the future when the code can be considered "production
+quality" we will probably <code>throw&nbsp;bjit::internal_error</code> instead.
 
 The type system is very primitive though and mostly exists for the purpose of
 tracking which registers we can use to store values. In particular, anything
