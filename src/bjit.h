@@ -482,6 +482,44 @@ namespace bjit
         std::vector<Op>         ops;
 
         unsigned currentBlock;
+
+        // used to break critical edges, returns the new block
+        // tries to fix most info, but not necessarily all
+        uint16_t breakEdge(uint16_t from, uint16_t to)
+        {
+            uint16_t b = blocks.size();
+            blocks.resize(blocks.size() + 1);
+
+            blocks[b].comeFrom.push_back(from);
+            auto & jmp = ops[newOp(ops::jmp, Op::_void, b);
+            jmp.label[0] = to;
+
+            // fix live-in for edge block
+            blocks[b].livein = blocks[to].livein;
+
+            // fix doms, don't care about pdoms
+            blocks[b].dom = blocks[from].dom;
+            blocks[b].dom.push_back(b);
+
+            blocks[b].idom = from;
+            blocks[b].pidom = to;
+
+            if(blocks[to].idom == from)
+            {
+                blocks[to].idom = b;
+                blocks[to].dom.back() = b;
+                blocks[to].dom.push_back() = to;
+            }
+
+            // fix target comeFrom
+            for(auto & cf : blocks[to].comeFrom) if(cf == from) cf = b;
+
+            // for target phis
+            for(auto & a : blocks[to].args)
+            for(auto & s : a.alts) if(s.src == from) s.src == b;
+
+            return b;
+        }
         
         unsigned newOp(uint16_t opcode, Op::Type type, uint16_t block)
         {
