@@ -108,12 +108,7 @@ bool Proc::opt_fold()
                 
                 auto & op = ops[bc];
 
-                if(op.opcode == ops::nop)
-                {
-                    op.in[0] = noVal;
-                    op.in[1] = noVal;
-                    continue;
-                }
+                if(op.opcode == ops::nop) { continue; }
                 
                 rename(op);
     
@@ -365,7 +360,7 @@ bool Proc::opt_fold()
                 {
                     rename.add(bc, op.in[0]);
                     progress = true;
-                    op.opcode = ops::nop;
+                    op.makeNOP();
                     continue;
                 }
 
@@ -375,7 +370,7 @@ bool Proc::opt_fold()
                 {
                     rename.add(bc, op.in[0]);
                     progress = true;
-                    op.opcode = ops::nop;
+                    op.makeNOP();
                     continue;                    
                 }
                 
@@ -518,7 +513,31 @@ bool Proc::opt_fold()
                     op.imm32 = shift;
                     progress = true;
                 }
-    
+                
+                // can we replace division with shift?
+                // unsigned only for now
+                if(I(ops::udiv) && I1(ops::lci) && !(N1.u64 & (N1.u64 - 1)))
+                {
+                    uint32_t b = N1.imm32;
+                    int shift = 0; while(b >>= 1) ++shift;
+                    op.opcode = ops::ushrI;
+                    op.imm32 = shift;
+                    op.in[1] = noVal;
+                    progress = true;
+                }
+
+                // can we replace modulo with mask? max 32-bits for now
+                if(I(ops::umod) && I1(ops::lci)
+                && !(N1.u64 & (N1.u64 - 1)) && (N1.u64 <= (1ull<<32)))
+                {
+                    uint32_t b = N1.imm32;
+                    int shift = 0; while(b >>= 1) ++shift;
+                    op.opcode = ops::iandI;
+                    op.imm32 = ((1ull<<shift)-1);
+                    op.in[1] = noVal;
+                    progress = true;
+                }
+                
                 // (a<<n)<<m = (a<<(n+m)), happens from adds/muls
                 if(I(ops::ishlI) && I0(ops::ishlI))
                 {
@@ -536,6 +555,14 @@ bool Proc::opt_fold()
                     }
                     progress = true;
                 }
+
+                // shift by zero is always a NOP
+                if((I(ops::ishlI) || I(ops::ishrI) || I(ops::ushrI)) && !op.imm32)
+                {
+                    rename.add(op.index, op.in[0]);
+                    op.makeNOP();
+                    continue;
+                }
                 
                 // FIXME: add NAND and NOR to simplify
                 // some constructs involving bitwise NOT?
@@ -544,8 +571,8 @@ bool Proc::opt_fold()
                 if(I(ops::inot) && I0(ops::inot))
                 {
                     rename.add(bc, N0.in[0]);
+                    op.makeNOP();
                     progress = true;
-                    op.opcode = ops::nop;
                     continue;
                 }
                 
@@ -583,7 +610,7 @@ bool Proc::opt_fold()
                 {
                     rename.add(bc, op.in[0]);
                     progress = true;
-                    op.opcode = ops::nop;
+                    op.makeNOP();
                     continue;
                 }
     
@@ -1045,6 +1072,7 @@ bool Proc::opt_fold()
                         }
                         break;
                     case ops::udiv:
+                        // preserve division by zero!
                         if(N1.u64)
                         {
                             op.u64 = N0.u64 / N1.u64;
@@ -1053,6 +1081,7 @@ bool Proc::opt_fold()
                         }
                         break;
                     case ops::umod:
+                        // preserve division by zero!
                         if(N1.u64)
                         {
                             op.u64 = N0.u64 % N1.u64;
@@ -1126,8 +1155,7 @@ bool Proc::opt_fold()
                         if(ccd == ptr->block)
                         {
                             rename.add(op.index, ptr->index);
-                            op.opcode = ops::nop;
-                            op.i64 = ~0ull;
+                            op.makeNOP();
                             
                             progress = true;
                             continue;
@@ -1136,8 +1164,7 @@ bool Proc::opt_fold()
                         {
                             rename.add(other.index, op.index);
 
-                            other.opcode = ops::nop;
-                            other.i64 = ~0ull;
+                            other.makeNOP();
                             
                             cseTable.insert(op);
                             
@@ -1176,8 +1203,7 @@ bool Proc::opt_fold()
                                     blocks[ccd].code[k+1]);
                             }
 
-                            other.opcode = ops::nop;
-                            other.i64 = ~0ull;
+                            other.makeNOP();
                             
                             rename.add(other.index, op.index);
                             cseTable.insert(op);
