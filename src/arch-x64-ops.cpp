@@ -98,6 +98,10 @@ RegMask Op::regsIn(int i)
         case ops::si8: case ops::si16: case ops::si32: case ops::si64:
         case ops::sf64:
             return regs::mask_int | (i ? 0 : (1ull<<regs::rsp));
+
+        // allow iadd and iaddI to take RSP too, saves moves if we use LEA
+        case ops::iadd: case ops::iaddI:
+            return regs::mask_int | (1ull<<regs::rsp);
         
         // integer division takes RDX:RAX as 128-bit first operand
         // we only do 64-bit, but force RAX on 1st and forbid RDX on 2nd
