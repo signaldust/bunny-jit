@@ -1305,6 +1305,7 @@ bool Proc::opt_fold()
                                 rename.add(op.index, other.index);
                                 op.makeNOP();
                             }
+                            progress = true;
                         }
                         else
                         {
