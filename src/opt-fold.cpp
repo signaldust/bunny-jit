@@ -1183,7 +1183,13 @@ bool Proc::opt_fold()
                         {
                             rename.add(other.index, op.index);
 
-                            other.makeNOP();
+                            if(renameOther)
+                            {
+                                other.opcode = ops::rename;
+                                other.in[0] = op.index;
+                                other.in[1] = noVal;
+
+                            } else other.makeNOP();
                             
                             cseTable.insert(op);
                             
