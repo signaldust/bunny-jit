@@ -120,17 +120,31 @@ and a string representing arguments (`i` for integer, `f` for double). The alloc
 block will always be the SSA value `0` (in practice this is the stack pointer) and
 the arguments will be placed in `env[0..n]` (left to right, at most 4 for now).
 More on `env` below. Pass `0` and `""` if you don't care about allocations or arguments.
-At this time we only support single procedures, some day we might have modules.
 
-To generate instructions, you call the instruction methods on `Proc`.
-When done, `Proc::opt()` will optimize and `Proc::compile()` generate code.
-Compile always does a few passes of DCE, but otherwise optimization is optional.
+To generate instructions, you can then call the instruction methods on `Proc`
+which are described [below](#instruction-set). Note that the last instruction
+of every block should be either a jump (conditional or unconditional) or a return.
 
 Most instructions take their parameters as SSA values. The exceptions are
 `lci`/`lcf` which take immediate constants and jump-labels which should be
 the block-indexes returned by `Proc::newLabel()`. For instructions
 with output values, the methods return the new SSA values and other
 instructions return `void`.
+
+When you're done you should typicall call `Proc::opt()` to optimize. This is
+optional, but you will typically get very poor code if you skip this as by default
+the compiler only does simple DCE and register allocation.
+
+Next you can either call `Proc::compile()` to obtain native code, or you can
+create a `bjit::Module` and pass the `Proc` to `Module::compile` which will
+return an index. Multiple procedures can be compiled into the same module.
+There is no symbol resolution step yet, but you can call `Module::load() to
+load the module into executable memory and `Module::unload()` to unload it.
+
+When a `Module` is loaded call `Module::getProcPtr<T>()` which takes an index
+returned by `Module::compile()` and returns a pointer to your function (with `T`
+being the type of the function; we don't check this, we just typecast for you).
+
 
 ### Env?
 
@@ -174,7 +188,9 @@ double-precision variants to `d` if we add single-precision versions). Note
 that floating-point comparisons return integers, even though they expect
 `_f64` parameters.
 
-### The compiler currently exposes the following instructions:
+### Instruction set?
+
+The compiler currently exposes the following instructions:
 
 `lci i64` and `lcf f64` specify constants, `jmp label` is unconditional jump
 and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise,
