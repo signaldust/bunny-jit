@@ -1250,8 +1250,58 @@ bool Proc::opt_fold()
                             cseTable.insert(op);
                             progress = true;
                         }
+                        else if(!renameOther)
+                        {
+                            // expensive case, need to find the other op
+                            int p = blocks[other.block].code.size();
+                            while(p && other.index != blocks[other.block].code[--p]);
+
+                            assert(blocks[other.block].code[p] == other.index);
+
+                            blocks[other.block].code[p] = noVal;
+                            other.block = ccd;
+                            
+                            int k = blocks[ccd].code.size();
+                            blocks[ccd].code.push_back(other.index);
+                            while(k--)
+                            {
+                                // don't move past anything with sideFX
+                                // but DO move past jumps
+                                if(blocks[ccd].code[k] != noVal
+                                && ops[blocks[ccd].code[k]].opcode > ops::jmp
+                                && !ops[blocks[ccd].code[k]].canMove()) break;
+                                
+                                // sanity check that we don't move past inputs
+                                bool canMove = true;
+                                for(int j = 0; j < other.nInputs(); ++j)
+                                {
+                                    if(blocks[ccd].code[k] != other.in[j]) continue;
+                                    canMove = false;
+                                    break;
+                                }
+
+                                if(!canMove) break;
+    
+                                // move
+                                std::swap(blocks[ccd].code[k],
+                                    blocks[ccd].code[k+1]);
+                            }
+
+                            if(renameThis)
+                            {
+                                op.opcode = ops::rename;
+                                op.in[0] = other.index;
+                                op.in[1] = noVal;
+                            }
+                            else
+                            {
+                                op.makeNOP();
+                                rename.add(op.index, other.index);
+                            }
+                        }
                         else
                         {
+                            // bail out if both sides need phis
                             cseTable.insert(op); continue;
                         }
                     }
