@@ -206,10 +206,10 @@ namespace bjit
     {
         // allocBytes is the size of an optional block allocated from the stack
         // for function local data (eg. arrays, variables with address taken)
-        //  - env[0] will contain a pointer to this data
+        // the SSA value 0 will always be the pointer to this block
         //
         // args is string describing argument: 'i' for int, 'f' for double
-        //  - env[1..] are the SSA values for the arguments
+        //  - env[0..n] are the SSA values for the arguments
         //
         Proc(unsigned allocBytes, const char * args)
         {
@@ -219,7 +219,8 @@ namespace bjit
             currentBlock = newLabel();
             emitLabel(currentBlock);
 
-            env.push_back(alloc(allocBytes));
+            // front-ends can use the invariant this is always 0
+            alloc(allocBytes);
 
             if(args) for(;*args;++args)
             {
