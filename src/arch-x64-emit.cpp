@@ -409,6 +409,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 else _MOVri(regs::rax, i.imm32);
                 // fall through
             case ops::iret:
+            case ops::fret:
             case ops::dret:
                 if(frameBytes) { _ADDri(regs::rsp, frameBytes); }
                 for(int r = savedRegs.size(); r--;)
