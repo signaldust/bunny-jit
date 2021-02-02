@@ -270,6 +270,10 @@ Note that the support is currently not particularly robust as it relies on regis
 allocator not accidentally overwriting parameters. This "should not happen"(tm), but
 there is no real sanity-checking done for this, yet.
 
+There is also `tcallp` which performs a tail-call which returns from the procedure
+with the return value of the call. As it does not return to the procedure, it can
+(and generally should) be the last thing in a given block. It is untested.
+
 There is currently no support for relocation or intra-module calls.
 
 ## What it does?
