@@ -7,7 +7,7 @@ int main()
     bjit::Module    module;
     bjit::Proc      proc(0, "ff");
 
-    proc.fret(proc.fadd(proc.env[0], proc.env[1]));
+    proc.dret(proc.dadd(proc.env[0], proc.env[1]));
 
     proc.opt();
     

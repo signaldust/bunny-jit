@@ -368,7 +368,7 @@ void Proc::allocRegs()
                     
                     // don't do a true reload if we can remat constant
                     if(ops[op.in[i]].opcode == ops::lci
-                    || ops[op.in[i]].opcode == ops::lcf)
+                    || ops[op.in[i]].opcode == ops::lcd)
                     {
                         ops[rr].opcode = ops[op.in[i]].opcode;
                         ops[rr].i64 = ops[op.in[i]].i64;

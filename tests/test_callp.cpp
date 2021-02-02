@@ -40,7 +40,7 @@ int main()
     }
     {
         bjit::Proc      proc(0, "ff");
-        proc.fret(proc.fcallp(proc.lci(uintptr_t(fsub2)), 2));
+        proc.dret(proc.dcallp(proc.lci(uintptr_t(fsub2)), 2));
         proc.debug();
         proc.opt();
         module.compile(proc);

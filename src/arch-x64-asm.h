@@ -57,13 +57,13 @@ uint8_t _CC(uint8_t opcode)
         case ops::jile: return 0xE;
 
         // floating point conditions match unsigned(!)
-        case ops::jult: case ops::jflt: return 0x2;
-        case ops::juge: case ops::jfge: return 0x3;
-        case ops::jugt: case ops::jfgt: return 0x7;
-        case ops::jule: case ops::jfle: return 0x6;
+        case ops::jult: case ops::jdlt: return 0x2;
+        case ops::juge: case ops::jdge: return 0x3;
+        case ops::jugt: case ops::jdgt: return 0x7;
+        case ops::jule: case ops::jdle: return 0x6;
 
-        case ops::jine: case ops::jfne: case ops::jnz: return 0x5;
-        case ops::jieq: case ops::jfeq: case ops::jz:  return 0x4;
+        case ops::jine: case ops::jdne: case ops::jnz: return 0x5;
+        case ops::jieq: case ops::jdeq: case ops::jz:  return 0x4;
 
         default: assert(false);
     }

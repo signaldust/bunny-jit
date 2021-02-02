@@ -29,7 +29,7 @@ RegMask Op::regsOut()
         case ops::imod: case ops::umod: return (1ull<<regs::rdx);
 
         case ops::icallp: return (1ull<<regs::rax);
-        case ops::fcallp: return (1ull<<regs::xmm0);
+        case ops::dcallp: return (1ull<<regs::xmm0);
 
         // we have in[0] = index in type, in[1] = index total
         // which one we want to use varies by platform
@@ -57,7 +57,7 @@ RegMask Op::regsOut()
             default: assert(false); // FIXME: RA can't handle
             }
 #endif
-        case ops::farg:
+        case ops::darg:
 #ifdef _WIN32
             switch(indexTotal)  // Win64 wants the total position
             {
@@ -94,7 +94,7 @@ RegMask Op::regsIn(int i)
 
         // indirect calls can theoretically take any GP register
         // but force RAX so we hopefully don't globber stuff
-        case ops::icallp: case ops::fcallp: case ops::tcallp:
+        case ops::icallp: case ops::dcallp: case ops::tcallp:
             return (1ull<<regs::rax);
         
         // loads and stores allow stack pointer as their first argument
@@ -124,18 +124,18 @@ RegMask Op::regsIn(int i)
         case ops::jz: case ops::jnz:
             return regs::mask_int;
 
-        case ops::jflt: case ops::jfge:
-        case ops::jfgt: case ops::jfle:
-        case ops::jfeq: case ops::jfne:
+        case ops::jdlt: case ops::jdge:
+        case ops::jdgt: case ops::jdle:
+        case ops::jdeq: case ops::jdne:
 
-        case ops::flt: case ops::fge:
-        case ops::fgt: case ops::fle:
-        case ops::feq: case ops::fne:
+        case ops::dlt: case ops::dge:
+        case ops::dgt: case ops::dle:
+        case ops::deq: case ops::dne:
         
-        case ops::lcf: case ops::cf2i: case ops::bcf2i:
+        case ops::lcd: case ops::cd2i: case ops::bcd2i:
             return regs::mask_float;
             
-        case ops::ci2f: case ops::bci2f:
+        case ops::ci2d: case ops::bci2d:
             return regs::mask_int;
             
         // shifts want their second operand in CL
@@ -167,7 +167,7 @@ RegMask Op::regsIn(int i)
             default: assert(false); // FIXME: RA can't handle
             }
 #endif
-        case ops::fpass:
+        case ops::dpass:
 #ifdef _WIN32
             switch(indexTotal)  // Win64 wants the total index
             {
@@ -196,7 +196,7 @@ RegMask Op::regsIn(int i)
 
         // these are fixed
         case ops::iret: return (1ull<<regs::rax);
-        case ops::fret: return (1ull<<regs::xmm0);
+        case ops::dret: return (1ull<<regs::xmm0);
 
     }
 }
@@ -214,7 +214,7 @@ RegMask Op::regsLost()
         // for now, collect registers used by previous args
         // this should help convince RA to do the right thing
         case ops::ipass:
-        case ops::fpass:
+        case ops::dpass:
             {
                 RegMask used = 0;
 #ifdef _WIN32
@@ -228,7 +228,7 @@ RegMask Op::regsLost()
                 return used;
             }
 
-        case ops::icallp: case ops::fcallp: return regs::caller_saved;
+        case ops::icallp: case ops::dcallp: return regs::caller_saved;
 
         default: return 0;
     }

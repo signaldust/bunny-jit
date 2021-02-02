@@ -306,9 +306,9 @@ namespace bjit
             unsigned i = addOp(ops::lci, Op::_ptr); ops[i].u64 = imm; return i;
         }
 
-        unsigned lcf(double imm)
+        unsigned lcd(double imm)
         {
-            unsigned i = addOp(ops::lcf, Op::_f64); ops[i].f64 = imm; return i;
+            unsigned i = addOp(ops::lcd, Op::_f64); ops[i].f64 = imm; return i;
         }
 
         // JUMPS:
@@ -357,8 +357,8 @@ namespace bjit
         { unsigned i = addOp(ops::iret, Op::_none); ops[i].in[0] = v; }
 
         // float return
-        void fret(unsigned v)
-        { unsigned i = addOp(ops::fret, Op::_none); ops[i].in[0] = v; }
+        void dret(unsigned v)
+        { unsigned i = addOp(ops::dret, Op::_none); ops[i].in[0] = v; }
 
         // indirect call to a function that returns an integer
         // the last 'n' values from 'env' are passed as parameters
@@ -381,7 +381,7 @@ namespace bjit
         }
 
         // same as icallp but functions returning floats
-        unsigned fcallp(unsigned ptr, unsigned n)
+        unsigned dcallp(unsigned ptr, unsigned n)
         {
             nPassInt     = 0;
             nPassFloat   = 0;
@@ -390,7 +390,7 @@ namespace bjit
             // We probably want right-to-left once we do stack?
             for(int i = 0; i<n; ++i) passArg(env[env.size()-n+i]);
 
-            unsigned i = addOp(ops::fcallp, Op::_f64);
+            unsigned i = addOp(ops::dcallp, Op::_f64);
             ops[i].in[0] = ptr;
             return i;
         }
@@ -427,9 +427,9 @@ namespace bjit
         BJIT_OP2(ugt,_ptr,_ptr,_ptr); BJIT_OP2(ule,_ptr,_ptr,_ptr);
         BJIT_OP2(ieq,_ptr,_ptr,_ptr); BJIT_OP2(ine,_ptr,_ptr,_ptr);
 
-        BJIT_OP2(flt,_ptr,_f64,_f64); BJIT_OP2(fge,_ptr,_f64,_f64);
-        BJIT_OP2(fgt,_ptr,_f64,_f64); BJIT_OP2(fle,_ptr,_f64,_f64);
-        BJIT_OP2(feq,_ptr,_f64,_f64); BJIT_OP2(fne,_ptr,_f64,_f64);
+        BJIT_OP2(dlt,_ptr,_f64,_f64); BJIT_OP2(dge,_ptr,_f64,_f64);
+        BJIT_OP2(dgt,_ptr,_f64,_f64); BJIT_OP2(dle,_ptr,_f64,_f64);
+        BJIT_OP2(deq,_ptr,_f64,_f64); BJIT_OP2(dne,_ptr,_f64,_f64);
         
         BJIT_OP2(iadd,_ptr,_ptr,_ptr); BJIT_OP2(isub,_ptr,_ptr,_ptr);
         BJIT_OP2(imul,_ptr,_ptr,_ptr);
@@ -442,12 +442,12 @@ namespace bjit
         BJIT_OP2(ixor,_ptr,_ptr,_ptr); BJIT_OP2(ishl,_ptr,_ptr,_ptr);
         BJIT_OP2(ishr,_ptr,_ptr,_ptr); BJIT_OP2(ushr,_ptr,_ptr,_ptr);
 
-        BJIT_OP2(fadd,_f64,_f64,_f64); BJIT_OP2(fsub,_f64,_f64,_f64);
-        BJIT_OP1(fneg,_f64,_f64);
-        BJIT_OP2(fmul,_f64,_f64,_f64); BJIT_OP2(fdiv,_f64,_f64,_f64);
+        BJIT_OP2(dadd,_f64,_f64,_f64); BJIT_OP2(dsub,_f64,_f64,_f64);
+        BJIT_OP1(dneg,_f64,_f64);
+        BJIT_OP2(dmul,_f64,_f64,_f64); BJIT_OP2(ddiv,_f64,_f64,_f64);
 
-        BJIT_OP1(cf2i,_ptr,_f64); BJIT_OP1(bcf2i,_ptr,_f64);
-        BJIT_OP1(ci2f,_f64,_ptr); BJIT_OP1(bci2f,_f64,_ptr);
+        BJIT_OP1(cd2i,_ptr,_f64); BJIT_OP1(bcd2i,_ptr,_f64);
+        BJIT_OP1(ci2d,_f64,_ptr); BJIT_OP1(bci2d,_f64,_ptr);
 
         BJIT_OP1(i8,_ptr,_ptr); BJIT_OP1(i16,_ptr,_ptr); BJIT_OP1(i32,_ptr,_ptr);
         BJIT_OP1(u8,_ptr,_ptr); BJIT_OP1(u16,_ptr,_ptr); BJIT_OP1(u32,_ptr,_ptr);
@@ -584,7 +584,7 @@ namespace bjit
             { ops[i].opcode = ops::ipass; ops[i].indexType = nPassInt++; }
 
             if(ops[i].flags.type == Op::_f64)
-            { ops[i].opcode = ops::fpass; ops[i].indexType = nPassFloat++; }
+            { ops[i].opcode = ops::dpass; ops[i].indexType = nPassFloat++; }
             
             ops[i].indexTotal = nPassTotal++;
 
@@ -601,7 +601,7 @@ namespace bjit
             assert(!blocks[0].code.size()
                 || ops[blocks[0].code.back()].opcode == ops::alloc
                 || ops[blocks[0].code.back()].opcode == ops::iarg
-                || ops[blocks[0].code.back()].opcode == ops::farg);
+                || ops[blocks[0].code.back()].opcode == ops::darg);
                 
             auto i = addOp(ops::iarg, Op::_ptr);
             ops[i].indexType = nArgsInt++;
@@ -615,9 +615,9 @@ namespace bjit
             assert(!blocks[0].code.size()
                 || ops[blocks[0].code.back()].opcode == ops::alloc
                 || ops[blocks[0].code.back()].opcode == ops::iarg
-                || ops[blocks[0].code.back()].opcode == ops::farg);
+                || ops[blocks[0].code.back()].opcode == ops::darg);
                 
-            auto i = addOp(ops::farg, Op::_f64);
+            auto i = addOp(ops::darg, Op::_f64);
             ops[i].indexType = nArgsFloat++;
             ops[i].indexTotal = nArgsTotal++;
             return i;
