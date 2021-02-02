@@ -103,10 +103,12 @@ RegMask Op::regsIn(int i)
         
         // loads and stores allow stack pointer as their first argument
         case ops::li8: case ops::li16: case ops::li32: case ops::li64:
-        case ops::lu8: case ops::lu16: case ops::lu32: case ops::lf64:
+        case ops::lu8: case ops::lu16: case ops::lu32:
+        case ops::lf32: case ops::lf64:
         case ops::si8: case ops::si16: case ops::si32: case ops::si64:
-        case ops::sf32: case ops::sf64:
             return regs::mask_int | (i ? 0 : (1ull<<regs::rsp));
+        case ops::sf32: case ops::sf64:
+            return i ? regs::mask_float : (regs::mask_int | (1ull<<regs::rsp));
 
         // allow iadd and iaddI to take RSP too, saves moves if we use LEA
         case ops::iadd: case ops::iaddI:
