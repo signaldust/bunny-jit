@@ -77,7 +77,6 @@
     _(fret, 0, 1), \
     _(iret, 0, 1), \
     _(iretI, 0, BJIT_IMM32), /* opt-dce needs to know which one is last */ \
-    /* this is user-requested allocation with reg = stack pointer */ \
     _(tcallp, BJIT_SIDEFX, 1), \
     /* */ \
     /* NOTE: THESE SHOULD MATCH THOSE STARTING FROM 'jilt' */ \
@@ -232,8 +231,9 @@
     _(icallp, 1+BJIT_SIDEFX, 1), \
     _(fcallp, 1+BJIT_SIDEFX, 1), \
     _(dcallp, 1+BJIT_SIDEFX, 1), \
-    /* pseudo-ops: polymorphic */ \
+    /* this is user-requested allocation with reg = stack pointer */ \
     _(alloc,  1+BJIT_SIDEFX+BJIT_NOMOVE, BJIT_IMM32), \
+    /* pseudo-ops: polymorphic */ \
     _(phi,    1+BJIT_NOMOVE, 0), \
     _(rename, 1, 1), \
     _(reload, 1, 1), \
