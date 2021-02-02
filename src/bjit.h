@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <vector>
+#include <cstdio>
 
 #include "ir-ops.h"
 
