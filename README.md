@@ -249,11 +249,11 @@ versions of arithmetic operations
 `dadd a b`, `dsub a b`, `dmul a b`, `ddiv a b` and `dneg a` are double-float
 versions of arithmetic operations
 
-`cf2i a` converts singles to integers while `ci2f` converts integers to singles
+`cf2i a` converts singles to integers while `ci2f a` converts integers to singles
 
-`cf2d a` converts singles to doubles while `cd2f` converts doubles to singles
+`cf2d a` converts singles to doubles while `cd2f a` converts doubles to singles
 
-`cd2i a` converts doubles to integers while `ci2d` converts integers to doubles
+`cd2i a` converts doubles to integers while `ci2d a` converts integers to doubles
 
 `bcf2i a` and `bci2f a` bit-cast float vs. int (ie. reinterpret) without conversion
 
