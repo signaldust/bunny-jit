@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <memory>
 #include <vector>
+#include <inttypes.h>
 
 #include "front-lexer.h"
 #include "front-parse.h"
@@ -215,8 +216,10 @@ namespace bjit
         {
             switch(token.type)
             {
-            case Token::Tint: printf("\n%*si:%lli ", lvl, "", token.vInt); break;
-            case Token::Tuint: printf("\n%*su:%llu ", lvl, "", token.vInt); break;
+            case Token::Tint:
+                printf("\n%*si:%" PRId64 " ", lvl, "", token.vInt); break;
+            case Token::Tuint:
+                printf("\n%*su:%" PRIu64 " ", lvl, "", token.vInt); break;
             case Token::Tfloat: printf("\n%*sf:%#g ", lvl, "", token.vFloat); break;
 
             default: assert(false);

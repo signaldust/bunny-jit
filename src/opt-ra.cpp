@@ -1,4 +1,6 @@
 
+#include <cstring>
+
 #include "bjit.h"
 
 using namespace bjit;
