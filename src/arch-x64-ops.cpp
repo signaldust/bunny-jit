@@ -142,10 +142,11 @@ RegMask Op::regsIn(int i)
         case ops::dgt: case ops::dle:
         case ops::deq: case ops::dne:
         
-        case ops::lcd: case ops::cd2i: case ops::bcd2i:
+        case ops::lcd: case ops::cd2i:
+        case ops::bcd2i: case ops::bcf2i:
             return regs::mask_float;
 
-        case ops::ci2f:
+        case ops::ci2f: case ops::bci2f:
         case ops::ci2d: case ops::bci2d:
             return regs::mask_int;
             
