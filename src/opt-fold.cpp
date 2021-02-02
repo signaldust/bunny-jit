@@ -1207,17 +1207,9 @@ bool Proc::opt_fold()
                                     blocks[ccd].code[k+1]);
                             }
 
-                            if(renameOther)
-                            {
-                                other.opcode = ops::rename;
-                                other.in[0] = op.index;
-                                other.in[1] = noVal;
-                            }
-                            else
-                            {
-                                rename.add(other.index, op.index);
-                                other.makeNOP();
-                            }
+                            rename.add(other.index, op.index);
+                            other.makeNOP();
+                            
                             cseTable.insert(op);
                             progress = true;
                         }
