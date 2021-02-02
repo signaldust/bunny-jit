@@ -149,9 +149,10 @@ the compiler only does simple DCE and register allocation.
 Next you can either call `Proc::compile()` to obtain native code, or you can
 create a `bjit::Module` and pass the `Proc` to `Module::compile()` which will
 return an index. Multiple procedures can be compiled into the same module.
-There is no symbol resolution step yet, but you can call `Module::load()` to
-load the module into executable memory and `Module::unload()` to unload it.
-*(NOTE: This is untested on Windows.)*.
+See [below](#function-calls) on how they can call each other. `Module::load()` 
+will load the module into executable memory and `Module::unload()` will unload it.
+A module can be loaded and unloaded multiple times and additional procedures
+added whenever the module is unloaded. *(NOTE: Module loading is untested on Windows.)*.
 
 When a `Module` is loaded call `Module::getPointer<T>()` with an index
 returned by `Module::compile()` to get a pointer to your function (with `T`
