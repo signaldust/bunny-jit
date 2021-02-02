@@ -204,6 +204,13 @@ namespace bjit
         }
     };
 
+    // used to communicate relocations from Proc to Module
+    struct NearReloc
+    {
+        uint32_t    codeOffset;     // where to add offset
+        uint32_t    symbolIndex;    // which offset to add
+    };
+
     struct too_many_ops {};
 
     struct Proc
@@ -301,6 +308,12 @@ namespace bjit
             {
                 env[i] = blocks[label].args[i].phiop;
             }
+        }
+
+        // used by Module
+        std::vector<NearReloc> const & getReloc()
+        {
+            return nearReloc;
         }
 
         ///////////////////////////////
@@ -532,13 +545,6 @@ namespace bjit
 
         // this are filled in for icalln/fcalln/pcalln
         // and possibly something else in the future
-        //
-        struct NearReloc
-        {
-            int32_t     codeOffset;     // where to add offset
-            uint32_t    symbolIndex;    // which offset to add
-        };
-    
         std::vector<NearReloc>  nearReloc;
 
         // used to encode indexType, indexTotal for incoming parameters
@@ -788,12 +794,17 @@ namespace bjit
             
             proc.compile(bytes);
 
+            auto & procReloc = proc.getReloc();
+            relocs.insert(relocs.end(), procReloc.begin(), procReloc.end());
+
             return index;
         }
 
         const std::vector<uint8_t> & getBytes() const { return bytes; }
         
     private:
+        std::vector<NearReloc>  relocs;
+        
         std::vector<uint32_t>   offsets;
         std::vector<uint8_t>    bytes;
         void    *exec_mem = 0;
