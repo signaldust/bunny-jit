@@ -137,7 +137,7 @@ which are described [below](#instruction-set). Note that the last instruction
 of every block must be either a jump (conditional or unconditional) or a return.
 
 Most instructions take their parameters as SSA values. The exceptions are
-`lci`/`lcd` which take immediate constants and jump-labels which must be
+`lci`/`lcf`/`lcd` which take immediate constants and jump-labels which must be
 the block-indexes returned by `Proc::newLabel()`. For instructions
 with output values, the methods return the new SSA values and other
 instructions return `void`.
