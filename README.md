@@ -2,7 +2,7 @@
 
 This is a tiny optimising SSA-based JIT backend, currently targeting x64, but
 designed to be (somewhat) portable. The [build-system](#how-to-build) expects
-Unix environment (with `libtool`), but the code should work on Windows as well (simply
+Unix environment (and `libtool`), but the code should work on Windows as well (simply
 compile everything from `src/`; let me know if it needs some tweaking).
 
 This is work in relatively early progress. It sort of works, but some things like
