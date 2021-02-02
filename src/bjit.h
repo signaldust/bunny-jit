@@ -395,55 +395,61 @@ namespace bjit
             return i;
         }
         
-#define BJIT_OP1(x,t) \
+#define BJIT_OP1(x,t,t0) \
     unsigned x(unsigned v0) { \
         unsigned i = addOp(ops::x, Op::t); \
-        ops[i].in[0] = v0; return i; }
+        ops[i].in[0] = v0; assert(ops[v0].flags.type==Op::t0); return i; }
         
-#define BJIT_OP2(x,t) \
+#define BJIT_OP2(x,t,t0,t1) \
     unsigned x(unsigned v0, unsigned v1) { \
         unsigned i = addOp(ops::x, Op::t); \
-        ops[i].in[0] = v0; ops[i].in[1] = v1; return i; }
+        ops[i].in[0] = v0; assert(ops[v0].flags.type==Op::t0); \
+        ops[i].in[1] = v1; assert(ops[v1].flags.type==Op::t1); return i; }
 
-        BJIT_OP2(ilt,_ptr); BJIT_OP2(ige,_ptr);
-        BJIT_OP2(igt,_ptr); BJIT_OP2(ile,_ptr);
-        BJIT_OP2(ult,_ptr); BJIT_OP2(uge,_ptr);
-        BJIT_OP2(ugt,_ptr); BJIT_OP2(ule,_ptr);
-        BJIT_OP2(ieq,_ptr); BJIT_OP2(ine,_ptr);
+        BJIT_OP2(ilt,_ptr,_ptr,_ptr); BJIT_OP2(ige,_ptr,_ptr,_ptr);
+        BJIT_OP2(igt,_ptr,_ptr,_ptr); BJIT_OP2(ile,_ptr,_ptr,_ptr);
+        BJIT_OP2(ult,_ptr,_ptr,_ptr); BJIT_OP2(uge,_ptr,_ptr,_ptr);
+        BJIT_OP2(ugt,_ptr,_ptr,_ptr); BJIT_OP2(ule,_ptr,_ptr,_ptr);
+        BJIT_OP2(ieq,_ptr,_ptr,_ptr); BJIT_OP2(ine,_ptr,_ptr,_ptr);
 
-        BJIT_OP2(flt,_ptr); BJIT_OP2(fge,_ptr);
-        BJIT_OP2(fgt,_ptr); BJIT_OP2(fle,_ptr);
-        BJIT_OP2(feq,_ptr); BJIT_OP2(fne,_ptr);
+        BJIT_OP2(flt,_ptr,_f64,_f64); BJIT_OP2(fge,_ptr,_f64,_f64);
+        BJIT_OP2(fgt,_ptr,_f64,_f64); BJIT_OP2(fle,_ptr,_f64,_f64);
+        BJIT_OP2(feq,_ptr,_f64,_f64); BJIT_OP2(fne,_ptr,_f64,_f64);
         
-        BJIT_OP2(iadd,_ptr); BJIT_OP2(isub,_ptr); BJIT_OP2(imul,_ptr);
-        BJIT_OP2(idiv,_ptr); BJIT_OP2(imod,_ptr);
-        BJIT_OP2(udiv,_ptr); BJIT_OP2(umod,_ptr);
+        BJIT_OP2(iadd,_ptr,_ptr,_ptr); BJIT_OP2(isub,_ptr,_ptr,_ptr);
+        BJIT_OP2(imul,_ptr,_ptr,_ptr);
+        BJIT_OP2(idiv,_ptr,_ptr,_ptr); BJIT_OP2(imod,_ptr,_ptr,_ptr);
+        BJIT_OP2(udiv,_ptr,_ptr,_ptr); BJIT_OP2(umod,_ptr,_ptr,_ptr);
         
-        BJIT_OP1(ineg,_ptr); BJIT_OP1(inot,_ptr);
+        BJIT_OP1(ineg,_ptr,_ptr); BJIT_OP1(inot,_ptr,_ptr);
         
-        BJIT_OP2(iand,_ptr); BJIT_OP2(ior,_ptr); BJIT_OP2(ixor,_ptr);
-        BJIT_OP2(ishl,_ptr); BJIT_OP2(ishr,_ptr); BJIT_OP2(ushr,_ptr);
+        BJIT_OP2(iand,_ptr,_ptr,_ptr); BJIT_OP2(ior,_ptr,_ptr,_ptr);
+        BJIT_OP2(ixor,_ptr,_ptr,_ptr); BJIT_OP2(ishl,_ptr,_ptr,_ptr);
+        BJIT_OP2(ishr,_ptr,_ptr,_ptr); BJIT_OP2(ushr,_ptr,_ptr,_ptr);
 
-        BJIT_OP2(fadd,_f64); BJIT_OP2(fsub,_f64); BJIT_OP1(fneg,_f64);
-        BJIT_OP2(fmul,_f64); BJIT_OP2(fdiv,_f64);
+        BJIT_OP2(fadd,_f64,_f64,_f64); BJIT_OP2(fsub,_f64,_f64,_f64);
+        BJIT_OP1(fneg,_f64,_f64);
+        BJIT_OP2(fmul,_f64,_f64,_f64); BJIT_OP2(fdiv,_f64,_f64,_f64);
 
-        BJIT_OP1(cf2i,_f64); BJIT_OP1(bcf2i,_f64);
-        BJIT_OP1(ci2f,_ptr); BJIT_OP1(bci2f,_ptr);
+        BJIT_OP1(cf2i,_ptr,_f64); BJIT_OP1(bcf2i,_ptr,_f64);
+        BJIT_OP1(ci2f,_f64,_ptr); BJIT_OP1(bci2f,_f64,_ptr);
 
-        BJIT_OP1(i8,_ptr); BJIT_OP1(i16,_ptr); BJIT_OP1(i32,_ptr);
-        BJIT_OP1(u8,_ptr); BJIT_OP1(u16,_ptr); BJIT_OP1(u32,_ptr);
+        BJIT_OP1(i8,_ptr,_ptr); BJIT_OP1(i16,_ptr,_ptr); BJIT_OP1(i32,_ptr,_ptr);
+        BJIT_OP1(u8,_ptr,_ptr); BJIT_OP1(u16,_ptr,_ptr); BJIT_OP1(u32,_ptr,_ptr);
 
         // loads take pointer+offset
 #define BJIT_LOAD(x, t) \
     unsigned x(unsigned v0, int32_t imm32) { \
-        unsigned i = addOp(ops::x, Op::t); ops[i].in[0] = v0; \
+        unsigned i = addOp(ops::x, Op::t); \
+        ops[i].in[0] = v0; assert(ops[v0].flags.type == Op::_ptr); \
         ops[i].imm32 = imm32; return i; }
 
         // stores take pointer+offset and value to store
-#define BJIT_STORE(x) \
+#define BJIT_STORE(x, t) \
     unsigned x(unsigned ptr, int32_t imm32, unsigned val) { \
         unsigned i = addOp(ops::x, Op::_none); \
-        ops[i].in[0] = ptr; ops[i].in[1] = val; \
+        ops[i].in[0] = ptr; assert(ops[ptr].flags.type == Op::_ptr); \
+        ops[i].in[1] = val; assert(ops[val].flags.type == Op::t); \
         ops[i].imm32 = imm32; return i; }
 
         BJIT_LOAD(li8, _ptr); BJIT_LOAD(li16, _ptr);
@@ -451,8 +457,9 @@ namespace bjit
         BJIT_LOAD(lu8, _ptr); BJIT_LOAD(lu16, _ptr);
         BJIT_LOAD(lu32, _ptr); BJIT_LOAD(lf64, _f64);
 
-        BJIT_STORE(si8); BJIT_STORE(si16); BJIT_STORE(si32); BJIT_STORE(si64);
-        BJIT_STORE(sf64);
+        BJIT_STORE(si8, _ptr); BJIT_STORE(si16, _ptr);
+        BJIT_STORE(si32, _ptr); BJIT_STORE(si64, _ptr);
+        BJIT_STORE(sf64, _f64);
 
     private:
         ////////////////

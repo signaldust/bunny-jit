@@ -127,9 +127,12 @@ RegMask Op::regsIn(int i)
         case ops::fgt: case ops::fle:
         case ops::feq: case ops::fne:
         
-        case ops::lcf: case ops::ci2f: case ops::bci2f:
+        case ops::lcf: case ops::cf2i: case ops::bcf2i:
             return regs::mask_float;
-
+            
+        case ops::ci2f: case ops::bci2f:
+            return regs::mask_int;
+            
         // shifts want their second operand in CL
         case ops::ishl: case ops::ishr: case ops::ushr:
             return i ? (1ull<<regs::rcx) :
