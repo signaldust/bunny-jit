@@ -30,6 +30,8 @@ RegMask Op::regsOut()
         case ops::imod: case ops::umod: return (1ull<<regs::rdx);
 
         case ops::icallp: return (1ull<<regs::rax);
+        
+        case ops::fcallp: 
         case ops::dcallp: return (1ull<<regs::xmm0);
 
         // we have in[0] = index in type, in[1] = index total
@@ -58,6 +60,7 @@ RegMask Op::regsOut()
             default: assert(false); // FIXME: RA can't handle
             }
 #endif
+        case ops::farg:
         case ops::darg:
 #ifdef _WIN32
             switch(indexTotal)  // Win64 wants the total position
@@ -175,6 +178,7 @@ RegMask Op::regsIn(int i)
             default: assert(false); // FIXME: RA can't handle
             }
 #endif
+        case ops::fpass:
         case ops::dpass:
 #ifdef _WIN32
             switch(indexTotal)  // Win64 wants the total index

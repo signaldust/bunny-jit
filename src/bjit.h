@@ -229,6 +229,7 @@ namespace bjit
                 switch(*args)
                 {
                 case 'i': env.push_back(iarg()); break;
+                case 'f': env.push_back(farg()); break;
                 case 'd': env.push_back(darg()); break;
                 default: assert(false);
                 }
@@ -487,11 +488,12 @@ namespace bjit
         BJIT_LOAD(li8, _ptr); BJIT_LOAD(li16, _ptr);
         BJIT_LOAD(li32, _ptr); BJIT_LOAD(li64, _ptr);
         BJIT_LOAD(lu8, _ptr); BJIT_LOAD(lu16, _ptr);
-        BJIT_LOAD(lu32, _ptr); BJIT_LOAD(lf64, _f64);
+        BJIT_LOAD(lu32, _ptr);
+        BJIT_LOAD(lf32, _f32); BJIT_LOAD(lf64, _f64);
 
         BJIT_STORE(si8, _ptr); BJIT_STORE(si16, _ptr);
         BJIT_STORE(si32, _ptr); BJIT_STORE(si64, _ptr);
-        BJIT_STORE(sf64, _f64);
+        BJIT_STORE(sf32, _f32); BJIT_STORE(sf64, _f64);
 
     private:
         ////////////////
@@ -603,6 +605,9 @@ namespace bjit
             if(ops[i].flags.type == Op::_f64)
             { ops[i].opcode = ops::dpass; ops[i].indexType = nPassFloat++; }
             
+            if(ops[i].flags.type == Op::_f32)
+            { ops[i].opcode = ops::fpass; ops[i].indexType = nPassFloat++; }
+            
             ops[i].indexTotal = nPassTotal++;
 
             assert(ops[i].opcode != ops::nop);
@@ -618,6 +623,7 @@ namespace bjit
             assert(!blocks[0].code.size()
                 || ops[blocks[0].code.back()].opcode == ops::alloc
                 || ops[blocks[0].code.back()].opcode == ops::iarg
+                || ops[blocks[0].code.back()].opcode == ops::farg
                 || ops[blocks[0].code.back()].opcode == ops::darg);
                 
             auto i = addOp(ops::iarg, Op::_ptr);
@@ -625,6 +631,23 @@ namespace bjit
             ops[i].indexTotal = nArgsTotal++;
             return i;
         }
+
+        unsigned farg()
+        {
+            assert(nArgsTotal < 4);    // the most that will work on Windows
+            assert(!currentBlock); // must be block zero
+            assert(!blocks[0].code.size()
+                || ops[blocks[0].code.back()].opcode == ops::alloc
+                || ops[blocks[0].code.back()].opcode == ops::iarg
+                || ops[blocks[0].code.back()].opcode == ops::farg
+                || ops[blocks[0].code.back()].opcode == ops::darg);
+                
+            auto i = addOp(ops::darg, Op::_f32);
+            ops[i].indexType = nArgsFloat++;
+            ops[i].indexTotal = nArgsTotal++;
+            return i;
+        }
+        
         unsigned darg()
         {
             assert(nArgsTotal < 4);    // the most that will work on Windows
@@ -632,6 +655,7 @@ namespace bjit
             assert(!blocks[0].code.size()
                 || ops[blocks[0].code.back()].opcode == ops::alloc
                 || ops[blocks[0].code.back()].opcode == ops::iarg
+                || ops[blocks[0].code.back()].opcode == ops::farg
                 || ops[blocks[0].code.back()].opcode == ops::darg);
                 
             auto i = addOp(ops::darg, Op::_f64);
@@ -689,7 +713,7 @@ namespace bjit
         // load compiled procedures into executable memory
         // returns true on success
         //
-        // use getProcPtr() to get pointers to procedures
+        // use getPointer() to get pointers to procedures
         bool load();
 
         // unload module from executable memory

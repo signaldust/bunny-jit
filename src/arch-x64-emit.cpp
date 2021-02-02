@@ -176,12 +176,15 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::alloc: break; // stack frame, nop
             
             case ops::iarg: // incoming arguments
+            case ops::farg: // incoming arguments
             case ops::darg: break; // these are nops
 
             case ops::ipass: // outgoing arguments
+            case ops::fpass: // outgoing arguments
             case ops::dpass: break; // these are nops for now
                 
             case ops::icallp:
+            case ops::fcallp:
             case ops::dcallp:
 #ifdef _WIN32
                 // "home locations" for registers
@@ -865,6 +868,9 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::lu32:
                 _load_u32(i.reg, ops[i.in[0]].reg, i.imm32);
                 break;
+            case ops::lf32:
+                _load_f32(i.reg, ops[i.in[0]].reg, i.imm32);
+                break;
             case ops::lf64:
                 _load_f64(i.reg, ops[i.in[0]].reg, i.imm32);
                 break;
@@ -880,6 +886,9 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
             case ops::si64:
                 _store_i64(ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32);
+                break;
+            case ops::sf32:
+                _store_f32(ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32);
                 break;
             case ops::sf64:
                 _store_f64(ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32);

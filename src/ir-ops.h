@@ -221,12 +221,15 @@
     _(sf64, 0, 2+BJIT_IMM32), \
     /* procedure arguments */ \
     _(iarg, 1+BJIT_NOMOVE, 0), \
+    _(farg, 1+BJIT_NOMOVE, 0), \
     _(darg, 1+BJIT_NOMOVE, 0), \
     /* Call arguments - right to left before call */ \
     _(ipass, 0, 1), \
+    _(fpass, 0, 1), \
     _(dpass, 0, 1), \
     /* Indirect calls: typed for return value */ \
     _(icallp, 1+BJIT_SIDEFX, 1), \
+    _(fcallp, 1+BJIT_SIDEFX, 1), \
     _(dcallp, 1+BJIT_SIDEFX, 1), \
     /* pseudo-ops: polymorphic */ \
     _(phi,    1+BJIT_NOMOVE, 0), \
