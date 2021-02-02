@@ -198,9 +198,9 @@ tracking which registers we can use to store values. In particular, anything
 stored in general purpose registers is called `_ptr` (or simply integers).
 
 Instructions starting `i` are for integers, `u` are unsigned variants when
-there is a distinction and `d` is double precision floating point. Note
-that floating-point comparisons return integers, even though they expect
-`_f64` parameters.
+there is a distinction, `f` is single-precision float and `d` is double-precision
+float. Note that floating-point comparisons return integers, even though they expect
+`_f32` or `_f64` parameters.
 
 ### Instruction set?
 
