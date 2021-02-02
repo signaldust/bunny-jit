@@ -1,8 +1,6 @@
 
 #include "bjit.h"
 
-#include <cstdio>
-
 using namespace bjit;
 
 void Proc::opt_dce()
