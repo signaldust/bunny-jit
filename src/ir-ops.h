@@ -215,8 +215,8 @@
     _(si32, 0, 2+BJIT_IMM32), \
     _(si64, 0, 2+BJIT_IMM32), \
     /* floating point load and store */ \
-    _(lf32, 1, 1+BJIT_IMM32), \
-    _(lf64, 1, 1+BJIT_IMM32), \
+    _(lf32, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
+    _(lf64, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
     _(sf32, 0, 2+BJIT_IMM32), \
     _(sf64, 0, 2+BJIT_IMM32), \
     /* procedure arguments */ \
