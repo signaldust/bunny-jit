@@ -180,7 +180,9 @@ values to instructions that expect integer values or vice versa will result
 in undefined behaviour (ie. invalid code or `assert`). The compiler should never
 fail with valid data unless bytecode size limit is exceeded (we
 <code>throw&nbsp;bjit::too_many_ops</code> if compiled with exceptions; otherwise we `assert`),
-so we do not provide error reporting other than `assert` (lots of them). 
+so we do not provide error reporting other than `assert` (lots of them).
+In practice, at this time it probably *will* `assert` on valid code in some cases;
+I'm working on test coverage, but please report a bug if you come across such cases.
 
 This is a conscious design decision, as error checking should be done at higher
 levels. At some point in the future when the code can be considered "production
