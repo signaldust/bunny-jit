@@ -115,6 +115,8 @@ namespace bjit
 
         bool    hasImm32()      const;
         bool    hasI64()        const;
+        
+        bool    hasF32()        const;
         bool    hasF64()        const;
 
         void    makeNOP() { opcode = ops::nop; u64 = ~0ull; }

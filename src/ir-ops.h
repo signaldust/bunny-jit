@@ -13,6 +13,7 @@
 #define BJIT_IMM32  0x10    // has imm32 operand
 #define BJIT_I64    0x20    // has 64-bit integer constant
 #define BJIT_F64    0x40    // has double constant
+#define BJIT_F32    0x80    // has single constant
 
 #define BJIT_OPS(_) \
     /* CAREFUL WITH THE ORDER HERE (see below also) */ \
@@ -188,7 +189,7 @@
     _(bcf2i, BJIT_CSE+1, 1), \
     /* load constants */ \
     _(lci, BJIT_CSE+1, BJIT_I64), \
-    _(lcf, BJIT_CSE+1, BJIT_F64), \
+    _(lcf, BJIT_CSE+1, BJIT_F32), \
     _(lcd, BJIT_CSE+1, BJIT_F64), \
     /* sign-extend values (cast to smaller type) */ \
     _(i8,  BJIT_CSE+1, 1), \
