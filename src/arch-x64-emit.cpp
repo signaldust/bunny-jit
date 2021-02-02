@@ -385,6 +385,26 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 }
                 a64.emit(0xC3);
                 break;
+                
+            case ops::tcallp:
+                if(frameBytes) { _ADDri(regs::rsp, frameBytes); }
+                for(int r = savedRegs.size(); r--;)
+                {
+                    if((1ull<<savedRegs[r]) & regs::mask_float)
+                    {
+                        _load_f128(savedRegs[r], regs::rsp, 0);
+                        // we might have used regs:none for alignment
+                        if(r && savedRegs[r-1] == regs::none)
+                        {
+                            _ADDri(regs::rsp, 16+8); --r;
+                        }
+                        else _ADDri(regs::rsp, 16);
+                    }
+                    else _POP(savedRegs[r]);
+                }
+                // indirect jump
+                a64._RR(0, 4, REG(ops[i.in[0]].reg), 0xFF);
+                break;
 
             case ops::iadd:
                 if(i.reg == ops[i.in[0]].reg)

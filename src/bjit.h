@@ -394,6 +394,21 @@ namespace bjit
             ops[i].in[0] = ptr;
             return i;
         }
+
+        // same as icallp/fcallp but tail-call: does not return
+        void tcallp(unsigned ptr, unsigned n)
+        {
+            nPassInt     = 0;
+            nPassFloat   = 0;
+            nPassTotal   = 0;
+            
+            // We probably want right-to-left once we do stack?
+            for(int i = 0; i<n; ++i) passArg(env[env.size()-n+i]);
+
+            unsigned i = addOp(ops::tcallp, Op::_none);
+            ops[i].in[0] = ptr;
+        }
+        
         
 #define BJIT_OP1(x,t,t0) \
     unsigned x(unsigned v0) { \

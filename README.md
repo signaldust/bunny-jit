@@ -6,7 +6,7 @@ Unix environment (for now), but the code should work on Windows as well (simply
 compile everything from `src/`).
 
 This is work in relatively early progress. It sort of works, but some things like
-function calls are not done robustly yet and there are likely serious bugs hiding.
+[function calls](#calling-functions) are not done robustly yet and there are likely serious bugs hiding.
 The code tries to cross-check it's own invariants, but this is sadly not bullet-proof.
 Check back in a week or two and it's probably a lot more robust.
 
@@ -256,6 +256,25 @@ Internal we have additional instructions that the fold-engine will use (in the
 future the exact set might vary between platforms, so we rely on fold), but they
 should be fairly obvious when seen in debug, eg. `jugeI`is a conditional jump on
 `uge` comparison with the second operand converted to an `imm32` field.
+
+## Calling functions?
+
+Function call support is still somewhat limited, but it is possible to call external
+functions with up to 4 parameters with `icallp` and `fcallp` which take
+a pointer to a function (as SSA value; use `lci` for constant address) and the number
+of arguments. The arguments are taken from the end of `env` (ie. `push_back()` them
+left-to-right; calls don't pop the arguments, you'll have to clean them up yourself).
+`icallp` returns an integer value while `fcallp` returns a double value.
+
+Note that the support is currently not particularly robust as it relies on register
+allocator not accidentally overwriting parameters. This "should not happen"(tm), but
+there is no real sanity-checking done for this, yet.
+
+There is also `tcallp` which performs a tail-call which returns from the procedure
+with the return value of the call. As it does not return to the procedure, it can
+(and generally should) be the last thing in a given block.
+
+There is currently no support for relocation or intra-module calls.
 
 ## What it does?
 

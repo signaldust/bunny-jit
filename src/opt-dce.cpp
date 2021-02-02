@@ -232,7 +232,7 @@ void Proc::opt_dce()
                     }
                 }
     
-                if(ops[i].opcode <= ops::iretI) deadTail = true;
+                if(ops[i].opcode <= ops::tcallp) deadTail = true;
             }
         }
 
