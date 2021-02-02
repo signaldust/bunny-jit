@@ -250,7 +250,13 @@ namespace bjit
         {
             // do DCE first, then fold
             // repeat until neither does progress
-            do opt_dce(); while(opt_fold() || opt_sink());
+            // check sanity limit for better test-automation
+            int iterOpt = 0;
+            do
+            {
+                assert(++iterOpt < 0x100);
+                opt_dce();
+            } while(opt_fold() || opt_sink());
         }
 
         void compile(std::vector<uint8_t> & bytes)
