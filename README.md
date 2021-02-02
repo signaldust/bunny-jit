@@ -119,7 +119,7 @@ of interfaces (which for the time being are subject to change without notice).
 The first step is to include `src/bjit.h`.
 
 The second step is to create a `bjit::Proc` which takes a stack allocation size
-and a string representing arguments (`i` for integer, `f` for double). The allocated
+and a string representing arguments (`i` for integer, `d` for double). The allocated
 block will always be the SSA value `0` (in practice this is the stack pointer) and
 the arguments will be placed in `env[0..n]` (left to right, at most 4 for now).
 More on [`env`](#env) below. Pass `0` and `""` if you don't care about allocations or arguments.
@@ -203,8 +203,8 @@ The compiler currently exposes the following instructions:
 
 `lci i64` and `lcd f64` specify constants, `jmp label` is unconditional jump
 and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise,
-`iret a` returns from the function with integer value and `fret a` returns with
-a floating point value.
+`iret a` returns from the function with integer value and `dret a` returns with
+a double-precision float value.
 
 `ieq a b` and `ine a b` compare two integers for equality or inequality and
 produce `0` or `1`.
