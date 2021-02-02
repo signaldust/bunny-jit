@@ -226,7 +226,7 @@ namespace bjit
                 switch(*args)
                 {
                 case 'i': env.push_back(iarg()); break;
-                case 'f': env.push_back(farg()); break;
+                case 'd': env.push_back(darg()); break;
                 default: assert(false);
                 }
             }
@@ -608,7 +608,7 @@ namespace bjit
             ops[i].indexTotal = nArgsTotal++;
             return i;
         }
-        unsigned farg()
+        unsigned darg()
         {
             assert(nArgsTotal < 4);    // the most that will work on Windows
             assert(!currentBlock); // must be block zero

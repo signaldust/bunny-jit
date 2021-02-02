@@ -5,7 +5,7 @@ int main()
 {
 
     bjit::Module    module;
-    bjit::Proc      proc(0, "ff");
+    bjit::Proc      proc(0, "dd");
 
     proc.dret(proc.dadd(proc.env[0], proc.env[1]));
 
