@@ -397,10 +397,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 }
                 else
                 {
-                    // LEA might or might not be better
-                    // but we would need RBP/R13 special cases
-                    _MOVrr(i.reg, ops[i.in[0]].reg);
-                    _ADDrr(i.reg, ops[i.in[1]].reg);
+                    _LEArr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 }
                 break;
 
@@ -410,7 +407,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 {
                     _ADDri(i.reg, i.imm32);
                 }
-                else _LEA(i.reg, ops[i.in[0]].reg, i.imm32);
+                else _LEAri(i.reg, ops[i.in[0]].reg, i.imm32);
                 break;
                 
             case ops::isub:
@@ -438,7 +435,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                     }
                     else if(!sameReg)
                     {
-                        _LEA(i.reg, ops[i.in[0]].reg, -i.imm32);
+                        _LEAri(i.reg, ops[i.in[0]].reg, -i.imm32);
                     }
                     else if(i.imm32 == 1)
                     {
