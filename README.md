@@ -260,11 +260,11 @@ should be fairly obvious when seen in debug, eg. `jugeI`is a conditional jump on
 ## Calling functions?
 
 Function call support is still somewhat limited, but it is possible to call external
-functions with up to 4 parameters with `Proc::icallp` and `Proc::fcallp` which take
+functions with up to 4 parameters with `icallp` and `fcallp` which take
 a pointer to a function (as SSA value; use `lci` for constant address) and the number
 of arguments. The arguments are taken from the end of `env` (ie. `push_back()` them
 left-to-right; calls don't pop the arguments, you'll have to clean them up yourself).
-`Proc::icallp` returns an integer value while `Proc::fcallp` returns a double value.
+`icallp` returns an integer value while `fcallp` returns a double value.
 
 There is currently no support for relocation or intra-module calls.
 
