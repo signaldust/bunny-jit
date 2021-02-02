@@ -24,6 +24,13 @@ bool Module::load()
 {
     assert(!exec_mem);
 
+    // relocations
+    for(auto & r : relocs)
+    {
+        assert(r.symbolIndex < offsets.size());
+        ((uint32_t*)(bytes.data()+r.codeOffset))[0] += offsets[r.symbolIndex];
+    }
+
 #ifdef BJIT_USE_MMAP
     // get a block of memory we can mess with, read+write
     exec_mem = mmap(NULL, bytes.size(), PROT_READ | PROT_WRITE,
@@ -73,6 +80,12 @@ bool Module::load()
 void Module::unload()
 {
     assert(exec_mem);
+
+    // undo relocations so we can reload
+    for(auto & r : relocs)
+    {
+        ((uint32_t*)(bytes.data()+r.codeOffset))[0] -= offsets[r.symbolIndex];
+    }
 
 #ifdef BJIT_USE_MMAP
     munmap(exec_mem, bytes.size());

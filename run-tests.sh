@@ -40,6 +40,7 @@ bin/test_ci2f_cf2i
 bin/test_sx_zx
 
 bin/test_callp
+bin/test_calln
 
 echo "Looks like it didn't crash, at least... ;-)"
 

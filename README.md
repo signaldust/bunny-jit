@@ -207,7 +207,8 @@ float. Note that floating-point comparisons return integers, even though they ex
 The compiler currently exposes the following instructions:
 
 `lci i64`, `lcf f32` and `lcd f64` specify constants, `jmp label` is unconditional jump
-and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise,
+and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise and
+`jnz a then else` will branch to `then` if `a` is non-zero and `else` otherwise,
 `iret a` returns from the function with integer value, `fret a` with single-precision
 float value and `dret a` returns with a double-precision float value.
 
@@ -295,7 +296,11 @@ There is also `tcallp` which performs a tail-call which returns from the procedu
 with the return value of the call. As it does not return to the procedure, it can
 (and generally should) be the last thing in a given block.
 
-There is currently no support for relocation or intra-module calls.
+There is also "near" versions `icalln`, `fcalln`, `dcalln` and `tcalln` which can
+be used to call other procedures in the same module. These take the (compile-time)
+index of the procedure as their first parameter. `Module::compile()` is guaranteed to
+return sequential indexes starting from `0` so the target procedure need not be
+compiled first as long as the index is valid when `Module::load()` is called.
 
 ## What it does?
 

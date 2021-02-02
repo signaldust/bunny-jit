@@ -204,6 +204,13 @@ namespace bjit
         }
     };
 
+    // used to communicate relocations from Proc to Module
+    struct NearReloc
+    {
+        uint32_t    codeOffset;     // where to add offset
+        uint32_t    symbolIndex;    // which offset to add
+    };
+
     struct too_many_ops {};
 
     struct Proc
@@ -303,6 +310,12 @@ namespace bjit
             }
         }
 
+        // used by Module
+        std::vector<NearReloc> const & getReloc()
+        {
+            return nearReloc;
+        }
+
         ///////////////////////////////
         // FRONT END OPCODE EMITTERS //
         ///////////////////////////////
@@ -343,6 +356,12 @@ namespace bjit
                 assert(ops[args[a].phiop].flags.type == ops[env[a]].flags.type);
                 args[a].add(env[a], currentBlock);
             }
+        }
+
+        // write this as wrapper so we don't need to duplicate code
+        void jnz(unsigned v, unsigned labelThen, unsigned labelElse)
+        {
+            jz(v, labelElse, labelThen);
         }
 
         void jz(unsigned v, unsigned labelThen, unsigned labelElse)
@@ -388,46 +407,54 @@ namespace bjit
         // such that env.back() is the last parameter
         unsigned icallp(unsigned ptr, unsigned n)
         {
-            nPassInt     = 0;
-            nPassFloat   = 0;
-            nPassTotal   = 0;
-            
-            // must do left-to-right if we want to count on the fly
-            // might change this eventually
-            for(int i = 0; i<n; ++i) passArg(env[env.size()-n+i]);
-
+            passArgs(n);
             unsigned i = addOp(ops::icallp, Op::_ptr);
             ops[i].in[0] = ptr;
+            return i;
+        }
+
+        // near call version
+        // first argument is (immediate) index into module-table
+        unsigned icalln(unsigned index, unsigned n)
+        {
+            passArgs(n);
+            unsigned i = addOp(ops::icalln, Op::_ptr);
+            ops[i].imm32 = index;
             return i;
         }
 
         // same as icallp but functions returning floats
         unsigned dcallp(unsigned ptr, unsigned n)
         {
-            nPassInt     = 0;
-            nPassFloat   = 0;
-            nPassTotal   = 0;
-            
-            // We probably want right-to-left once we do stack?
-            for(int i = 0; i<n; ++i) passArg(env[env.size()-n+i]);
-
+            passArgs(n);
             unsigned i = addOp(ops::dcallp, Op::_f64);
             ops[i].in[0] = ptr;
+            return i;
+        }
+
+        // near-call version
+        unsigned dcalln(unsigned index, unsigned n)
+        {
+            passArgs(n);
+            unsigned i = addOp(ops::dcalln, Op::_f64);
+            ops[i].imm32 = index;
             return i;
         }
 
         // same as icallp/fcallp but tail-call: does not return
         void tcallp(unsigned ptr, unsigned n)
         {
-            nPassInt     = 0;
-            nPassFloat   = 0;
-            nPassTotal   = 0;
-            
-            // We probably want right-to-left once we do stack?
-            for(int i = 0; i<n; ++i) passArg(env[env.size()-n+i]);
-
+            passArgs(n);
             unsigned i = addOp(ops::tcallp, Op::_none);
             ops[i].in[0] = ptr;
+        }
+
+        // near-call version
+        void tcalln(int index, unsigned n)
+        {
+            passArgs(n);
+            unsigned i = addOp(ops::tcalln, Op::_none);
+            ops[i].imm32 = index;
         }
         
         
@@ -516,12 +543,16 @@ namespace bjit
         // STATE DATA //
         ////////////////
 
-        // used to encode in[0],in[1] for incoming parameters
+        // this are filled in for icalln/fcalln/pcalln
+        // and possibly something else in the future
+        std::vector<NearReloc>  nearReloc;
+
+        // used to encode indexType, indexTotal for incoming parameters
         int     nArgsInt    = 0;
         int     nArgsFloat  = 0;
         int     nArgsTotal  = 0;
 
-        // used to track in[1],in[2] for outgoing arguments
+        // used to track indexType, indexTotal for outgoing arguments
         int     nPassInt    = 0;
         int     nPassFloat  = 0;
         int     nPassTotal  = 0;
@@ -610,7 +641,17 @@ namespace bjit
             return i;
         }
 
-        void passArg(unsigned val)
+        void passArgs(unsigned n)
+        {
+            nPassInt     = 0;
+            nPassFloat   = 0;
+            nPassTotal   = 0;
+            
+            // We probably want right-to-left once we do stack?
+            for(int i = 0; i<n; ++i) passNextArg(env[env.size()-n+i]);
+        }
+
+        void passNextArg(unsigned val)
         {
             unsigned i = addOp(ops::nop, ops[val].flags.type);
             ops[i].in[0] = val;
@@ -753,12 +794,17 @@ namespace bjit
             
             proc.compile(bytes);
 
+            auto & procReloc = proc.getReloc();
+            relocs.insert(relocs.end(), procReloc.begin(), procReloc.end());
+
             return index;
         }
 
         const std::vector<uint8_t> & getBytes() const { return bytes; }
         
     private:
+        std::vector<NearReloc>  relocs;
+        
         std::vector<uint32_t>   offsets;
         std::vector<uint8_t>    bytes;
         void    *exec_mem = 0;

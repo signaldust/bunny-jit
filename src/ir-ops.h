@@ -77,8 +77,9 @@
     _(fret, 0, 1), \
     _(iret, 0, 1), \
     _(iretI, 0, BJIT_IMM32), /* opt-dce needs to know which one is last */ \
-    /* this is user-requested allocation with reg = stack pointer */ \
-    _(tcallp, BJIT_SIDEFX, 1), \
+    _(tcallp, 0, 1), \
+    _(tcalln, 0, BJIT_IMM32), \
+    _(dummy_align, 0, 0), \
     /* */ \
     /* NOTE: THESE SHOULD MATCH THOSE STARTING FROM 'jilt' */ \
     /* SO MAKE SURE THE POSITIONS STAY RELATIVE */ \
@@ -216,8 +217,8 @@
     _(si32, 0, 2+BJIT_IMM32), \
     _(si64, 0, 2+BJIT_IMM32), \
     /* floating point load and store */ \
-    _(lf32, 1, 1+BJIT_IMM32), \
-    _(lf64, 1, 1+BJIT_IMM32), \
+    _(lf32, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
+    _(lf64, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
     _(sf32, 0, 2+BJIT_IMM32), \
     _(sf64, 0, 2+BJIT_IMM32), \
     /* procedure arguments */ \
@@ -232,8 +233,13 @@
     _(icallp, 1+BJIT_SIDEFX, 1), \
     _(fcallp, 1+BJIT_SIDEFX, 1), \
     _(dcallp, 1+BJIT_SIDEFX, 1), \
-    /* pseudo-ops: polymorphic */ \
+    /* Module local "near" calls, relocated */ \
+    _(icalln, 1+BJIT_SIDEFX, BJIT_IMM32), \
+    _(fcalln, 1+BJIT_SIDEFX, BJIT_IMM32), \
+    _(dcalln, 1+BJIT_SIDEFX, BJIT_IMM32), \
+    /* this is user-requested allocation with reg = stack pointer */ \
     _(alloc,  1+BJIT_SIDEFX+BJIT_NOMOVE, BJIT_IMM32), \
+    /* pseudo-ops: polymorphic */ \
     _(phi,    1+BJIT_NOMOVE, 0), \
     _(rename, 1, 1), \
     _(reload, 1, 1), \
