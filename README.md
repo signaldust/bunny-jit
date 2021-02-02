@@ -16,7 +16,7 @@ Features:
   * small and simple (by virtue of elegant design), yet tries to avoid being naive
   * portable C++11 without dependencies (other than STL)
   * uses low-level portable bytecode that models common architectures
-  * supports integers and double-floats (other types in the future)
+  * supports integers, single- and double-floats (singles are not well-tested)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
   * performs roughly<sup>1</sup> DCE, GCSE+LICM (PRE?), CF/CP and register allocation (as of now)
   * assembles to native x64 binary code (ready to be copied to executable memory)
