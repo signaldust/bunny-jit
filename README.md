@@ -239,7 +239,9 @@ might be *undefined behaviour* in the future (undecided, would allow CSE on divi
 `ishr a b` and `ushr a b` are signed and unsigned right-shift while 
 left-shift (signed or unsigned) is `ishl a b` and we specify that the number
 of bits to shift is modulo the bitsize of integers (eg. 64 on x64 which does
-this natively, but it's easy enough to mask on hardware that might not)
+this natively, but it's easy enough to mask on hardware that might not; I'm
+willing to reconsider, but I feel like the only other sensible choice would be
+to rule it as *undefined behaviour* which I'm trying to avoid)
 
 `fadd a b`, `fsub a b`, `fmul a b`, `fdiv a b` and `fneg a` are single-float
 versions of arithmetic operations
