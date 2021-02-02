@@ -951,7 +951,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(i.flags.type == Op::_f64)
                     _MOVSDxx(i.reg, ops[i.in[0]].reg);
                 else if(i.flags.type == Op::_f32)
-                    _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                    _MOVSSxx(i.reg, ops[i.in[0]].reg);
                 else if(i.flags.type == Op::_ptr)
                     _MOVrr(i.reg, ops[i.in[0]].reg);
                 else assert(false);

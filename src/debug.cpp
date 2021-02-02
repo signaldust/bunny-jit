@@ -83,7 +83,7 @@ void bjit::Proc::debugOp(uint16_t iop) const
         }
     }
 
-    if(op.opcode == ops::iarg || op.opcode == ops::darg)
+    if(op.opcode == ops::iarg || op.opcode == ops::farg || op.opcode == ops::darg)
     {
         printf(" #%d total #%d", op.indexType, op.indexTotal);
     }
