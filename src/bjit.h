@@ -642,7 +642,7 @@ namespace bjit
                 || ops[blocks[0].code.back()].opcode == ops::farg
                 || ops[blocks[0].code.back()].opcode == ops::darg);
                 
-            auto i = addOp(ops::darg, Op::_f32);
+            auto i = addOp(ops::farg, Op::_f32);
             ops[i].indexType = nArgsFloat++;
             ops[i].indexTotal = nArgsTotal++;
             return i;
