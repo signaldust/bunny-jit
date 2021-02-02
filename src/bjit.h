@@ -522,12 +522,12 @@ namespace bjit
         // STATE DATA //
         ////////////////
 
-        // used to encode in[0],in[1] for incoming parameters
+        // used to encode indexType, indexTotal for incoming parameters
         int     nArgsInt    = 0;
         int     nArgsFloat  = 0;
         int     nArgsTotal  = 0;
 
-        // used to track in[1],in[2] for outgoing arguments
+        // used to track indexType, indexTotal for outgoing arguments
         int     nPassInt    = 0;
         int     nPassFloat  = 0;
         int     nPassTotal  = 0;
