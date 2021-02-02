@@ -575,10 +575,9 @@ block the value is safe.
 
 We treat redundant `phi`s as "dead code" so the DCE pass serves a dual purpose:
 it also performs "dataflow analysis" when it figures out which `phi`s it should
-get rid of. A `phi` is considered "dead" if there is only one non-`phi` value
-reachable from the (often cyclic) graph of source values. We resolve all the
-cycles and drop the `phi` unless we find at least two real (non-`phi`) values.
-We do this whenever DCE runs. We also find dominators for CSE-purposes.
+get rid of. A `phi` is considered "dead" if there is only one actual value 
+reachable (ie. alternatives are the same or simple `phi` cycles).
+We also find dominators for CSE-purposes.
 
 The Fold pass can fold constants. It doesn't explicitly "propagate" anything,
 but because the only way to know anything (is a constant?) about source operands
@@ -641,6 +640,7 @@ when they are only needed after the loop exits.
 This is really all we currently do, but because we only worry about graph
 theory rather than variables, we get a fairly powerful set of optimisations
 essentially for free (well, some CPU is spent, but this isn't a stage0 JIT).
+The only tricky part of the code-motion is to make sure it finds a fixed-point.
 
 On the other hand Bunny-JIT does not perform any sort of aliasing analysis
 for memory. It probably never will, because this is such a huge can of worms.
