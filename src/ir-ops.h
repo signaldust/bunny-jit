@@ -78,6 +78,8 @@
     _(iret, 0, 1), \
     _(iretI, 0, BJIT_IMM32), /* opt-dce needs to know which one is last */ \
     _(tcallp, 0, 1), \
+    _(tcalln, 0, BJIT_IMM32), \
+    _(dummy_align, 0, 0), \
     /* */ \
     /* NOTE: THESE SHOULD MATCH THOSE STARTING FROM 'jilt' */ \
     /* SO MAKE SURE THE POSITIONS STAY RELATIVE */ \
@@ -231,6 +233,10 @@
     _(icallp, 1+BJIT_SIDEFX, 1), \
     _(fcallp, 1+BJIT_SIDEFX, 1), \
     _(dcallp, 1+BJIT_SIDEFX, 1), \
+    /* Module local "near" calls, relocated */ \
+    _(icalln, 1+BJIT_SIDEFX, BJIT_IMM32), \
+    _(fcalln, 1+BJIT_SIDEFX, BJIT_IMM32), \
+    _(dcalln, 1+BJIT_SIDEFX, BJIT_IMM32), \
     /* this is user-requested allocation with reg = stack pointer */ \
     _(alloc,  1+BJIT_SIDEFX+BJIT_NOMOVE, BJIT_IMM32), \
     /* pseudo-ops: polymorphic */ \

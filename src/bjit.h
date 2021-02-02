@@ -394,46 +394,54 @@ namespace bjit
         // such that env.back() is the last parameter
         unsigned icallp(unsigned ptr, unsigned n)
         {
-            nPassInt     = 0;
-            nPassFloat   = 0;
-            nPassTotal   = 0;
-            
-            // must do left-to-right if we want to count on the fly
-            // might change this eventually
-            for(int i = 0; i<n; ++i) passArg(env[env.size()-n+i]);
-
+            passArgs(n);
             unsigned i = addOp(ops::icallp, Op::_ptr);
             ops[i].in[0] = ptr;
+            return i;
+        }
+
+        // near call version
+        // first argument is (immediate) index into module-table
+        unsigned icalln(unsigned index, unsigned n)
+        {
+            passArgs(n);
+            unsigned i = addOp(ops::icalln, Op::_ptr);
+            ops[i].imm32 = index;
             return i;
         }
 
         // same as icallp but functions returning floats
         unsigned dcallp(unsigned ptr, unsigned n)
         {
-            nPassInt     = 0;
-            nPassFloat   = 0;
-            nPassTotal   = 0;
-            
-            // We probably want right-to-left once we do stack?
-            for(int i = 0; i<n; ++i) passArg(env[env.size()-n+i]);
-
+            passArgs(n);
             unsigned i = addOp(ops::dcallp, Op::_f64);
             ops[i].in[0] = ptr;
+            return i;
+        }
+
+        // near-call version
+        unsigned dcalln(unsigned index, unsigned n)
+        {
+            passArgs(n);
+            unsigned i = addOp(ops::dcalln, Op::_f64);
+            ops[i].imm32 = index;
             return i;
         }
 
         // same as icallp/fcallp but tail-call: does not return
         void tcallp(unsigned ptr, unsigned n)
         {
-            nPassInt     = 0;
-            nPassFloat   = 0;
-            nPassTotal   = 0;
-            
-            // We probably want right-to-left once we do stack?
-            for(int i = 0; i<n; ++i) passArg(env[env.size()-n+i]);
-
+            passArgs(n);
             unsigned i = addOp(ops::tcallp, Op::_none);
             ops[i].in[0] = ptr;
+        }
+
+        // near-call version
+        void tcalln(int index, unsigned n)
+        {
+            passArgs(n);
+            unsigned i = addOp(ops::tcalln, Op::_none);
+            ops[i].imm32 = index;
         }
         
         
@@ -616,7 +624,17 @@ namespace bjit
             return i;
         }
 
-        void passArg(unsigned val)
+        void passArgs(unsigned n)
+        {
+            nPassInt     = 0;
+            nPassFloat   = 0;
+            nPassTotal   = 0;
+            
+            // We probably want right-to-left once we do stack?
+            for(int i = 0; i<n; ++i) passNextArg(env[env.size()-n+i]);
+        }
+
+        void passNextArg(unsigned val)
         {
             unsigned i = addOp(ops::nop, ops[val].flags.type);
             ops[i].in[0] = val;
