@@ -5,6 +5,9 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #include "hash.h"
 #include "front-lexer.h"
@@ -71,7 +74,10 @@ namespace bjit
                 ++posLine; posChar = 0;
     
                 // interactive prompt only on TTY
-                if (isatty(fileno(stdin))) printf("%6d> ", posLine);
+                #ifndef _WIN32
+                if (isatty(fileno(stdin)))
+                #endif
+                    printf("%6d> ", posLine);
                 
                 peekPos = inputBuffer.size();
                 while(true)
