@@ -208,7 +208,7 @@ struct AsmX64
     }
 
     // SIB bytes: [base+index*2^scale]
-    void _SIBx(uint8_t base, uint8_t index, uint8_t scale)
+    void _SIB(uint8_t base, uint8_t index, uint8_t scale)
     {
         _ModRM(scale, index, base);
     }
@@ -225,6 +225,9 @@ struct AsmX64
     // this encodes r, [r+r] cases (eg. for LEA)
     void _RRR(int w, int r0, int r1, int r2, int op0, int op1 = -1, int op2 = -1)
     {
+        if((0x7 & r1) == REG(regs::rbp)
+        && (0x7 & r2) != REG(regs::rsp)) std::swap(r1, r2);
+        
         bool disp8 = ((0x7 & r1) == REG(regs::rbp));
     
         _PREFIX(op0, op1, op2);
@@ -233,7 +236,7 @@ struct AsmX64
 
         // 0, r, 4 = SIB [r+r] or 1, r, 4 = SIB [r+r+disp8]
         _ModRM(disp8 ? 1 : 0, r0, 4);
-        _SIBx(r1, r2, 0);
+        _SIB(r1, r2, 0);
         if(disp8) emit(0);
     }
 
