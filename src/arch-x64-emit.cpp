@@ -182,7 +182,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::ipass: // outgoing arguments
             case ops::fpass: // outgoing arguments
             case ops::dpass: break; // these are nops for now
-                
+
             case ops::icallp:
             case ops::fcallp:
             case ops::dcallp:
@@ -192,6 +192,23 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 #endif
                 // generate indirect near-call: FF /2
                 a64._RR(0, 2, REG(ops[i.in[0]].reg), 0xFF);
+#ifdef _WIN32
+                // "home locations" for registers
+                a64._ADDri(regs::rsp, 4 * sizeof(uint64_t));
+#endif
+                break;
+            
+            case ops::icalln:
+            case ops::fcalln:
+            case ops::dcalln:
+#ifdef _WIN32
+                // "home locations" for registers
+                a64._SUBri(regs::rsp, 4 * sizeof(uint64_t));
+#endif
+                // RIP-relative call
+                a64.emit(0xE8);
+                nearReloc.emplace_back(NearReloc{(int32_t)out.size(), i.imm32});
+                a64.emit32(-4-out.size());
 #ifdef _WIN32
                 // "home locations" for registers
                 a64._ADDri(regs::rsp, 4 * sizeof(uint64_t));
@@ -448,6 +465,28 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 }
                 // indirect jump
                 a64._RR(0, 4, REG(ops[i.in[0]].reg), 0xFF);
+                break;
+                
+            case ops::tcalln:
+                if(frameBytes) { _ADDri(regs::rsp, frameBytes); }
+                for(int r = savedRegs.size(); r--;)
+                {
+                    if((1ull<<savedRegs[r]) & regs::mask_float)
+                    {
+                        _load_f128(savedRegs[r], regs::rsp, 0);
+                        // we might have used regs:none for alignment
+                        if(r && savedRegs[r-1] == regs::none)
+                        {
+                            _ADDri(regs::rsp, 16+8); --r;
+                        }
+                        else _ADDri(regs::rsp, 16);
+                    }
+                    else _POP(savedRegs[r]);
+                }
+                // near jump
+                a64.emit(0xE8);
+                nearReloc.emplace_back(NearReloc{(int32_t)out.size(), i.imm32});
+                a64.emit32(-4-out.size());
                 break;
 
             case ops::iadd:

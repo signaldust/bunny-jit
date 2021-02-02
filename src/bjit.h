@@ -530,6 +530,17 @@ namespace bjit
         // STATE DATA //
         ////////////////
 
+        // this are filled in for icalln/fcalln/pcalln
+        // and possibly something else in the future
+        //
+        struct NearReloc
+        {
+            int32_t     codeOffset;     // where to add offset
+            uint32_t    symbolIndex;    // which offset to add
+        };
+    
+        std::vector<NearReloc>  nearReloc;
+
         // used to encode indexType, indexTotal for incoming parameters
         int     nArgsInt    = 0;
         int     nArgsFloat  = 0;
