@@ -1,6 +1,8 @@
 
 #include "bjit.h"
 
+#include <inttypes.h>
+
 using namespace bjit;
 
 // register names
@@ -71,7 +73,7 @@ void bjit::Proc::debugOp(uint16_t iop) const
     }
 
     if(op.hasImm32()) printf(" +%d", op.imm32);
-    if(op.hasI64()) printf(" i64:%lld", op.i64);
+    if(op.hasI64()) printf(" i64:%" PRId64, op.i64);
     if(op.hasF32()) printf(" f32:%.8e", op.f32);
     if(op.hasF64()) printf(" f64:%.8e", op.f64);
 
