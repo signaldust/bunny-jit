@@ -181,11 +181,11 @@ namespace bjit
 
             // float -> int conversion
             if(type.kind <= Type::UPTR && v->type.kind == Type::F64)
-                return proc.cf2i(vv);
+                return proc.cd2i(vv);
 
             // int -> float conversion
             if(type.kind == Type::F64 && v->type.kind <= Type::UPTR)
-                return proc.ci2f(vv);
+                return proc.ci2d(vv);
 
             // anything else is pass-thru
             return vv;
@@ -234,7 +234,7 @@ namespace bjit
                 return proc.lci(token.vInt);
             
             case Token::Tfloat:
-                return proc.lcf(token.vFloat);
+                return proc.lcd(token.vFloat);
                 
             default: assert(false);
             }
@@ -305,7 +305,7 @@ namespace bjit
         virtual unsigned codeGen(Proc & proc)
         {
             if(!type.nptr && type.kind == Type::F64)
-                proc.fret(v->codeGen(proc));
+                proc.dret(v->codeGen(proc));
             else proc.iret(v->codeGen(proc));
             return ~0u;
         }
@@ -657,7 +657,7 @@ namespace bjit
             case Token::Tpos: return a->codeGen(proc);
             case Token::Tneg:
                 if(!type.nptr && type.kind == Type::F64)
-                    return proc.fneg(a->codeGen(proc));
+                    return proc.dneg(a->codeGen(proc));
                     
                 if(!type.nptr && type.kind == Type::F32) assert(false);
                 
@@ -986,20 +986,20 @@ namespace bjit
             {
             case Token::Tadd:
                 if(!type.nptr && type.kind == Type::F64)
-                    return proc.fadd(va, vb);
+                    return proc.dadd(va, vb);
                 else return proc.iadd(va, vb);
                 
             case Token::Tsub:
                 if(!type.nptr && type.kind == Type::F64)
-                    return proc.fsub(va, vb);
+                    return proc.dsub(va, vb);
                 else return proc.isub(va, vb);
                 
             case Token::Tmul:
-                if(type.kind == Type::F64) return proc.fmul(va, vb);
+                if(type.kind == Type::F64) return proc.dmul(va, vb);
                 else return proc.imul(va, vb);
                 
             case Token::Tdiv:
-                if(type.kind == Type::F64) return proc.fdiv(va, vb);
+                if(type.kind == Type::F64) return proc.ddiv(va, vb);
                 else if(type.kind == Type::UPTR) return proc.udiv(va, vb);
                 else return proc.idiv(va, vb);
                 
@@ -1019,26 +1019,26 @@ namespace bjit
     
             case Token::Teq:
                 // note: we need to use argument (not result) type here
-                if(a->type.kind == Type::F64) return proc.feq(va, vb);
+                if(a->type.kind == Type::F64) return proc.deq(va, vb);
                 else return proc.ieq(va, vb);
             case Token::TnotEq:
-                if(a->type.kind == Type::F64) return proc.fne(va, vb);
+                if(a->type.kind == Type::F64) return proc.dne(va, vb);
                 else return proc.ine(va, vb);
             
             case Token::Tless:
-                if(a->type.kind == Type::F64) return proc.flt(va, vb);
+                if(a->type.kind == Type::F64) return proc.dlt(va, vb);
                 else return proc.ilt(va, vb);
             
             case Token::TlessEq:
-                if(a->type.kind == Type::F64) return proc.fle(va, vb);
+                if(a->type.kind == Type::F64) return proc.dle(va, vb);
                 else return proc.ile(va, vb);
             
             case Token::Tgreater:
-                if(a->type.kind == Type::F64) return proc.fgt(va, vb);
+                if(a->type.kind == Type::F64) return proc.dgt(va, vb);
                 else return proc.igt(va, vb);
             
             case Token::TgreaterEq:
-                if(a->type.kind == Type::F64) return proc.fge(va, vb);
+                if(a->type.kind == Type::F64) return proc.dge(va, vb);
                 else return proc.ige(va, vb);
 
             default: assert(false);

@@ -119,7 +119,7 @@ of interfaces (which for the time being are subject to change without notice).
 The first step is to include `src/bjit.h`.
 
 The second step is to create a `bjit::Proc` which takes a stack allocation size
-and a string representing arguments (`i` for integer, `f` for double). The allocated
+and a string representing arguments (`i` for integer, `d` for double). The allocated
 block will always be the SSA value `0` (in practice this is the stack pointer) and
 the arguments will be placed in `env[0..n]` (left to right, at most 4 for now).
 More on [`env`](#env) below. Pass `0` and `""` if you don't care about allocations or arguments.
@@ -132,7 +132,7 @@ which are described [below](#instruction-set). Note that the last instruction
 of every block must be either a jump (conditional or unconditional) or a return.
 
 Most instructions take their parameters as SSA values. The exceptions are
-`lci`/`lcf` which take immediate constants and jump-labels which must be
+`lci`/`lcd` which take immediate constants and jump-labels which must be
 the block-indexes returned by `Proc::newLabel()`. For instructions
 with output values, the methods return the new SSA values and other
 instructions return `void`.
@@ -193,8 +193,7 @@ tracking which registers we can use to store values. In particular, anything
 stored in general purpose registers is called `_ptr` (or simply integers).
 
 Instructions starting `i` are for integers, `u` are unsigned variants when
-there is a distinction and `f` is floating point (though we might change the
-double-precision variants to `d` if we add single-precision versions). Note
+there is a distinction and `d` is double precision floating point. Note
 that floating-point comparisons return integers, even though they expect
 `_f64` parameters.
 
@@ -202,10 +201,10 @@ that floating-point comparisons return integers, even though they expect
 
 The compiler currently exposes the following instructions:
 
-`lci i64` and `lcf f64` specify constants, `jmp label` is unconditional jump
+`lci i64` and `lcd f64` specify constants, `jmp label` is unconditional jump
 and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise,
-`iret a` returns from the function with integer value and `fret a` returns with
-a floating point value.
+`iret a` returns from the function with integer value and `dret a` returns with
+a double-precision float value.
 
 `ieq a b` and `ine a b` compare two integers for equality or inequality and
 produce `0` or `1`.
@@ -215,7 +214,7 @@ for less, less-or-equal, greater-or-equal and greater respectively
 
 `ult a b`, `ule a b`, `uge a b` and `ugt a b` perform unsigned comparisons
 
-`feq a b`, `fne a b`, `flt a b`, `fle a b`, `fge a b` and `fgt a b` are
+`deq a b`, `dne a b`, `dlt a b`, `dle a b`, `dge a b` and `dgt a b` are
 floating point version of the same (still produce integer `0` or `1`).
 
 `iadd a b`, `isub a b` and `imul a b` perform (signed or unsigned) integer
@@ -232,12 +231,12 @@ left-shift (signed or unsigned) is `ishl a b` and we specify that the number
 of bits to shift is modulo the bitsize of integers (eg. 64 on x64 which does
 this natively, but it's easy enough to mask on hardware that might not)
 
-`fadd a b`, `fsub a b`, `fmul a b`, `fdiv a b` and `fneg a` are floating point
+`dadd a b`, `dsub a b`, `dmul a b`, `ddiv a b` and `dneg a` are floating point
 versions of arithmetic operations
 
-`cf2i a` converts doubles to integers while `ci2f` converts integers to doubles
+`cd2i a` converts doubles to integers while `ci2d` converts integers to doubles
 
-`bcf2i a` and `bci2f a` bit-cast (ie. reinterpret) without conversion
+`bcd2i a` and `bci2d a` bit-cast (ie. reinterpret) without conversion
 
 `i8 a`, `i16 a` and `i32 a` can be used to sign-extend the low 8/16/32 bits
 
@@ -260,11 +259,11 @@ should be fairly obvious when seen in debug, eg. `jugeI`is a conditional jump on
 ## Calling functions?
 
 Function call support is still somewhat limited, but it is possible to call external
-functions with up to 4 parameters with `icallp` and `fcallp` which take
+functions with up to 4 parameters with `icallp` and `dcallp` which take
 a pointer to a function (as SSA value; use `lci` for constant address) and the number
 of arguments. The arguments are taken from the end of `env` (ie. `push_back()` them
 left-to-right; calls don't pop the arguments, you'll have to clean them up yourself).
-`icallp` returns an integer value while `fcallp` returns a double value.
+`icallp` returns an integer value while `dcallp` returns a double value.
 
 Note that the support is currently not particularly robust as it relies on register
 allocator not accidentally overwriting parameters. This "should not happen"(tm), but

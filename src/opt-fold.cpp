@@ -68,8 +68,8 @@ struct OpCSE
 #define I1(x) (op.nInputs() >= 2 && ops[op.in[1]].opcode == x)
 
 // check for constants
-#define C0 (op.nInputs() >= 1 && (I0(ops::lci) || I0(ops::lcf)))
-#define C1 (op.nInputs() >= 2 && (I1(ops::lci) || I1(ops::lcf)))
+#define C0 (op.nInputs() >= 1 && (I0(ops::lci) || I0(ops::lcd)))
+#define C1 (op.nInputs() >= 2 && (I1(ops::lci) || I1(ops::lcd)))
 
 // fetch operands
 #define N0 ops[op.in[0]]
@@ -138,9 +138,9 @@ bool Proc::opt_fold()
                 switch(op.opcode)
                 {
                     case ops::ieq: case ops::ine:
-                    case ops::feq: case ops::fne:
+                    case ops::deq: case ops::dne:
                     case ops::iadd: case ops::imul:
-                    case ops::fadd: case ops::fmul:
+                    case ops::dadd: case ops::dmul:
                     case ops::iand: case ops::ior: case ops::ixor:
                         if(op.in[0] < op.in[1])
                         {
@@ -151,7 +151,7 @@ bool Proc::opt_fold()
                         
                     case ops::ilt: case ops::ige: case ops::igt: case ops::ile:
                     case ops::ult: case ops::uge: case ops::ugt: case ops::ule:
-                    case ops::flt: case ops::fge: case ops::fgt: case ops::fle:
+                    case ops::dlt: case ops::dge: case ops::dgt: case ops::dle:
                         // (xor 2) relative to ilt swaps operands
                         if(op.in[0] < op.in[1])
                         {
@@ -172,10 +172,10 @@ bool Proc::opt_fold()
                 {
                     case ops::jieq: case ops::jine:
                     case ops::ieq: case ops::ine:
-                    case ops::jfeq: case ops::jfne:
-                    case ops::feq: case ops::fne:
+                    case ops::jdeq: case ops::jdne:
+                    case ops::deq: case ops::dne:
                     case ops::iadd: case ops::imul:
-                    case ops::fadd: case ops::fmul:
+                    case ops::dadd: case ops::dmul:
                     case ops::iand: case ops::ior: case ops::ixor:
                         std::swap(op.in[0], op.in[1]);
                         progress = true;
@@ -194,7 +194,7 @@ bool Proc::opt_fold()
     
                     case ops::jilt: case ops::jige: case ops::jigt: case ops::jile:
                     case ops::jult: case ops::juge: case ops::jugt: case ops::jule:
-                    case ops::jflt: case ops::jfge: case ops::jfgt: case ops::jfle:
+                    case ops::jdlt: case ops::jdge: case ops::jdgt: case ops::jdle:
                         op.opcode = 2 ^ op.opcode;
                         std::swap(op.in[0], op.in[1]);
                         progress = true;
@@ -202,7 +202,7 @@ bool Proc::opt_fold()
                         
                     case ops::ilt: case ops::ige: case ops::igt: case ops::ile:
                     case ops::ult: case ops::uge: case ops::ugt: case ops::ule:
-                    case ops::flt: case ops::fge: case ops::fgt: case ops::fle:
+                    case ops::dlt: case ops::dge: case ops::dgt: case ops::dle:
                         op.opcode = ops::ilt + (2^(op.opcode-ops::ilt));
                         std::swap(op.in[0], op.in[1]);
                         progress = true;
@@ -217,7 +217,7 @@ bool Proc::opt_fold()
                     {
                     case ops::ilt: case ops::ige: case ops::igt: case ops::ile:
                     case ops::ult: case ops::uge: case ops::ugt: case ops::ule:
-                    case ops::flt: case ops::fge: case ops::fgt: case ops::fle:
+                    case ops::dlt: case ops::dge: case ops::dgt: case ops::dle:
     
                     case ops::iltI: case ops::igeI: case ops::igtI: case ops::ileI:
                     case ops::ultI: case ops::ugeI: case ops::ugtI: case ops::uleI:
@@ -318,7 +318,7 @@ bool Proc::opt_fold()
                 
                 // fold conditions into jumps
                 if((I(ops::jz) || I(ops::jnz)) && N0.nUse == 1
-                && (N0.opcode >= ops::ilt && N0.opcode - ops::ilt <= ops::jfne))
+                && (N0.opcode >= ops::ilt && N0.opcode - ops::ilt <= ops::jdne))
                 {
                     int negate = (op.opcode == ops::jz) ? 1 : 0;
                     op.opcode = negate ^ (N0.opcode + ops::jilt - ops::ilt);
@@ -350,7 +350,7 @@ bool Proc::opt_fold()
     
                 // -(-a) = a
                 if(I(ops::ineg) && I0(ops::ineg)) rename.add(bc, N0.in[0]);
-                if(I(ops::fneg) && I0(ops::fneg)) rename.add(bc, N0.in[0]);
+                if(I(ops::dneg) && I0(ops::dneg)) rename.add(bc, N0.in[0]);
                 
                 // a + 0, a - 0, a * 1 -> a
                 if((I(ops::iaddI) && !op.imm32)
@@ -363,9 +363,9 @@ bool Proc::opt_fold()
                     continue;
                 }
 
-                if((I(ops::fadd) && I1(ops::lcf) && N1.f64 == 0.)
-                || (I(ops::fsub) && I1(ops::lcf) && N1.f64 == 0.)
-                || (I(ops::fmul) && I1(ops::lcf) && N1.f64 == 1.))
+                if((I(ops::dadd) && I1(ops::lcd) && N1.f64 == 0.)
+                || (I(ops::dsub) && I1(ops::lcd) && N1.f64 == 0.)
+                || (I(ops::dmul) && I1(ops::lcd) && N1.f64 == 1.))
                 {
                     rename.add(bc, op.in[0]);
                     progress = true;
@@ -378,9 +378,9 @@ bool Proc::opt_fold()
                 {
                     op.opcode = ops::ineg; progress = true;
                 }
-                if(I(ops::fmul) && I1(ops::lcf) && N1.f64 == -1.)
+                if(I(ops::dmul) && I1(ops::lcd) && N1.f64 == -1.)
                 {
-                    op.opcode = ops::fneg; op.in[1] = noVal; progress = true;
+                    op.opcode = ops::dneg; op.in[1] = noVal; progress = true;
                 }
                 
                 // a + (-b) = a-b
@@ -390,9 +390,9 @@ bool Proc::opt_fold()
                     op.in[1] = N1.in[0];
                     progress = true;
                 }
-                if(I(ops::fadd) && I1(ops::fneg))
+                if(I(ops::dadd) && I1(ops::dneg))
                 {
-                    op.opcode = ops::fsub;
+                    op.opcode = ops::dsub;
                     op.in[1] = N1.in[0];
                     progress = true;
                 }
@@ -405,9 +405,9 @@ bool Proc::opt_fold()
                     op.in[1] = N1.in[0];
                     progress = true;
                 }
-                if(I(ops::fsub) && I1(ops::fneg))
+                if(I(ops::dsub) && I1(ops::dneg))
                 {
-                    op.opcode = ops::fadd;
+                    op.opcode = ops::dadd;
                     op.in[1] = N1.in[0];
                     progress = true;
                 }
@@ -420,9 +420,9 @@ bool Proc::opt_fold()
                     std::swap(op.in[0], op.in[1]);
                     progress = true;
                 }
-                if(I(ops::fadd) && I0(ops::fneg))
+                if(I(ops::dadd) && I0(ops::dneg))
                 {
-                    op.opcode = ops::fsub;
+                    op.opcode = ops::dsub;
                     op.in[1] = N0.in[0];
                     std::swap(op.in[0], op.in[1]);
                     progress = true;
@@ -821,9 +821,9 @@ bool Proc::opt_fold()
                         progress = true;
                         break;
     
-                    case ops::fneg:
+                    case ops::dneg:
                         op.f64 = -N0.f64;
-                        op.opcode = ops::lcf;
+                        op.opcode = ops::lcd;
                         progress = true;
                         break;
                 }
@@ -906,42 +906,42 @@ bool Proc::opt_fold()
                         progress = true;
                         break;
                         
-                    case ops::jfeq:
+                    case ops::jdeq:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 == N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
                         progress = true;
                         break;
-                    case ops::jfne:
+                    case ops::jdne:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 != N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
                         progress = true;
                         break;
-                    case ops::jflt:
+                    case ops::jdlt:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 < N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
                         progress = true;
                         break;
-                    case ops::jfge:
+                    case ops::jdge:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 >= N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
                         progress = true;
                         break;
-                    case ops::jfgt:
+                    case ops::jdgt:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 > N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
                         progress = true;
                         break;
-                    case ops::jfle:
+                    case ops::jdle:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 <= N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
@@ -1004,33 +1004,33 @@ bool Proc::opt_fold()
     
                     // Floating point versions
                     // These never get converted to immediates
-                    case ops::feq:
+                    case ops::deq:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 == N1.f64);
                         progress = true;
                         break;
-                    case ops::fne:
+                    case ops::dne:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 != N1.f64);
                         progress = true;
                         break;
                         
-                    case ops::flt:
+                    case ops::dlt:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 < N1.f64);
                         progress = true;
                         break;
-                    case ops::fge:
+                    case ops::dge:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 >= N1.f64);
                         progress = true;
                         break;
-                    case ops::fgt:
+                    case ops::dgt:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 > N1.f64);
                         progress = true;
                         break;
-                    case ops::fle:
+                    case ops::dle:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 <= N1.f64);
                         progress = true;
