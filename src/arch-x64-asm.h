@@ -207,8 +207,8 @@ struct AsmX64
         emit(((mod&3)<<6) | ((reg&7)<<3) | (rm&7) );
     }
 
-    // SIB bytes: [2^scale*index+base]
-    void _SIB(uint8_t scale, uint8_t index, uint8_t base)
+    // SIB bytes: [base+index*2^scale]
+    void _SIBx(uint8_t base, uint8_t index, uint8_t scale)
     {
         _ModRM(scale, index, base);
     }
@@ -220,6 +220,21 @@ struct AsmX64
         _REX(wide, r0, r1);
         _OP(op0, op1, op2);
         _ModRM(3, r0, r1);
+    }
+
+    // this encodes r, [r+r] cases (eg. for LEA)
+    void _RRR(int w, int r0, int r1, int r2, int op0, int op1 = -1, int op2 = -1)
+    {
+        bool disp8 = ((0x7 & r1) == REG(regs::rbp));
+    
+        _PREFIX(op0, op1, op2);
+        _REX(w, r0, r1, r2);
+        _OP(op0, op1, op2);
+
+        // 0, r, 4 = SIB [r+r] or 1, r, 4 = SIB [r+r+disp8]
+        _ModRM(disp8 ? 1 : 0, r0, 4);
+        _SIBx(r1, r2, 0);
+        if(disp8) emit(0);
     }
 
     void emitOffset(int offset, int offsetMode)
@@ -400,6 +415,10 @@ struct AsmX64
 #define _ORri(r0,v)         a64._XXriX(1, REG(r0), v)
 #define _XORri(r0,v)        a64._XXriX(6, REG(r0), v)
 
+// we currently use this for iaddI
+#define _LEAri(r, ptr, off) a64._RM(1, REG(r), REG(ptr), off, 0x8D)
+#define _LEArr(r0, r1, r2)  a64._RRR(1, REG(r0), REG(r1), REG(r2), 0x8D)
+
 #define _IMULrri(r0,r1,v)   a64._IMULrriXX(REG(r0),REG(r1),v)
 
 // these take second operand fixed in CL
@@ -437,9 +456,6 @@ struct AsmX64
 // this is one byte shorter than XORPD, which does the same thing
 #define _XORPSrr(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0x0F, 0x57)
 #define _XORPSri(r0, c)     a64._RM(0, REG(r0), RIP, a64.data128(c), 0x0F, 0x57)
-
-// we currently use this for iaddI
-#define _LEA(r, ptr, off)   a64._RM(1, REG(r), REG(ptr), off, 0x8D)
 
 // treat as smaller and sign-extend (same as loads, just _RR)
 // these need REX.W to sign-extend all the way
