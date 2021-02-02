@@ -69,7 +69,8 @@ to do some basic sanity checking (very limited for now).
 
 Any source files in `src/` are linked to `build/bjit.a` and each `tests/<name>.cpp`
 is compiled into a separate `bin/<name>` for testing purposes. After building
-you can use `bin/bjit` to test the library with the interactive front-end parser.
+you can use `bin/bjit` to test the library with the interactive front-end parser,
+but note that this doesn't actually run the code, it just compiles it into `out.bin`.
 If you add files, there's no need to touch the `Makefile` as it's all magic.
 
 Should you somehow run into issues with automatic dependencies, type `make clean`
