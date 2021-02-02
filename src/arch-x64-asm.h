@@ -459,13 +459,11 @@ struct AsmX64
 #define _SARri8(r0)         a64._RR(1, 7, REG(r0), 0xC1)
 #define _SHRri8(r0)         a64._RR(1, 5, REG(r0), 0xC1)
 
-#define _MOVQxr(r0, r1)     a64._RR(1, REG(r0), REG(r1), 0x66, 0x0F, 0x6E)
-#define _MOVQrx(r0, r1)     a64._RR(1, REG(r0), REG(r1), 0x66, 0x0F, 0x7E)
+#define _CVTSI2SSxr(xr, gr)  a64._RR(1, REG(xr), REG(gr), 0xF3, 0x0F, 0x2A)
+#define _CVTTSS2SIrx(gr, xr) a64._RR(1, REG(gr), REG(xr), 0xF3, 0x0F, 0x2C)
 
-// convert integer to scalar double
-#define _CVTSI2SDxr(xr, gr)  a64._RR(1, REG(xr), REG(gr), 0xF2, 0x0F, 0x2A)
-// convert (with truncation) scalar double to integer
-#define _CVTTSD2SIrx(gr, xr) a64._RR(1, REG(gr), REG(xr), 0xF2, 0x0F, 0x2C)
+#define _MOVDxr(r0, r1)     a64._RR(0, REG(r0), REG(r1), 0x66, 0x0F, 0x6E)
+#define _MOVDrx(r0, r1)     a64._RR(0, REG(r0), REG(r1), 0x66, 0x0F, 0x7E)
 
 #define _MOVSSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF3, 0x0F, 0x10)
 #define _MOVSSxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data32f(c), 0xF3, 0x0F, 0x10)
@@ -475,6 +473,15 @@ struct AsmX64
 #define _SUBSSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF3, 0x0F, 0x5C)
 #define _MULSSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF3, 0x0F, 0x59)
 #define _DIVSSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF3, 0x0F, 0x5E)
+
+#define _CVTSI2SDxr(xr, gr)  a64._RR(1, REG(xr), REG(gr), 0xF2, 0x0F, 0x2A)
+#define _CVTTSD2SIrx(gr, xr) a64._RR(1, REG(gr), REG(xr), 0xF2, 0x0F, 0x2C)
+
+#define _CVTSD2SSxx(r0, r1)  a64._RR(1, REG(r0), REG(r1), 0xF2, 0x0F, 0x5A)
+#define _CVTSS2SDxx(r0, r1)  a64._RR(1, REG(r0), REG(r1), 0xF3, 0x0F, 0x5A)
+
+#define _MOVQxr(r0, r1)     a64._RR(1, REG(r0), REG(r1), 0x66, 0x0F, 0x6E)
+#define _MOVQrx(r0, r1)     a64._RR(1, REG(r0), REG(r1), 0x66, 0x0F, 0x7E)
 
 #define _MOVSDxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF2, 0x0F, 0x10)
 #define _MOVSDxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data64f(c), 0xF2, 0x0F, 0x10)

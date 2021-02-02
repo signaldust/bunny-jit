@@ -898,7 +898,28 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::bcd2i:
                 _MOVQxr(i.reg, ops[i.in[0]].reg);
                 break;
+                
+            case ops::bci2f:
+                _MOVDrx(i.reg, ops[i.in[0]].reg);
+                break;
+            case ops::bcf2i:
+                _MOVDxr(i.reg, ops[i.in[0]].reg);
+                break;
+                
+            case ops::ci2f:
+                _CVTSI2SSxr(i.reg, ops[i.in[0]].reg);
+                break;
+            case ops::cf2i:
+                _CVTTSS2SIrx(i.reg, ops[i.in[0]].reg);
+                break;
 
+            case ops::cf2d:
+                _CVTSS2SDxx(i.reg, ops[i.in[0]].reg);
+                break;
+            case ops::cd2f:
+                _CVTSD2SSxx(i.reg, ops[i.in[0]].reg);
+                break;
+                
             /* Pseudo-ops: these need to check value types */
             case ops::phi: break;   // this is just NOP here
             
@@ -926,7 +947,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 else assert(false);
                 break;
                 
-            //default: assert(false);
+            default: assert(false);
         }
 
         // if marked for spill, store to stack

@@ -181,9 +181,11 @@
     _(cf2i, BJIT_CSE+1, 1), \
     _(cf2d, BJIT_CSE+1, 1), \
     _(cd2f, BJIT_CSE+1, 1), \
-    /* reinterpret bitcasts: int -> double, double -> int */ \
+    /* reinterpret bitcasts */ \
     _(bci2d, BJIT_CSE+1, 1), \
     _(bcd2i, BJIT_CSE+1, 1), \
+    _(bci2f, BJIT_CSE+1, 1), \
+    _(bcf2i, BJIT_CSE+1, 1), \
     /* load constants */ \
     _(lci, BJIT_CSE+1, BJIT_I64), \
     _(lcf, BJIT_CSE+1, BJIT_F64), \
