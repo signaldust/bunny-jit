@@ -146,7 +146,7 @@ create a `bjit::Module` and pass the `Proc` to `Module::compile()` which will
 return an index. Multiple procedures can be compiled into the same module.
 There is no symbol resolution step yet, but you can call `Module::load()` to
 load the module into executable memory and `Module::unload()` to unload it.
-*(NOTE: This only works on Unix for now. Windows support "soon"(tm))*.
+*(NOTE: This is untested on Windows.)*.
 
 When a `Module` is loaded call `Module::getPointer<T>()` with an index
 returned by `Module::compile()` to get a pointer to your function (with `T`

@@ -7,6 +7,11 @@
 #  include <sys/mman.h>
 #endif
 
+#if defined(_WIN32)
+#  define BJIT_CAN_LOAD
+#  include <windows.h>
+#endif
+
 #ifdef __APPLE__
 #define MAP_ANONYMOUS MAP_ANON  // the joy of being different
 #endif
@@ -20,31 +25,44 @@ bool Module::load()
     assert(!exec_mem);
 
 #ifdef BJIT_USE_MMAP
-
     // get a block of memory we can mess with, read+write
     exec_mem = mmap(NULL, bytes.size(), PROT_READ | PROT_WRITE,
         MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-
     if(!exec_mem)
     {
         fprintf(stderr, "warning: mmap failed in bjit::Module::load()\n");
         return false;
     }
-
-    // copy the code into this block
     memcpy(exec_mem, bytes.data(), bytes.size());
-
-    if (mprotect(exec_mem, bytes.size(), PROT_READ | PROT_EXEC) == -1)
+    // return zero on success
+    if(mprotect(exec_mem, bytes.size(), PROT_READ | PROT_EXEC))
     {
         fprintf(stderr, "warning: mprotect failed in bjit::Module::load()\n");
-        // if we can't mprotect, try to unmap
-        // if that fails too, there's not much we can do
-        munmap(exec_mem, bytes.size());
+        // if we can't set executable, then try to unload
+        unload();
         return false;
     }
-
     return true;
-    
+#endif
+
+#ifdef _WIN32
+    exec_mem = VirtualAlloc(0, bytes.size(), MEM_COMMIT, PAGE_READWRITE);
+    if(!exec_mem)
+    {
+        fprintf(stderr, "warning: VirtualAlloc failed in bjit::Module::load()\n");
+        return false;
+    }
+    memcpy(exec_mem, bytes.data(), bytes.size());
+    // Note that VirtualProtect REQUIRES oldFlags to be a valid pointer!
+    DWORD   oldFlags = 0;
+    if(!VirtualProtect(exec_mem, bytes.size(), PAGE_EXECUTE_READ, &oldFlags))
+    {
+        fprintf(stderr, "warning: mprotect failed in bjit::Module::load()\n");
+        // if we can't set executable, then try to unload
+        unload();
+        return false;
+    }
+    return true;
 #endif
 
 #ifndef BJIT_CAN_LOAD
@@ -58,6 +76,11 @@ void Module::unload()
 
 #ifdef BJIT_USE_MMAP
     munmap(exec_mem, bytes.size());
+    exec_mem = 0;
+#endif
+
+#ifdef _WIN32
+    VirtualFree(exec_mem, 0, MEM_RELEASE);
     exec_mem = 0;
 #endif
 

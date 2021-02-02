@@ -39,7 +39,7 @@ END
 
 bin/test_add_ii
 bin/test_add_ff
-
+bin/test_sub_ii # test parameter order, mostly
 
 echo "Looks like it didn't crash, at least... ;-)"
 
