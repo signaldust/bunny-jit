@@ -345,6 +345,12 @@ namespace bjit
             }
         }
 
+        // write this as wrapper so we don't need to duplicate code
+        void jnz(unsigned v, unsigned labelThen, unsigned labelElse)
+        {
+            jz(v, labelElse, labelThen);
+        }
+
         void jz(unsigned v, unsigned labelThen, unsigned labelElse)
         {
             unsigned i = addOp(ops::jz, Op::_none);

@@ -207,7 +207,8 @@ float. Note that floating-point comparisons return integers, even though they ex
 The compiler currently exposes the following instructions:
 
 `lci i64`, `lcf f32` and `lcd f64` specify constants, `jmp label` is unconditional jump
-and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise,
+and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise and
+`jnz a then else` will branch to `then` if `a` is non-zero and `else` otherwise,
 `iret a` returns from the function with integer value, `fret a` with single-precision
 float value and `dret a` returns with a double-precision float value.
 
