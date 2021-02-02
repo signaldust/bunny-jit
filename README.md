@@ -16,7 +16,7 @@ Features:
   * small and simple (by virtue of elegant design), yet tries to avoid being naive
   * portable C++11 without dependencies (other than STL)
   * uses low-level portable bytecode that models common architectures
-  * supports integers and double-floats (other types in the future)
+  * supports integers, single- and double-floats (singles are not well-tested)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
   * performs roughly<sup>1</sup> DCE, GCSE+LICM (PRE?), CF/CP and register allocation (as of now)
   * assembles to native x64 binary code (ready to be copied to executable memory)
@@ -119,7 +119,8 @@ of interfaces (which for the time being are subject to change without notice).
 The first step is to include `src/bjit.h`.
 
 The second step is to create a `bjit::Proc` which takes a stack allocation size
-and a string representing arguments (`i` for integer, `d` for double). The allocated
+and a string representing arguments
+(`i` for integer, `f` for single floats, `d` for double). The allocated
 block will always be the SSA value `0` (in practice this is the stack pointer) and
 the arguments will be placed in `env[0..n]` (left to right, at most 4 for now).
 More on [`env`](#env) below. Pass `0` and `""` if you don't care about allocations or arguments.
@@ -203,8 +204,8 @@ The compiler currently exposes the following instructions:
 
 `lci i64` and `lcd f64` specify constants, `jmp label` is unconditional jump
 and `jz a then else` will branch to `then` if `a` is zero or `else` otherwise,
-`iret a` returns from the function with integer value and `dret a` returns with
-a double-precision float value.
+`iret a` returns from the function with integer value, `fret a` with single-precision
+float value and `dret a` returns with a double-precision float value.
 
 `ieq a b` and `ine a b` compare two integers for equality or inequality and
 produce `0` or `1`.
@@ -214,8 +215,11 @@ for less, less-or-equal, greater-or-equal and greater respectively
 
 `ult a b`, `ule a b`, `uge a b` and `ugt a b` perform unsigned comparisons
 
+`feq a b`, `fne a b`, `flt a b`, `fle a b`, `fge a b` and `fgt a b` are
+single-float version of the same (still produce integer `0` or `1`).
+
 `deq a b`, `dne a b`, `dlt a b`, `dle a b`, `dge a b` and `dgt a b` are
-floating point version of the same (still produce integer `0` or `1`).
+double-float version of the same (still produce integer `0` or `1`).
 
 `iadd a b`, `isub a b` and `imul a b` perform (signed or unsigned) integer
 addition, subtraction and multiplication, while `ineg a` negates an integer
@@ -231,12 +235,21 @@ left-shift (signed or unsigned) is `ishl a b` and we specify that the number
 of bits to shift is modulo the bitsize of integers (eg. 64 on x64 which does
 this natively, but it's easy enough to mask on hardware that might not)
 
-`dadd a b`, `dsub a b`, `dmul a b`, `ddiv a b` and `dneg a` are floating point
+`fadd a b`, `fsub a b`, `fmul a b`, `fdiv a b` and `fneg a` are single-float
 versions of arithmetic operations
+
+`dadd a b`, `dsub a b`, `dmul a b`, `ddiv a b` and `dneg a` are double-float
+versions of arithmetic operations
+
+`cf2i a` converts singles to integers while `ci2f` converts integers to singles
+
+`cf2d a` converts singles to doubles while `cd2f` converts doubles to singles
 
 `cd2i a` converts doubles to integers while `ci2d` converts integers to doubles
 
-`bcd2i a` and `bci2d a` bit-cast (ie. reinterpret) without conversion
+`bcf2i a` and `bci2f a` bit-cast float vs. int (ie. reinterpret) without conversion
+
+`bcd2i a` and `bci2d a` bit-cast double vs. int (ie. reinterpret) without conversion
 
 `i8 a`, `i16 a` and `i32 a` can be used to sign-extend the low 8/16/32 bits
 
@@ -244,7 +257,7 @@ versions of arithmetic operations
 
 Loads follow the form `lXX ptr imm32` where `ptr` is integer SSA value and `imm32`
 is an immediate offset (eg. for field offsets). The variants defined are 
-`li8/16/32/64`, `lu8/16/32` and `lf64`. The integer `i` variants sign-extend
+`li8/16/32/64`, `lu8/16/32` and `lf32/64`. The integer `i` variants sign-extend
 while the `u` variants zero-extend.
 
 Stores follow the form `sXX ptr imm32 value` where `ptr` and `imm32` are like loads
@@ -259,11 +272,12 @@ should be fairly obvious when seen in debug, eg. `jugeI`is a conditional jump on
 ## Calling functions?
 
 Function call support is still somewhat limited, but it is possible to call external
-functions with up to 4 parameters with `icallp` and `dcallp` which take
+functions with up to 4 parameters with `icallp`, `fcallp` and `dcallp` which take
 a pointer to a function (as SSA value; use `lci` for constant address) and the number
 of arguments. The arguments are taken from the end of `env` (ie. `push_back()` them
 left-to-right; calls don't pop the arguments, you'll have to clean them up yourself).
-`icallp` returns an integer value while `dcallp` returns a double value.
+`icallp` returns an integer value, `fcallp` returns single-float
+and `dcallp` returns a double-float value.
 
 Note that the support is currently not particularly robust as it relies on register
 allocator not accidentally overwriting parameters. This "should not happen"(tm), but

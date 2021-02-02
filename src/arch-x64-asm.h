@@ -57,13 +57,13 @@ uint8_t _CC(uint8_t opcode)
         case ops::jile: return 0xE;
 
         // floating point conditions match unsigned(!)
-        case ops::jult: case ops::jdlt: return 0x2;
-        case ops::juge: case ops::jdge: return 0x3;
-        case ops::jugt: case ops::jdgt: return 0x7;
-        case ops::jule: case ops::jdle: return 0x6;
+        case ops::jult: case ops::jdlt: case ops::jflt: return 0x2;
+        case ops::juge: case ops::jdge: case ops::jfge: return 0x3;
+        case ops::jugt: case ops::jdgt: case ops::jfgt: return 0x7;
+        case ops::jule: case ops::jdle: case ops::jfle: return 0x6;
 
-        case ops::jine: case ops::jdne: case ops::jnz: return 0x5;
-        case ops::jieq: case ops::jdeq: case ops::jz:  return 0x4;
+        case ops::jine: case ops::jdne: case ops::jfne: case ops::jnz: return 0x5;
+        case ops::jieq: case ops::jdeq: case ops::jfeq: case ops::jz:  return 0x4;
 
         default: assert(false);
     }
@@ -76,6 +76,7 @@ struct AsmX64
 
     AsmX64(std::vector<uint8_t> & out, unsigned nBlocks) : out(out)
     {
+        rodata32_index = nBlocks++;
         rodata64_index = nBlocks++;
         rodata128_index = nBlocks++;
         blockOffsets.resize(nBlocks);
@@ -88,6 +89,9 @@ struct AsmX64
     
     std::vector<uint64_t>   rodata64;
     uint32_t                rodata64_index;     // index into blockOffsets
+    
+    std::vector<uint64_t>   rodata32;
+    uint32_t                rodata32_index;     // index into blockOffsets
 
     // stores byteOffsets to each basic block for relocation
     std::vector<uint32_t>   blockOffsets;
@@ -116,6 +120,22 @@ struct AsmX64
         relocations.back().codeOffset = out.size();
         relocations.back().blockIndex = block;
     }
+    
+    // store 32-bit constant into .rodata32
+    // add relocation and return offset for RIP relative
+    uint32_t data32(uint32_t data)
+    {
+        unsigned index = rodata32.size();
+        // try to find an existing constant with same value
+        for(unsigned i = 0; i < rodata64.size(); ++i)
+        {
+            if(rodata32[i] == data) { index = i; break; }
+        }
+        
+        if(index == rodata32.size()) rodata32.push_back(data);
+        addReloc(rodata32_index);
+        return index*sizeof(uint32_t);
+    }
 
     // store 64-bit constant into .rodata64
     // add relocation and return offset for RIP relative
@@ -131,6 +151,11 @@ struct AsmX64
         if(index == rodata64.size()) rodata64.push_back(data);
         addReloc(rodata64_index);
         return index*sizeof(uint64_t);
+    }
+
+    uint32_t data32f(float data)
+    {
+        return data32(*reinterpret_cast<uint32_t*>(&data));
     }
 
     uint32_t data64f(double data)
@@ -434,23 +459,40 @@ struct AsmX64
 #define _SARri8(r0)         a64._RR(1, 7, REG(r0), 0xC1)
 #define _SHRri8(r0)         a64._RR(1, 5, REG(r0), 0xC1)
 
-#define _MOVSDxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF2, 0x0F, 0x10)
-#define _MOVSDxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data64f(c), 0xF2, 0x0F, 0x10)
-#define _UCOMISDxx(r0, r1)  a64._RR(0, REG(r0), REG(r1), 0x66, 0x0F, 0x2E)
+#define _CVTSI2SSxr(xr, gr)  a64._RR(1, REG(xr), REG(gr), 0xF3, 0x0F, 0x2A)
+#define _CVTTSS2SIrx(gr, xr) a64._RR(1, REG(gr), REG(xr), 0xF3, 0x0F, 0x2C)
+
+#define _MOVDxr(r0, r1)     a64._RR(0, REG(r0), REG(r1), 0x66, 0x0F, 0x6E)
+#define _MOVDrx(r0, r1)     a64._RR(0, REG(r0), REG(r1), 0x66, 0x0F, 0x7E)
+
+#define _MOVSSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF3, 0x0F, 0x10)
+#define _MOVSSxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data32f(c), 0xF3, 0x0F, 0x10)
+#define _UCOMISSxx(r0, r1)  a64._RR(0, REG(r0), REG(r1), 0x0F, 0x2E)
+
+#define _ADDSSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF3, 0x0F, 0x58)
+#define _SUBSSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF3, 0x0F, 0x5C)
+#define _MULSSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF3, 0x0F, 0x59)
+#define _DIVSSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF3, 0x0F, 0x5E)
+
+#define _CVTSI2SDxr(xr, gr)  a64._RR(1, REG(xr), REG(gr), 0xF2, 0x0F, 0x2A)
+#define _CVTTSD2SIrx(gr, xr) a64._RR(1, REG(gr), REG(xr), 0xF2, 0x0F, 0x2C)
+
+#define _CVTSD2SSxx(r0, r1)  a64._RR(1, REG(r0), REG(r1), 0xF2, 0x0F, 0x5A)
+#define _CVTSS2SDxx(r0, r1)  a64._RR(1, REG(r0), REG(r1), 0xF3, 0x0F, 0x5A)
 
 #define _MOVQxr(r0, r1)     a64._RR(1, REG(r0), REG(r1), 0x66, 0x0F, 0x6E)
 #define _MOVQrx(r0, r1)     a64._RR(1, REG(r0), REG(r1), 0x66, 0x0F, 0x7E)
 
-// convert integer to scalar double
-#define _CVTSI2SDxr(xr, gr)  a64._RR(1, REG(xr), REG(gr), 0xF2, 0x0F, 0x2A)
-// convert (with truncation) scalar double to integer
-#define _CVTTSD2SIrx(gr, xr) a64._RR(1, REG(gr), REG(xr), 0xF2, 0x0F, 0x2C)
+#define _MOVSDxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF2, 0x0F, 0x10)
+#define _MOVSDxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data64f(c), 0xF2, 0x0F, 0x10)
+#define _UCOMISDxx(r0, r1)  a64._RR(0, REG(r0), REG(r1), 0x66, 0x0F, 0x2E)
 
 #define _ADDSDxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF2, 0x0F, 0x58)
 #define _SUBSDxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF2, 0x0F, 0x5C)
 #define _MULSDxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF2, 0x0F, 0x59)
 #define _DIVSDxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF2, 0x0F, 0x5E)
 
+// these are not currently used?
 #define _ADDSDxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data64f(c), 0xF2, 0x0F, 0x58)
 #define _SUBSDxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data64f(c), 0xF2, 0x0F, 0x5C)
 #define _MULSDxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data64f(c), 0xF2, 0x0F, 0x59)
@@ -484,6 +526,7 @@ struct AsmX64
 #define _load_u16(r, ptr, off)  a64._RM(0, REG(r), REG(ptr), off, 0x0F, 0xB7)
 #define _load_u8(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0x0F, 0xB6)
 
+#define _load_f32(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0xF3, 0x0F, 0x10)
 #define _load_f64(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0xF2, 0x0F, 0x10)
 #define _load_f128(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0x0F, 0x28)
 
@@ -494,6 +537,7 @@ struct AsmX64
 #define _store_i16(r, ptr, off) a64._RM(0, REG(r), REG(ptr), off, 0x66, 0x89)
 #define _store_i8(r, ptr, off)  a64._RM(2, REG(r), REG(ptr), off, 0x88)
 
+#define _store_f32(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0xF3, 0x0F, 0x11)
 #define _store_f64(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0xF2, 0x0F, 0x11)
 #define _store_f128(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0x0F, 0x29)
 

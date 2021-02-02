@@ -37,6 +37,7 @@ void bjit::Proc::debugOp(uint16_t iop) const
     {
         case Op::_none: printf("          "); break;
         case Op::_ptr:  printf(" %3d  ptr ", op.nUse); break;
+        case Op::_f32:  printf(" %3d  f32 ", op.nUse); break;
         case Op::_f64:  printf(" %3d  f64 ", op.nUse); break;
     };
 
@@ -71,6 +72,7 @@ void bjit::Proc::debugOp(uint16_t iop) const
 
     if(op.hasImm32()) printf(" +%d", op.imm32);
     if(op.hasI64()) printf(" i64:%lld", op.i64);
+    if(op.hasF32()) printf(" f32:%.8e", op.f32);
     if(op.hasF64()) printf(" f64:%.8e", op.f64);
 
     if(op.opcode == ops::phi)

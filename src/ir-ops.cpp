@@ -42,6 +42,11 @@ bool bjit::Op::hasF64() const
     return 0 != (opData[this->opcode].inputs & BJIT_F64);
 }
 
+bool bjit::Op::hasF32() const
+{
+    return 0 != (opData[this->opcode].inputs & BJIT_F32);
+}
+
 bool bjit::Op::hasSideFX() const
 {
     return !opData[this->opcode].outputs

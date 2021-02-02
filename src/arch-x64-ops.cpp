@@ -8,6 +8,7 @@ RegMask Op::regsMask()
     switch(flags.type)
     {
         case _ptr: return regs::mask_int;
+        case _f32: return regs::mask_float;
         case _f64: return regs::mask_float;
 
         default: printf("%s\n", strOpcode()); assert(false);
@@ -29,6 +30,8 @@ RegMask Op::regsOut()
         case ops::imod: case ops::umod: return (1ull<<regs::rdx);
 
         case ops::icallp: return (1ull<<regs::rax);
+        
+        case ops::fcallp: 
         case ops::dcallp: return (1ull<<regs::xmm0);
 
         // we have in[0] = index in type, in[1] = index total
@@ -57,6 +60,7 @@ RegMask Op::regsOut()
             default: assert(false); // FIXME: RA can't handle
             }
 #endif
+        case ops::farg:
         case ops::darg:
 #ifdef _WIN32
             switch(indexTotal)  // Win64 wants the total position
@@ -99,10 +103,12 @@ RegMask Op::regsIn(int i)
         
         // loads and stores allow stack pointer as their first argument
         case ops::li8: case ops::li16: case ops::li32: case ops::li64:
-        case ops::lu8: case ops::lu16: case ops::lu32: case ops::lf64:
+        case ops::lu8: case ops::lu16: case ops::lu32:
+        case ops::lf32: case ops::lf64:
         case ops::si8: case ops::si16: case ops::si32: case ops::si64:
-        case ops::sf64:
             return regs::mask_int | (i ? 0 : (1ull<<regs::rsp));
+        case ops::sf32: case ops::sf64:
+            return i ? regs::mask_float : (regs::mask_int | (1ull<<regs::rsp));
 
         // allow iadd and iaddI to take RSP too, saves moves if we use LEA
         case ops::iadd: case ops::iaddI:
@@ -128,13 +134,21 @@ RegMask Op::regsIn(int i)
         case ops::jdgt: case ops::jdle:
         case ops::jdeq: case ops::jdne:
 
+        case ops::flt: case ops::fge:
+        case ops::fgt: case ops::fle:
+        case ops::feq: case ops::fne:
+        
+        case ops::lcf: case ops::cf2i:
+
         case ops::dlt: case ops::dge:
         case ops::dgt: case ops::dle:
         case ops::deq: case ops::dne:
         
-        case ops::lcd: case ops::cd2i: case ops::bcd2i:
+        case ops::lcd: case ops::cd2i:
+        case ops::bcd2i: case ops::bcf2i:
             return regs::mask_float;
-            
+
+        case ops::ci2f: case ops::bci2f:
         case ops::ci2d: case ops::bci2d:
             return regs::mask_int;
             
@@ -167,6 +181,7 @@ RegMask Op::regsIn(int i)
             default: assert(false); // FIXME: RA can't handle
             }
 #endif
+        case ops::fpass:
         case ops::dpass:
 #ifdef _WIN32
             switch(indexTotal)  // Win64 wants the total index
@@ -196,6 +211,7 @@ RegMask Op::regsIn(int i)
 
         // these are fixed
         case ops::iret: return (1ull<<regs::rax);
+        case ops::fret: return (1ull<<regs::xmm0);
         case ops::dret: return (1ull<<regs::xmm0);
 
     }

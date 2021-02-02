@@ -34,6 +34,8 @@ namespace bjit
             struct {
                 union
                 {
+                    float       f32;
+                    
                     uint32_t    imm32;
                     uint32_t    phiIndex;
                     
@@ -82,6 +84,7 @@ namespace bjit
         {
             _none,  // no output
             _ptr,   // pointer-sized integer (anything that fits GP regs)
+            _f32,   // single precision float
             _f64    // double precision float
         };
 
@@ -112,6 +115,8 @@ namespace bjit
 
         bool    hasImm32()      const;
         bool    hasI64()        const;
+        
+        bool    hasF32()        const;
         bool    hasF64()        const;
 
         void    makeNOP() { opcode = ops::nop; u64 = ~0ull; }
@@ -226,6 +231,7 @@ namespace bjit
                 switch(*args)
                 {
                 case 'i': env.push_back(iarg()); break;
+                case 'f': env.push_back(farg()); break;
                 case 'd': env.push_back(darg()); break;
                 default: assert(false);
                 }
@@ -306,6 +312,11 @@ namespace bjit
             unsigned i = addOp(ops::lci, Op::_ptr); ops[i].u64 = imm; return i;
         }
 
+        unsigned lcf(float imm)
+        {
+            unsigned i = addOp(ops::lcd, Op::_f32); ops[i].f32 = imm; return i;
+        }
+        
         unsigned lcd(double imm)
         {
             unsigned i = addOp(ops::lcd, Op::_f64); ops[i].f64 = imm; return i;
@@ -356,6 +367,10 @@ namespace bjit
         void iret(unsigned v)
         { unsigned i = addOp(ops::iret, Op::_none); ops[i].in[0] = v; }
 
+        // float return
+        void fret(unsigned v)
+        { unsigned i = addOp(ops::fret, Op::_none); ops[i].in[0] = v; }
+        
         // float return
         void dret(unsigned v)
         { unsigned i = addOp(ops::dret, Op::_none); ops[i].in[0] = v; }
@@ -427,6 +442,10 @@ namespace bjit
         BJIT_OP2(ugt,_ptr,_ptr,_ptr); BJIT_OP2(ule,_ptr,_ptr,_ptr);
         BJIT_OP2(ieq,_ptr,_ptr,_ptr); BJIT_OP2(ine,_ptr,_ptr,_ptr);
 
+        BJIT_OP2(flt,_ptr,_f32,_f32); BJIT_OP2(fge,_ptr,_f32,_f32);
+        BJIT_OP2(fgt,_ptr,_f32,_f32); BJIT_OP2(fle,_ptr,_f32,_f32);
+        BJIT_OP2(feq,_ptr,_f32,_f32); BJIT_OP2(fne,_ptr,_f32,_f32);
+        
         BJIT_OP2(dlt,_ptr,_f64,_f64); BJIT_OP2(dge,_ptr,_f64,_f64);
         BJIT_OP2(dgt,_ptr,_f64,_f64); BJIT_OP2(dle,_ptr,_f64,_f64);
         BJIT_OP2(deq,_ptr,_f64,_f64); BJIT_OP2(dne,_ptr,_f64,_f64);
@@ -449,6 +468,11 @@ namespace bjit
         BJIT_OP1(cd2i,_ptr,_f64); BJIT_OP1(bcd2i,_ptr,_f64);
         BJIT_OP1(ci2d,_f64,_ptr); BJIT_OP1(bci2d,_f64,_ptr);
 
+        BJIT_OP1(cf2d,_f64,_f32); BJIT_OP1(cd2f,_f32,_f64);
+        
+        BJIT_OP1(cf2i,_ptr,_f32); BJIT_OP1(bcf2i,_ptr,_f32);
+        BJIT_OP1(ci2f,_f32,_ptr); BJIT_OP1(bci2f,_f32,_ptr);
+
         BJIT_OP1(i8,_ptr,_ptr); BJIT_OP1(i16,_ptr,_ptr); BJIT_OP1(i32,_ptr,_ptr);
         BJIT_OP1(u8,_ptr,_ptr); BJIT_OP1(u16,_ptr,_ptr); BJIT_OP1(u32,_ptr,_ptr);
 
@@ -470,11 +494,12 @@ namespace bjit
         BJIT_LOAD(li8, _ptr); BJIT_LOAD(li16, _ptr);
         BJIT_LOAD(li32, _ptr); BJIT_LOAD(li64, _ptr);
         BJIT_LOAD(lu8, _ptr); BJIT_LOAD(lu16, _ptr);
-        BJIT_LOAD(lu32, _ptr); BJIT_LOAD(lf64, _f64);
+        BJIT_LOAD(lu32, _ptr);
+        BJIT_LOAD(lf32, _f32); BJIT_LOAD(lf64, _f64);
 
         BJIT_STORE(si8, _ptr); BJIT_STORE(si16, _ptr);
         BJIT_STORE(si32, _ptr); BJIT_STORE(si64, _ptr);
-        BJIT_STORE(sf64, _f64);
+        BJIT_STORE(sf32, _f32); BJIT_STORE(sf64, _f64);
 
     private:
         ////////////////
@@ -586,6 +611,9 @@ namespace bjit
             if(ops[i].flags.type == Op::_f64)
             { ops[i].opcode = ops::dpass; ops[i].indexType = nPassFloat++; }
             
+            if(ops[i].flags.type == Op::_f32)
+            { ops[i].opcode = ops::fpass; ops[i].indexType = nPassFloat++; }
+            
             ops[i].indexTotal = nPassTotal++;
 
             assert(ops[i].opcode != ops::nop);
@@ -601,6 +629,7 @@ namespace bjit
             assert(!blocks[0].code.size()
                 || ops[blocks[0].code.back()].opcode == ops::alloc
                 || ops[blocks[0].code.back()].opcode == ops::iarg
+                || ops[blocks[0].code.back()].opcode == ops::farg
                 || ops[blocks[0].code.back()].opcode == ops::darg);
                 
             auto i = addOp(ops::iarg, Op::_ptr);
@@ -608,6 +637,23 @@ namespace bjit
             ops[i].indexTotal = nArgsTotal++;
             return i;
         }
+
+        unsigned farg()
+        {
+            assert(nArgsTotal < 4);    // the most that will work on Windows
+            assert(!currentBlock); // must be block zero
+            assert(!blocks[0].code.size()
+                || ops[blocks[0].code.back()].opcode == ops::alloc
+                || ops[blocks[0].code.back()].opcode == ops::iarg
+                || ops[blocks[0].code.back()].opcode == ops::farg
+                || ops[blocks[0].code.back()].opcode == ops::darg);
+                
+            auto i = addOp(ops::farg, Op::_f32);
+            ops[i].indexType = nArgsFloat++;
+            ops[i].indexTotal = nArgsTotal++;
+            return i;
+        }
+        
         unsigned darg()
         {
             assert(nArgsTotal < 4);    // the most that will work on Windows
@@ -615,6 +661,7 @@ namespace bjit
             assert(!blocks[0].code.size()
                 || ops[blocks[0].code.back()].opcode == ops::alloc
                 || ops[blocks[0].code.back()].opcode == ops::iarg
+                || ops[blocks[0].code.back()].opcode == ops::farg
                 || ops[blocks[0].code.back()].opcode == ops::darg);
                 
             auto i = addOp(ops::darg, Op::_f64);
@@ -672,7 +719,7 @@ namespace bjit
         // load compiled procedures into executable memory
         // returns true on success
         //
-        // use getProcPtr() to get pointers to procedures
+        // use getPointer() to get pointers to procedures
         bool load();
 
         // unload module from executable memory
