@@ -211,6 +211,7 @@ RegMask Op::regsIn(int i)
 
         // these are fixed
         case ops::iret: return (1ull<<regs::rax);
+        case ops::fret: return (1ull<<regs::xmm0);
         case ops::dret: return (1ull<<regs::xmm0);
 
     }

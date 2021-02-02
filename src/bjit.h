@@ -366,6 +366,10 @@ namespace bjit
         { unsigned i = addOp(ops::iret, Op::_none); ops[i].in[0] = v; }
 
         // float return
+        void fret(unsigned v)
+        { unsigned i = addOp(ops::fret, Op::_none); ops[i].in[0] = v; }
+        
+        // float return
         void dret(unsigned v)
         { unsigned i = addOp(ops::dret, Op::_none); ops[i].in[0] = v; }
 
