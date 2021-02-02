@@ -129,10 +129,10 @@ Put them into [`env`](#env) instead.
 
 To generate instructions, you can then call the instruction methods on `Proc`
 which are described [below](#instruction-set). Note that the last instruction
-of every block should be either a jump (conditional or unconditional) or a return.
+of every block must be either a jump (conditional or unconditional) or a return.
 
 Most instructions take their parameters as SSA values. The exceptions are
-`lci`/`lcf` which take immediate constants and jump-labels which should be
+`lci`/`lcf` which take immediate constants and jump-labels which must be
 the block-indexes returned by `Proc::newLabel()`. For instructions
 with output values, the methods return the new SSA values and other
 instructions return `void`.
