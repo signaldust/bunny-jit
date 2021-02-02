@@ -8,6 +8,7 @@ RegMask Op::regsMask()
     switch(flags.type)
     {
         case _ptr: return regs::mask_int;
+        case _f32: return regs::mask_float;
         case _f64: return regs::mask_float;
 
         default: printf("%s\n", strOpcode()); assert(false);
@@ -101,7 +102,7 @@ RegMask Op::regsIn(int i)
         case ops::li8: case ops::li16: case ops::li32: case ops::li64:
         case ops::lu8: case ops::lu16: case ops::lu32: case ops::lf64:
         case ops::si8: case ops::si16: case ops::si32: case ops::si64:
-        case ops::sf64:
+        case ops::sf32: case ops::sf64:
             return regs::mask_int | (i ? 0 : (1ull<<regs::rsp));
 
         // allow iadd and iaddI to take RSP too, saves moves if we use LEA
@@ -128,13 +129,20 @@ RegMask Op::regsIn(int i)
         case ops::jdgt: case ops::jdle:
         case ops::jdeq: case ops::jdne:
 
+        case ops::flt: case ops::fge:
+        case ops::fgt: case ops::fle:
+        case ops::feq: case ops::fne:
+        
+        case ops::lcf: case ops::cf2i:
+
         case ops::dlt: case ops::dge:
         case ops::dgt: case ops::dle:
         case ops::deq: case ops::dne:
         
         case ops::lcd: case ops::cd2i: case ops::bcd2i:
             return regs::mask_float;
-            
+
+        case ops::ci2f:
         case ops::ci2d: case ops::bci2d:
             return regs::mask_int;
             

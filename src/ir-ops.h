@@ -31,15 +31,24 @@
     /* (xor 1): branch integer equality (equal, not equal) */ \
     _(jieq, 0, 2), \
     _(jine, 0, 2), \
-    /* (xor 1): branch float equality (equal, not equal) */ \
+    /* (xor 1): branch double equality (equal, not equal) */ \
     _(jdeq, 0, 2), \
     _(jdne, 0, 2), \
-    /* (xor 1): branch float comparisons */ \
+    /* (xor 1): branch double comparisons */ \
     /* (xor 2): operations swapped */ \
     _(jdlt, 0, 2), \
     _(jdge, 0, 2), \
     _(jdgt, 0, 2), \
     _(jdle, 0, 2), \
+    /* (xor 1): branch float comparisons */ \
+    /* (xor 2): operations swapped */ \
+    _(jflt, 0, 2), \
+    _(jfge, 0, 2), \
+    _(jfgt, 0, 2), \
+    _(jfle, 0, 2), \
+    /* (xor 1): branch float equality (equal, not equal) */ \
+    _(jfeq, 0, 2), \
+    _(jfne, 0, 2), \
     /* (xor 1): integer zero, not-zero tests */ \
     _(jz,  0, 1), \
     _(jnz, 0, 1), \
@@ -86,14 +95,22 @@
     /* (xor 1): integer equality (equal, not equal) */ \
     _(ieq, BJIT_CSE+1, 2), \
     _(ine, BJIT_CSE+1, 2), \
-    /* (xor 1): float equality (equal, not equal) */ \
+    /* (xor 1): double equality (equal, not equal) */ \
     _(deq, BJIT_CSE+1, 2), \
     _(dne, BJIT_CSE+1, 2), \
-    /* (xor 1): floating point comparisons */ \
+    /* (xor 1): double comparisons */ \
     _(dlt, BJIT_CSE+1, 2), \
     _(dge, BJIT_CSE+1, 2), \
     _(dgt, BJIT_CSE+1, 2), \
     _(dle, BJIT_CSE+1, 2), \
+    /* (xor 1): floating point comparisons */ \
+    _(flt, BJIT_CSE+1, 2), \
+    _(fge, BJIT_CSE+1, 2), \
+    _(fgt, BJIT_CSE+1, 2), \
+    _(fle, BJIT_CSE+1, 2), \
+    /* (xor 1): float equality (equal, not equal) */ \
+    _(feq, BJIT_CSE+1, 2), \
+    _(fne, BJIT_CSE+1, 2), \
     /* */ \
     /* NOTE: THESE SHOULD MATCH THOSE STARTING FROM 'jilt' */ \
     /* SO MAKE SURE THE POSITIONS STAY RELATIVE */ \
@@ -145,20 +162,31 @@
     _(ishlI, BJIT_CSE+1, 1+BJIT_IMM32), \
     _(ishrI, BJIT_CSE+1, 1+BJIT_IMM32), \
     _(ushrI, BJIT_CSE+1, 1+BJIT_IMM32), \
-    /* floating point arithmetic */ \
+    /* double arithmetic */ \
     _(dadd, BJIT_CSE+1, 2), \
     _(dsub, BJIT_CSE+1, 2), \
     _(dneg, BJIT_CSE+1, 1), \
     _(dmul, BJIT_CSE+1, 2), \
     _(ddiv, BJIT_CSE+1, 2), \
-    /* type conversions: int -> float, float -> int */ \
+    /* float arithmetic */ \
+    _(fadd, BJIT_CSE+1, 2), \
+    _(fsub, BJIT_CSE+1, 2), \
+    _(fneg, BJIT_CSE+1, 1), \
+    _(fmul, BJIT_CSE+1, 2), \
+    _(fdiv, BJIT_CSE+1, 2), \
+    /* type conversions */ \
     _(ci2d, BJIT_CSE+1, 1), \
     _(cd2i, BJIT_CSE+1, 1), \
-    /* reinterpret bitcasts: int -> float, float -> int */ \
+    _(ci2f, BJIT_CSE+1, 1), \
+    _(cf2i, BJIT_CSE+1, 1), \
+    _(cf2d, BJIT_CSE+1, 1), \
+    _(cd2f, BJIT_CSE+1, 1), \
+    /* reinterpret bitcasts: int -> double, double -> int */ \
     _(bci2d, BJIT_CSE+1, 1), \
     _(bcd2i, BJIT_CSE+1, 1), \
     /* load constants */ \
     _(lci, BJIT_CSE+1, BJIT_I64), \
+    _(lcf, BJIT_CSE+1, BJIT_F64), \
     _(lcd, BJIT_CSE+1, BJIT_F64), \
     /* sign-extend values (cast to smaller type) */ \
     _(i8,  BJIT_CSE+1, 1), \
@@ -185,7 +213,9 @@
     _(si32, 0, 2+BJIT_IMM32), \
     _(si64, 0, 2+BJIT_IMM32), \
     /* floating point load and store */ \
+    _(lf32, 1, 1+BJIT_IMM32), \
     _(lf64, 1, 1+BJIT_IMM32), \
+    _(sf32, 0, 2+BJIT_IMM32), \
     _(sf64, 0, 2+BJIT_IMM32), \
     /* procedure arguments */ \
     _(iarg, 1+BJIT_NOMOVE, 0), \

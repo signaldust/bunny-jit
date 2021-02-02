@@ -34,6 +34,8 @@ namespace bjit
             struct {
                 union
                 {
+                    float       f32;
+                    
                     uint32_t    imm32;
                     uint32_t    phiIndex;
                     
@@ -82,6 +84,7 @@ namespace bjit
         {
             _none,  // no output
             _ptr,   // pointer-sized integer (anything that fits GP regs)
+            _f32,   // single precision float
             _f64    // double precision float
         };
 
@@ -306,6 +309,11 @@ namespace bjit
             unsigned i = addOp(ops::lci, Op::_ptr); ops[i].u64 = imm; return i;
         }
 
+        unsigned lcf(float imm)
+        {
+            unsigned i = addOp(ops::lcd, Op::_f32); ops[i].f32 = imm; return i;
+        }
+        
         unsigned lcd(double imm)
         {
             unsigned i = addOp(ops::lcd, Op::_f64); ops[i].f64 = imm; return i;
@@ -427,6 +435,10 @@ namespace bjit
         BJIT_OP2(ugt,_ptr,_ptr,_ptr); BJIT_OP2(ule,_ptr,_ptr,_ptr);
         BJIT_OP2(ieq,_ptr,_ptr,_ptr); BJIT_OP2(ine,_ptr,_ptr,_ptr);
 
+        BJIT_OP2(flt,_ptr,_f32,_f32); BJIT_OP2(fge,_ptr,_f32,_f32);
+        BJIT_OP2(fgt,_ptr,_f32,_f32); BJIT_OP2(fle,_ptr,_f32,_f32);
+        BJIT_OP2(feq,_ptr,_f32,_f32); BJIT_OP2(fne,_ptr,_f32,_f32);
+        
         BJIT_OP2(dlt,_ptr,_f64,_f64); BJIT_OP2(dge,_ptr,_f64,_f64);
         BJIT_OP2(dgt,_ptr,_f64,_f64); BJIT_OP2(dle,_ptr,_f64,_f64);
         BJIT_OP2(deq,_ptr,_f64,_f64); BJIT_OP2(dne,_ptr,_f64,_f64);

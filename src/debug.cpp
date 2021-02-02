@@ -37,6 +37,7 @@ void bjit::Proc::debugOp(uint16_t iop) const
     {
         case Op::_none: printf("          "); break;
         case Op::_ptr:  printf(" %3d  ptr ", op.nUse); break;
+        case Op::_f32:  printf(" %3d  f32 ", op.nUse); break;
         case Op::_f64:  printf(" %3d  f64 ", op.nUse); break;
     };
 

@@ -53,7 +53,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             savedRegs.push_back(regs::calleeSaved[i]);
             if((1ull<<savedRegs.back()) & regs::mask_float)
             {
-                // force alignment if necessary
+                // force alignment if necessary, we need 128-bit
                 if(!(nPush&1))
                 {
                     savedRegs.back() = regs::none;
@@ -281,11 +281,34 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::jdge:
             case ops::jdgt:
             case ops::jdle:
-
             case ops::jdne:
             case ops::jdeq:
                 // UCOMISD (scalar double compare)
                 _UCOMISDxx(ops[i.in[0]].reg, ops[i.in[1]].reg);
+                // then jump
+                a64.emit(0x0F);
+                a64.emit(0x80 | _CC(i.opcode));
+                // relocs
+                a64.addReloc(i.label[0]);
+                a64.emit32(-4-out.size());
+                // schedule target
+                if(!blocks[i.label[0]].flags.codeDone)
+                {
+                    blocks[i.label[0]].flags.codeDone = true;
+                    todo.push_back(i.label[0]);
+                    scheduleThreading();
+                }
+                doJump(i.label[1]);
+                break;
+
+            case ops::jflt:
+            case ops::jfge:
+            case ops::jfgt:
+            case ops::jfle:
+            case ops::jfne:
+            case ops::jfeq:
+                // UCOMISD (scalar double compare)
+                _UCOMISSxx(ops[i.in[0]].reg, ops[i.in[1]].reg);
                 // then jump
                 a64.emit(0x0F);
                 a64.emit(0x80 | _CC(i.opcode));
@@ -356,6 +379,23 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 
                 // UCOMISD (scalar double compare)
                 _UCOMISDxx(ops[i.in[0]].reg, ops[i.in[1]].reg);
+                // then emit SETcc
+                a64._RR(3, 3, REG(i.reg), 0x0F,
+                    0x90 | _CC(i.opcode - ops::jmp));
+                break;
+                
+            case ops::flt:
+            case ops::fge:
+            case ops::fgt:
+            case ops::fle:
+
+            case ops::fne:
+            case ops::feq:
+                // xor destination
+                _XORrr(i.reg, i.reg);
+                
+                // UCOMISD (scalar double compare)
+                _UCOMISSxx(ops[i.in[0]].reg, ops[i.in[1]].reg);
                 // then emit SETcc
                 a64._RR(3, 3, REG(i.reg), 0x0F,
                     0x90 | _CC(i.opcode - ops::jmp));
@@ -638,12 +678,6 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 }
                 break;
                 
-                /**** Can't fit these in current OP format
-            case ops::daddI:
-                if(i.reg != ops[i.in[0]].reg) _MOVSDxx(i.reg, ops[i.in[0]].reg);
-                _ADDSDxi(i.reg, i.f64);
-                break;
-                */
             case ops::dsub:
                 if(i.reg == ops[i.in[0]].reg)
                 {
@@ -657,12 +691,6 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                     _SUBSDxx(i.reg, ops[i.in[1]].reg);
                 }
                 break;
-                /**** Can't fit these in current OP format
-            case ops::dsubI:
-                if(i.reg != ops[i.in[0]].reg) _MOVSDxx(i.reg, ops[i.in[0]].reg);
-                _SUBSDxi(i.reg, i.f64);
-                break;
-                */
                 
             case ops::dneg:
                 if(i.reg == ops[i.in[0]].reg)
@@ -691,26 +719,86 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                     _MULSDxx(i.reg, ops[i.in[1]].reg);
                 }
                 break;
-                /**** Can't fit these in current OP format
-            case ops::dmulI:
-                if(i.reg != ops[i.in[0]].reg) _MOVSDxx(i.reg, ops[i.in[0]].reg);
-                _MULSDxi(i.reg, i.f64);
-                break;
-                */
 
             case ops::ddiv:
                 if(i.reg == ops[i.in[0]].reg)
                 {
                     _DIVSDxx(i.reg, ops[i.in[1]].reg);
                 }
-                else if(i.reg == ops[i.in[1]].reg)
-                {
-                    _DIVSDxx(i.reg, ops[i.in[0]].reg);
-                }
                 else
                 {
                     _MOVSDxx(i.reg, ops[i.in[0]].reg);
                     _DIVSDxx(i.reg, ops[i.in[1]].reg);
+                }
+                break;
+                
+            case ops::fadd:
+                if(i.reg == ops[i.in[0]].reg)
+                {
+                    _ADDSSxx(i.reg, ops[i.in[1]].reg);
+                }
+                else if(i.reg == ops[i.in[1]].reg)
+                {
+                    _ADDSSxx(i.reg, ops[i.in[0]].reg);
+                }
+                else
+                {
+                    _MOVSSxx(i.reg, ops[i.in[0]].reg);
+                    _ADDSSxx(i.reg, ops[i.in[1]].reg);
+                }
+                break;
+                
+            case ops::fsub:
+                if(i.reg == ops[i.in[0]].reg)
+                {
+                    // simple
+                    _SUBSSxx(i.reg, ops[i.in[1]].reg);
+                }
+                else
+                {
+                    // general case
+                    _MOVSSxx(i.reg, ops[i.in[0]].reg);
+                    _SUBSSxx(i.reg, ops[i.in[1]].reg);
+                }
+                break;
+                
+            case ops::fneg:
+                if(i.reg == ops[i.in[0]].reg)
+                {
+                    _XORPSri(i.reg, _mm_set_epi32(1<<31, 1<<31, 1<<31, 1<<31));
+                }
+                else
+                {
+                    _XORPSrr(i.reg, i.reg);
+                    _SUBSSxx(i.reg, ops[i.in[0]].reg);
+                }
+                break;
+
+            case ops::fmul:
+                if(i.reg == ops[i.in[0]].reg)
+                {
+                    _MULSSxx(i.reg, ops[i.in[1]].reg);
+                }
+                else if(i.reg == ops[i.in[1]].reg)
+                {
+                    _MULSSxx(i.reg, ops[i.in[0]].reg);
+                }
+                else
+                {
+                    _MOVSSxx(i.reg, ops[i.in[0]].reg);
+                    _MULSSxx(i.reg, ops[i.in[1]].reg);
+                }
+                break;
+
+            case ops::fdiv:
+                if(i.reg == ops[i.in[0]].reg)
+                {
+                    _DIVSSxx(i.reg, ops[i.in[1]].reg);
+                }
+                else
+                {
+                    _MOVSSxx(i.reg, ops[i.in[0]].reg);
+                    _DIVSSxx(i.reg, ops[i.in[1]].reg);
                 }
                 break;
 
@@ -722,6 +810,17 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 else
                 {
                     _MOVri(i.reg, i.i64);
+                }
+                break;
+                
+            case ops::lcf:
+                if(0 != i.f32)
+                {
+                    _XORPSrr(i.reg, i.reg);
+                }
+                else
+                {
+                    _MOVSSxi(i.reg, i.f32);
                 }
                 break;
 
@@ -805,9 +904,11 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             
             case ops::reload:
                 assert(ops[i.in[0]].scc != noSCC);
-                if((1ull<<i.reg)&regs::mask_float)
+                if(i.flags.type == Op::_f64)
                     _load_f64(i.reg, regs::rsp, frameOffset + 8*ops[i.in[0]].scc);
-                else if((1ull<<i.reg)&regs::mask_int)
+                else if(i.flags.type == Op::_f32)
+                    _load_f32(i.reg, regs::rsp, frameOffset + 8*ops[i.in[0]].scc);
+                else if(i.flags.type == Op::_ptr)
                     _load_i64(i.reg, regs::rsp, frameOffset + 8*ops[i.in[0]].scc);
                 else assert(false);
                 break;
@@ -816,14 +917,16 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 // dummy-renames are normal
                 if(i.reg == ops[i.in[0]].reg) break;
                 
-                if((1ull<<i.reg)&regs::mask_float)
+                if(i.flags.type == Op::_f64)
                     _MOVSDxx(i.reg, ops[i.in[0]].reg);
-                else if((1ull<<i.reg)&regs::mask_int)
+                else if(i.flags.type == Op::_f32)
+                    _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                else if(i.flags.type == Op::_ptr)
                     _MOVrr(i.reg, ops[i.in[0]].reg);
                 else assert(false);
                 break;
                 
-            default: assert(false);
+            //default: assert(false);
         }
 
         // if marked for spill, store to stack
@@ -834,6 +937,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             // if we forget to add stuff here if we add more types
             if(i.flags.type == Op::_f64)
                 _store_f64(i.reg, regs::rsp, frameOffset + 8*i.scc);
+            else if(i.flags.type == Op::_f32)
+                _store_f32(i.reg, regs::rsp, frameOffset + 8*i.scc);
             else if(i.flags.type == Op::_ptr)
                 _store_i64(i.reg, regs::rsp, frameOffset + 8*i.scc);
             else assert(false);
@@ -859,6 +964,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     unsigned align = (a64.rodata128.size() ? 0xf : 0x7);
     while(out.size() & align) a64.emit(0x90);
 
+    // emit 128-bit point constants
     a64.blockOffsets[a64.rodata128_index] = out.size();
     for(__m128 & bits : a64.rodata128)
     {
@@ -868,14 +974,24 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
         a64.emit32(((uint32_t*)&bits)[3]);
     }
 
-    // emit floating point constants
+    // emit 64-bit point constants
     a64.blockOffsets[a64.rodata64_index] = out.size();
     for(uint64_t bits : a64.rodata64)
     {
         a64.emit32(bits);
         a64.emit32(bits>>32);
     }
+    
+    // emit 32-bit point constants
+    a64.blockOffsets[a64.rodata32_index] = out.size();
+    for(uint32_t bits : a64.rodata32)
+    {
+        a64.emit32(bits);
+    }
 
+    // align to 16-bytes
+    while(out.size() & 0xf) a64.emit(0x90);
+    
     // for every relocation, ADD the block offset
     // FIXME: different relocation constant sizes?
     for(auto & r : a64.relocations)
