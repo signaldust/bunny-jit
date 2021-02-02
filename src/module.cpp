@@ -27,6 +27,7 @@ bool Module::load()
     // relocations
     for(auto & r : relocs)
     {
+        assert(r.symbolIndex < offsets.size());
         ((uint32_t*)(bytes.data()+r.codeOffset))[0] += offsets[r.symbolIndex];
     }
 

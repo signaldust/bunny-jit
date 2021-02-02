@@ -296,7 +296,11 @@ There is also `tcallp` which performs a tail-call which returns from the procedu
 with the return value of the call. As it does not return to the procedure, it can
 (and generally should) be the last thing in a given block.
 
-There is currently no support for relocation or intra-module calls.
+There is also "near" versions `icalln`, `fcalln`, `dcalln` and `tcalln` which can
+be used to call other procedures in the same module. These take the (compile-time)
+index of the procedure as their first parameter. `Module::compile()` is guaranteed to
+return sequential indexes starting from `0` so the target procedure need not be
+compiled first as long as the index is valid when `Module::load()` is called.
 
 ## What it does?
 
