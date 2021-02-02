@@ -92,6 +92,11 @@ RegMask Op::regsIn(int i)
     {
         default: return regsMask(); // no special case -> same as input
 
+        // indirect calls can theoretically take any GP register
+        // but force RAX so we hopefully don't globber stuff
+        case ops::icallp: case ops::fcallp: case ops::tcallp:
+            return (1ull<<regs::rax);
+        
         // loads and stores allow stack pointer as their first argument
         case ops::li8: case ops::li16: case ops::li32: case ops::li64:
         case ops::lu8: case ops::lu16: case ops::lu32: case ops::lf64:
