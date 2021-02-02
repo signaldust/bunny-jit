@@ -16,6 +16,8 @@
 #define MAP_ANONYMOUS MAP_ANON  // the joy of being different
 #endif
 
+#include <cstring>
+
 #include "bjit.h"
 
 using namespace bjit;
