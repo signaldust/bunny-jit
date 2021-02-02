@@ -986,8 +986,9 @@ void Proc::findSCC()
             // since we're doing live-scan order any live-in
             // variables should already have their SCC allocated
             // unless it's a loop-thru PHI which we fix below
-            assert(ops[in].scc != noSCC
+            bool useAfterDefine = (ops[in].scc != noSCC
             || (ops[in].opcode == ops::phi && ops[in].block == bi));
+            assert(useAfterDefine);
             // this is just a sanity check
             assert(ops[in].scc < sccUsed.size());
             sccUsed[ops[in].scc] = true;
