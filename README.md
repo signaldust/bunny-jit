@@ -122,9 +122,10 @@ The second step is to create a `bjit::Proc` which takes a stack allocation size
 and a string representing arguments (`i` for integer, `f` for double). The allocated
 block will always be the SSA value `0` (in practice this is the stack pointer) and
 the arguments will be placed in `env[0..n]` (left to right, at most 4 for now).
-More on `env` below. Pass `0` and `""` if you don't care about allocations or arguments.
+More on [`env`](#env) below. Pass `0` and `""` if you don't care about allocations or arguments.
 Note that we don't have an LLVM-like *mem2reg* optimization, so you should not place
 variables in memory unless you need to index an array or pass a pointer somewhere.
+Put them into [`env`](#env) instead.
 
 To generate instructions, you can then call the instruction methods on `Proc`
 which are described [below](#instruction-set). Note that the last instruction
