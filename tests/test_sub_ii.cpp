@@ -15,7 +15,7 @@ int main()
 
     assert(module.load());
 
-    int (*ptr)(int,int) = module.getPointer<int(int,int)>(i);
+    auto ptr = module.getPointer<int(int,int)>(i);
 
     printf(" 5 - 2 = %d\n", ptr(5, 2));
 
