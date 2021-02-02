@@ -83,7 +83,6 @@ We try to avoid any folding here that isn't guaranteed to be profitable.
 */
 bool Proc::opt_fold()
 {
-
     //debug();
 
     assert(live.size());   // should have at least one DCE pass done
@@ -1133,20 +1132,11 @@ bool Proc::opt_fold()
 
                         // we need to sanity check phis and post-doms
                         bool bad = false;
-                        bool renameOther = false;
-                        bool renameThis = false;
                         
                         // check post-dominator condition
                         for(int i = b ; i; i = blocks[i].idom)
                         {
-                            // if we are skipping phis, then we'll force
-                            // force the other to be kept as a rename
-                            for(auto & a : blocks[i].args)
-                            for(auto & s : a.alts)
-                            {
-                                if(ptr->index == s.val) renameOther = true;
-                            }
-                            
+                            // NOTE: DCE checks phis, so don't worry
                             if(ccd == blocks[i].idom) break; // this is fine
                             if(bad) break;
                             if(blocks[blocks[i].idom].pdom != i) bad = true;
@@ -1156,14 +1146,7 @@ bool Proc::opt_fold()
                         if(!bad)
                         for(int i = pb; i; i = blocks[i].idom)
                         {
-                            // if the other one skips phis, then we'll bail out
-                            // and we'll try again the other way later
-                            for(auto & a : blocks[i].args)
-                            for(auto & s : a.alts)
-                            {
-                                if(op.index == s.val) renameThis = true;
-                            }
-                            
+                            // NOTE: DCE checks phis, so don't worry
                             if(ccd == blocks[i].idom) break; // this is fine
                             if(bad) break;
                             if(blocks[blocks[i].idom].pdom != i) bad = true;
@@ -1176,42 +1159,23 @@ bool Proc::opt_fold()
 
                         if(ccd == ptr->block)
                         {
-                            if(renameThis)
-                            {
-                                op.opcode = ops::rename;
-                                op.in[0] = other.index;
-                                op.in[1] = noVal;
-                            }
-                            else
-                            {
-                                rename.add(op.index, ptr->index);
-                                op.makeNOP();
-                            }
+                            rename.add(op.index, ptr->index);
+                            op.makeNOP();
                             
                             progress = true;
                             continue;
                         }
                         else if(ccd == b)
                         {
-                            if(renameOther)
-                            {
-                                other.opcode = ops::rename;
-                                other.in[0] = op.index;
-                                other.in[1] = noVal;
-
-                            }
-                            else
-                            {
-                                rename.add(other.index, op.index);
-                                other.makeNOP();
-                            }
+                            rename.add(other.index, op.index);
+                            other.makeNOP();
                             
                             cseTable.insert(op);
                             
                             progress = true;
                             continue;
                         }
-                        else if(!renameThis)
+                        else
                         {
                             bc = noVal;
                             op.block = ccd;
@@ -1256,64 +1220,6 @@ bool Proc::opt_fold()
                             }
                             cseTable.insert(op);
                             progress = true;
-                        }
-                        else if(!renameOther)
-                        {
-                            // expensive case, need to find the other op
-                            int p = blocks[other.block].code.size();
-                            while(p && other.index != blocks[other.block].code[--p]);
-
-                            assert(blocks[other.block].code[p] == other.index);
-
-                            blocks[other.block].code[p] = noVal;
-                            other.block = ccd;
-                            
-                            int k = blocks[ccd].code.size();
-                            blocks[ccd].code.push_back(other.index);
-                            while(k--)
-                            {
-                                // don't move past anything with sideFX
-                                // but DO move past jumps
-                                if(blocks[ccd].code[k] != noVal
-                                && ops[blocks[ccd].code[k]].opcode > ops::jmp
-                                && !ops[blocks[ccd].code[k]].canMove()) break;
-                                
-                                // sanity check that we don't move past inputs
-                                bool canMove = true;
-                                for(int j = 0; j < other.nInputs(); ++j)
-                                {
-                                    if(blocks[ccd].code[k] != other.in[j]) continue;
-                                    canMove = false;
-                                    break;
-                                }
-
-                                if(!canMove) break;
-    
-                                // move
-                                std::swap(blocks[ccd].code[k],
-                                    blocks[ccd].code[k+1]);
-                            }
-
-                            if(renameThis)
-                            {
-                                op.opcode = ops::rename;
-                                op.in[0] = other.index;
-                                op.in[1] = noVal;
-                            }
-                            else
-                            {
-                                rename.add(op.index, other.index);
-                                op.makeNOP();
-                            }
-                            progress = true;
-                        }
-                        else
-                        {
-                            // Can this actually happen?
-                            //printf("Need rename both sides, bail out\n");
-                            
-                            // bail out if both sides need phis
-                            cseTable.insert(op); continue;
                         }
                     }
                     else 
