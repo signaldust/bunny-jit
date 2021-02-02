@@ -461,6 +461,10 @@ namespace bjit
         BJIT_OP2(ixor,_ptr,_ptr,_ptr); BJIT_OP2(ishl,_ptr,_ptr,_ptr);
         BJIT_OP2(ishr,_ptr,_ptr,_ptr); BJIT_OP2(ushr,_ptr,_ptr,_ptr);
 
+        BJIT_OP2(fadd,_f32,_f32,_f32); BJIT_OP2(fsub,_f32,_f32,_f32);
+        BJIT_OP1(fneg,_f32,_f32);
+        BJIT_OP2(fmul,_f32,_f32,_f32); BJIT_OP2(fdiv,_f32,_f32,_f32);
+
         BJIT_OP2(dadd,_f64,_f64,_f64); BJIT_OP2(dsub,_f64,_f64,_f64);
         BJIT_OP1(dneg,_f64,_f64);
         BJIT_OP2(dmul,_f64,_f64,_f64); BJIT_OP2(ddiv,_f64,_f64,_f64);
