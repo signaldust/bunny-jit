@@ -43,6 +43,10 @@ we try not to go crazy with funky heuristics. Instead we aim to find a set of
 simple and general optimizations that will always lead to a fixed-point. This rules
 out optimizations such as loop-unrolling where profitability is not clear.
 
+It can also be used as a backend for custom languages. It might not be great for
+dynamic languages that rely heavily on memory optimizations (we don't optimize loads
+and stores), but even then it might serve as a decent prototype backend.
+
 It comes with some sort of simple front-end language, but this is intended more
 for testing (and I guess example) than as a serious programming language.
 
