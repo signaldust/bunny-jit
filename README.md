@@ -272,7 +272,7 @@ there is no real sanity-checking done for this, yet.
 
 There is also `tcallp` which performs a tail-call which returns from the procedure
 with the return value of the call. As it does not return to the procedure, it can
-(and generally should) be the last thing in a given block. It is untested.
+(and generally should) be the last thing in a given block.
 
 There is currently no support for relocation or intra-module calls.
 
