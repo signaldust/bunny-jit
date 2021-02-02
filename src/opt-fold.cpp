@@ -369,9 +369,9 @@ bool Proc::opt_fold()
                     continue;
                 }
 
-                if((I(ops::fadd) && I1(ops::lcf) && N1.f32 == 0.)
-                || (I(ops::fsub) && I1(ops::lcf) && N1.f32 == 0.)
-                || (I(ops::fmul) && I1(ops::lcf) && N1.f32 == 1.))
+                if((I(ops::fadd) && I1(ops::lcf) && N1.f32 == 0.f)
+                || (I(ops::fsub) && I1(ops::lcf) && N1.f32 == 0.f)
+                || (I(ops::fmul) && I1(ops::lcf) && N1.f32 == 1.f))
                 {
                     rename.add(bc, op.in[0]);
                     progress = true;
@@ -394,6 +394,11 @@ bool Proc::opt_fold()
                 {
                     op.opcode = ops::ineg; progress = true;
                 }
+                if(I(ops::fmul) && I1(ops::lcf) && N1.f32 == -1.f)
+                {
+                    op.opcode = ops::fneg; op.in[1] = noVal; progress = true;
+                }
+                
                 if(I(ops::dmul) && I1(ops::lcd) && N1.f64 == -1.)
                 {
                     op.opcode = ops::dneg; op.in[1] = noVal; progress = true;
