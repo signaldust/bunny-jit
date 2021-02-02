@@ -228,9 +228,11 @@ double-float version of the same (still produce integer `0` or `1`).
 `iadd a b`, `isub a b` and `imul a b` perform (signed or unsigned) integer
 addition, subtraction and multiplication, while `ineg a` negates an integer
 
-`idiv a b` and `imod a b` perform signed division and modulo
+`idiv a b` and `imod a b` perform signed division and modulo, divide-by-zero
+might be *undefined behaviour* in the future (undecided, would allow CSE on divisions)
 
-`udiv a b` and `umod a b` perform unsigned division and modulo
+`udiv a b` and `umod a b` perform unsigned division and modulo, divide-by-zero
+might be *undefined behaviour* in the future (undecided, would allow CSE on divisions)
 
 `inot a`, `iand a b`, `ior a b` and `ixor a b` perform bitwise logical operations
 
