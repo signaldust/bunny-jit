@@ -6,7 +6,7 @@ Unix environment (for now), but the code should work on Windows as well (simply
 compile everything from `src/`).
 
 This is work in relatively early progress. It sort of works, but some things like
-function calls are not done robustly yet and there are likely serious bugs hiding.
+[function calls](#calling-functions) are not done robustly yet and there are likely serious bugs hiding.
 The code tries to cross-check it's own invariants, but this is sadly not bullet-proof.
 Check back in a week or two and it's probably a lot more robust.
 
