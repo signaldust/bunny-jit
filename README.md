@@ -266,6 +266,10 @@ of arguments. The arguments are taken from the end of `env` (ie. `push_back()` t
 left-to-right; calls don't pop the arguments, you'll have to clean them up yourself).
 `icallp` returns an integer value while `fcallp` returns a double value.
 
+Note that the support is currently not particularly robust as it relies on register
+allocator not accidentally overwriting parameters. This "should not happen"(tm), but
+there is no real sanity-checking done for this, yet.
+
 There is currently no support for relocation or intra-module calls.
 
 ## What it does?
