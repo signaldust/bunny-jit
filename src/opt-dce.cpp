@@ -53,13 +53,45 @@ void Proc::opt_dce()
                 for(int k = 0; k < 2; ++k)
                 {
                     if(k && ops[i].opcode == ops::jmp) break;
-                    
+
                     while(blocks[ops[i].label[k]].code[0] != noVal
                     && ops[blocks[ops[i].label[k]].code[0]].opcode == ops::jmp
                     && i != blocks[ops[i].label[k]].code[0])    // check infinite
                     {
-                        // patch target phis
                         auto target = ops[blocks[ops[i].label[k]].code[0]].label[0];
+
+                        // don't thread conditional jumps into blocks with phis
+                        // if the target block is already our other label
+                        // and the two blocks pass different values to any phi
+                        //
+                        // we need the extra block for shuffles and checking here
+                        // saves CSE from having to add explicit renames
+                        if(ops[i].opcode < ops::jmp && target == ops[i].label[k^1]
+                        && ops[blocks[target].code[0]].opcode == ops::phi)
+                        {
+                            bool unsafe = false;
+                            auto vs = noVal, vt = noVal;
+                            for(auto & a : blocks[target].args)
+                            {
+                                for(auto & s : a.alts)
+                                {
+                                    if(s.src == ops[i].block) vs = s.val;
+                                    if(s.src == ops[i].label[k]) vt = s.val;
+                                }
+    
+                                // if these don't match, then threading is not safe
+                                if(vs != vt)
+                                {
+                                    printf("unsafe: B%d:%04x vs. B%d:%04x\n",
+                                        ops[i].block, vs, ops[i].label[k], vt);
+                                    unsafe = true; break;
+                                }
+                            }
+
+                            if(unsafe) break;
+                        }
+                        
+                        // patch target phis
                         for(auto & a : blocks[target].args)
                         {
                             for(auto & s : a.alts)
@@ -72,11 +104,11 @@ void Proc::opt_dce()
                                 }
                             }
                         }
-                    
+                        
                         ops[i].label[k] = target;
                         progress = true;    // need at least new DOMs
                     }
-    
+                    
                     if(!blocks[ops[i].label[k]].flags.live)
                     {
                         todo.push_back(ops[i].label[k]);

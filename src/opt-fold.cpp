@@ -83,7 +83,6 @@ We try to avoid any folding here that isn't guaranteed to be profitable.
 */
 bool Proc::opt_fold()
 {
-
     //debug();
 
     assert(live.size());   // should have at least one DCE pass done
@@ -1141,6 +1140,10 @@ bool Proc::opt_fold()
                         {
                             // if we are skipping phis, then we'll force
                             // force the other to be kept as a rename
+                            //
+                            // NOTE: DCE should now handle this when it does
+                            // threading, leaving this here temporarily
+                            if(false)
                             for(auto & a : blocks[i].args)
                             for(auto & s : a.alts)
                             {
@@ -1158,6 +1161,10 @@ bool Proc::opt_fold()
                         {
                             // if the other one skips phis, then we'll bail out
                             // and we'll try again the other way later
+                            //
+                            // NOTE: DCE should now handle this when it does
+                            // threading, leaving this here temporarily
+                            if(false)
                             for(auto & a : blocks[i].args)
                             for(auto & s : a.alts)
                             {
