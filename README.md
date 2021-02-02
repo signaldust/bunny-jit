@@ -34,7 +34,7 @@ on the fly (eg. for performance reasons), but including something like LLVM woul
 be a total overkill. Why add a gigabyte of dependencies, if you can get most of the
 high-value stuff with less than 10k lines of sparse C++?
 
-It is intended for situations where combinatorial expansion
+It is intended for situations where combinatorial explosion
 makes template expansion of all possible alternatives at compile time infeasible
 (or impossible, if the possible domain is infinite), yet one would like to avoid
 interpretive overhead. Because we're trying to gain performance, we're willing to
