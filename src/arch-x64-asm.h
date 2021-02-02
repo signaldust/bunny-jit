@@ -450,7 +450,7 @@ struct AsmX64
 // treat as smaller and zero-extend (same as loads, just _RR)
 #define _MOVZX_32(r0, r1)   a64._RR(0, REG(r0), REG(r1), 0x8B)
 #define _MOVZX_16(r0, r1)   a64._RR(0, REG(r0), REG(r1), 0x0F, 0xB7)
-#define _MOVZX_8(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0x0F, 0xB6)
+#define _MOVZX_8(r0, r1)    a64._RR(3, REG(r0), REG(r1), 0x0F, 0xB6)
 
 // explicit sizes for memory ops - signed loads, MOVSX for sign-extend
 // these need REX.W to sign-extend all the way

@@ -683,6 +683,8 @@ namespace bjit
 
             return index;
         }
+
+        const std::vector<uint8_t> & getBytes() const { return bytes; }
         
     private:
         std::vector<uint32_t>   offsets;
