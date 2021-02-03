@@ -1313,8 +1313,8 @@ bool Proc::opt_fold(bool unsafe)
                     {
                         // NOTE: DCE checks phis, so don't worry
                         if(ccd == blocks[i].idom) break; // this is fine
-                        if(bad) break;
                         if(blocks[blocks[i].idom].pdom != i) bad = true;
+                        if(bad) break;
                     }
 
                     // check post-dominator condition
@@ -1323,8 +1323,8 @@ bool Proc::opt_fold(bool unsafe)
                     {
                         // NOTE: DCE checks phis, so don't worry
                         if(ccd == blocks[i].idom) break; // this is fine
-                        if(bad) break;
                         if(blocks[blocks[i].idom].pdom != i) bad = true;
+                        if(bad) break;
                     }
 
                     //printf("CSE: %04x, %04x: %s\n",
