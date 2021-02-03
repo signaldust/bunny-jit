@@ -143,6 +143,15 @@ Put them into [`env`](#env) instead.
 To generate instructions, you can then call the instruction methods on `Proc`
 which are described [below](#instruction-set). Note that the last instruction
 of every block must be either a jump (conditional or unconditional) or a return.
+Any instructions are placed into the last emitted label or the entry-block if
+no labels have been emitted yet.
+
+To generate new labels call `Proc::newLabel()` and to start emitting code to a
+previous created label call `Proc:emitLabel()` (see [env](#env) below). Any labels
+must always be created (but not necessarily emitted) before emitting jumps to them.
+Any given label can only be emitted once (ie. calling `emitLabel()` makes the
+contents of the previous block final; this is done as sanity checking only,
+so let me know if you can demonstrate a use-case where this should be relaxed).
 
 Most instructions take their parameters as SSA values. The exceptions are
 `lci`/`lcf`/`lcd` which take immediate constants and jump-labels which must be
@@ -189,6 +198,16 @@ certainly be more intelligent and only keep stuff in `env` when `phi`s are
 potentially required, but this is not a requirement: the very first pass of
 DCE will get rid of any excess `phi`s just fine.
 
+To clarify `env` is *only* used by the compiler when:
+
+ - at entry to new procedure to return arguments
+ - when `newLabel()` is called: the types are copied
+ - when `emitLabel()` is called: phis are generated for the stored types
+ - when a jump to a label is emitted: `env` is added to target `phi` alternatives
+ - wh
+
+### Instruction set?
+
 Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
 in undefined behaviour (ie. invalid code or `assert`). The compiler should never
@@ -210,8 +229,6 @@ Instructions starting `i` are for integers, `u` are unsigned variants when
 there is a distinction, `f` is single-precision float and `d` is double-precision
 float. Note that floating-point comparisons return integers, even though they expect
 `_f32` or `_f64` parameters.
-
-### Instruction set?
 
 The compiler currently exposes the following instructions:
 
