@@ -36,13 +36,6 @@ uintptr_t Module::load(unsigned mmapSizeMin)
     
     if(mmapSize < loadSize) mmapSize = loadSize;
 
-    // relocations
-    for(auto & r : relocs)
-    {
-        assert(r.symbolIndex < offsets.size());
-        ((uint32_t*)(bytes.data()+r.codeOffset))[0] += offsets[r.symbolIndex];
-    }
-
 #ifdef BJIT_USE_MMAP
     // get a block of memory we can mess with, read+write
     exec_mem = mmap(NULL, mmapSize, PROT_READ | PROT_WRITE,
@@ -52,16 +45,6 @@ uintptr_t Module::load(unsigned mmapSizeMin)
         fprintf(stderr, "warning: mmap failed in bjit::Module::load()\n");
         return 0;
     }
-    memcpy(exec_mem, bytes.data(), bytes.size());
-    // return zero on success
-    if(mprotect(exec_mem, mmapSize, PROT_READ | PROT_EXEC))
-    {
-        fprintf(stderr, "warning: mprotect failed in bjit::Module::load()\n");
-        // if we can't set executable, then try to unload
-        unload();
-        return 0;
-    }
-    return (uintptr_t) exec_mem;
 #endif
 #ifdef _WIN32
     exec_mem = VirtualAlloc(0, mmapSize, MEM_COMMIT, PAGE_READWRITE);
@@ -70,7 +53,27 @@ uintptr_t Module::load(unsigned mmapSizeMin)
         fprintf(stderr, "warning: VirtualAlloc failed in bjit::Module::load()\n");
         return 0;
     }
+#endif
+
+    // copy & relocate
     memcpy(exec_mem, bytes.data(), bytes.size());
+    for(auto & r : relocs)
+    {
+        assert(r.symbolIndex < offsets.size());
+        ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += offsets[r.symbolIndex];
+    }
+
+#ifdef BJIT_USE_MMAP
+    // return zero on success
+    if(mprotect(exec_mem, mmapSize, PROT_READ | PROT_EXEC))
+    {
+        fprintf(stderr, "warning: mprotect failed in bjit::Module::load()\n");
+        // if we can't set executable, then try to unload
+        unload();
+        return 0;
+    }
+#endif
+#ifdef _WIN32
     // Note that VirtualProtect REQUIRES oldFlags to be a valid pointer!
     // returns non-zero on success
     DWORD   oldFlags = 0;
@@ -81,8 +84,9 @@ uintptr_t Module::load(unsigned mmapSizeMin)
         unload();
         return 0;
     }
-    return (uintptr_t) exec_mem;
 #endif
+
+    return (uintptr_t) exec_mem;
 }
 
 bool Module::patch()
@@ -103,18 +107,24 @@ bool Module::patch()
     assert(VirtualProtect(exec_mem, mmapSize, PAGE_READWRITE, &oldFlags));
 #endif
 
-    // relocations, only do new ones
+    // copy and relocate, only new ones
+    memcpy(loadSize+(uint8_t*)exec_mem, loadSize+bytes.data(),
+        bytes.size()-loadSize);
     for(auto & r : relocs)
     {
         if(r.codeOffset < loadSize) continue;
         
         assert(r.symbolIndex < offsets.size());
-        ((uint32_t*)(bytes.data()+r.codeOffset))[0] += offsets[r.symbolIndex];
+        ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += offsets[r.symbolIndex];
     }
-
-    memcpy(loadSize+(uint8_t*)exec_mem, loadSize+bytes.data(),
-        bytes.size()-loadSize);
     loadSize = bytes.size();
+
+    // do all pending stub-patches
+    for(auto & p : patchesStubFar)
+    {
+        arch_patchStubFar(exec_mem, offsets[p.symbolIndex], p.newAddress);
+    }
+    patchesStubFar.clear();
 
 #ifdef BJIT_USE_MMAP
     // return zero on success
@@ -133,13 +143,6 @@ uintptr_t Module::unload()
 {
     assert(exec_mem);
 
-    // undo relocations so we can reload
-    for(auto & r : relocs)
-    {
-        if(r.codeOffset >= loadSize) break;
-        ((uint32_t*)(bytes.data()+r.codeOffset))[0] -= offsets[r.symbolIndex];
-    }
-
 #ifdef BJIT_USE_MMAP
     munmap(exec_mem, mmapSize);
 #endif
@@ -148,6 +151,9 @@ uintptr_t Module::unload()
 #endif
 
     uintptr_t ret = (uintptr_t) exec_mem;
+
+    // clear stale patches
+    patchesStubFar.clear();
     
     exec_mem = 0;
     mmapSize = 0;

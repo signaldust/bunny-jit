@@ -807,7 +807,7 @@ namespace bjit
         // the module, but always at least mmapSizeMin bytes, see patch()
         uintptr_t load(unsigned mmapSizeMin = 0);
 
-        // attempt to patch changes to currently loaded module
+        // attempt to patch changes to a currently loaded module
         //
         // a module can be patched if any additional code fits into
         // the allocated block, or if only stub-targets have changed
@@ -843,13 +843,24 @@ namespace bjit
 
         // returns the address of a proc in executable memory
         template <typename T>
-        T * getPointer(int index)
+        T * getPointer(unsigned index)
         {
             assert(exec_mem);
             assert(offsets[index] < loadSize);
             
             void    *vptr = offsets[index] + (uint8_t*)exec_mem;
             return reinterpret_cast<T*&>(vptr);
+        }
+
+        // patch a stub with new address
+        // you will also need to either patch() or unload()+load()
+        // the module for the changes to becomes active
+        void patchStubFar(unsigned index, uintptr_t address)
+        {
+            arch_patchStubFar(bytes.data(), offsets[index], address);
+            
+            // store this for patch() to also patch live
+            if(exec_mem) patchesStubFar.emplace_back(PStubFar{index, address});
         }
 
         // returns Proc index
@@ -869,17 +880,40 @@ namespace bjit
             return index;
         }
 
+        // compile a stub, this counts as a procedure in terms of
+        // near-indexes, but only contains a jump to an external address
+        int compileStubFar(uintptr_t address)
+        {
+            int index = offsets.size();
+            offsets.push_back(bytes.size());
+
+            arch_compileStubFar(address);
+            return index;
+        }
+
         const std::vector<uint8_t> & getBytes() const { return bytes; }
         
     private:
+        struct PStubFar
+        {
+            unsigned    symbolIndex;
+            uintptr_t   newAddress;
+        };
+        std::vector<PStubFar>   patchesStubFar;
         std::vector<NearReloc>  relocs;
         
         std::vector<uint32_t>   offsets;
         std::vector<uint8_t>    bytes;
+
         
         void        *exec_mem = 0;
         unsigned    loadSize = 0;
         unsigned    mmapSize = 0;
+
+        // in arch-XX-emit.cpp
+        void arch_compileStubFar(uintptr_t address);
+
+        void arch_patchStubFar(void * ptr, unsigned offset, uintptr_t address);
 
     };
 
