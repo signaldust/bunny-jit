@@ -16,15 +16,16 @@ Check back in a week or two and it's probably a lot more robust.
 Features:
   * small and simple (by virtue of elegant design), yet tries to avoid being naive
   * portable<sup>1</sup> C++11 without dependencies (other than STL)
-  * uses low-level portable bytecode that models common architectures
-  * supports integers, single- and double-floats (singles are not well-tested)
+  * uses low-level portable instruction set that models common architectures
+  * supports integers, single- and double-floats (probably SIMD at some point)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
   * performs roughly<sup>2</sup> DCE, GCSE+LICM (PRE?), CF/CP and register allocation (as of now)
   * assembles to native x64 binary code with simple module system that supports [hot-patching](#patching-calls)
   * uses `std::vector` to manage memory, keeps `valgrind` happy, tries to be cache efficient
 
 <sup>1</sup><i>Obviously loading code on the fly is not entirely portable, but we
-support generic `mmap`/`mprotect` (including macOS) and Windows (latter untested).</i>
+support generic `mmap`/`mprotect` (including macOS) and Windows (latter untested,
+let me know if you try it before I get around to checking it).</i>
 
 <sup>2</sup><i>
 I find it slightly challenging to relate exactly to traditional compiler
@@ -358,7 +359,9 @@ that is not actually a stub (we don't check this in any way).
 
 Near-calls can also be patched, either globally with `Module::patchCalls(oldT,newT)`
 or locally in one procedure with `Module::patchCallsIn(inProc,oldT,newT)` where 
-`soldT` and `newT` are the old and new targets respectively.
+`oldT` and `newT` are the old and new targets respectively. There is currently no
+support for patching a single call though (you'll need to compile some stubs for
+that).
 
 Note that `Module::patch()` does not apply *any* patches if it can't also load all
 newly compiled code, but they remain pending and will be applied on module reload.
