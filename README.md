@@ -15,15 +15,18 @@ Check back in a week or two and it's probably a lot more robust.
 
 Features:
   * small and simple (by virtue of elegant design), yet tries to avoid being naive
-  * portable C++11 without dependencies (other than STL)
+  * portable<sup>1</sup> C++11 without dependencies (other than STL)
   * uses low-level portable bytecode that models common architectures
   * supports integers, single- and double-floats (singles are not well-tested)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
-  * performs roughly<sup>1</sup> DCE, GCSE+LICM (PRE?), CF/CP and register allocation (as of now)
+  * performs roughly<sup>2</sup> DCE, GCSE+LICM (PRE?), CF/CP and register allocation (as of now)
   * assembles to native x64 binary code with simple module system that supports [hot-patching](#patching-calls)
   * uses `std::vector` to manage memory, keeps `valgrind` happy, tries to be cache efficient
 
-<sup>1</sup><i>
+<sup>1</sup><i>Obviously loading code on the fly is not entirely portable, but we
+support generic `mmap`/`mprotect` (including macOS) and Windows (latter untested).</i>
+
+<sup>2</sup><i>
 I find it slightly challenging to relate exactly to traditional compiler
 optimisations that insist talking about variables and such things. We don't have
 variables to optimize, we simplify a value graph. We don't really have loops either,
