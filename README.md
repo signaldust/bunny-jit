@@ -324,7 +324,7 @@ Note that the support is currently not particularly robust as it relies on regis
 allocator not accidentally overwriting parameters. This "should not happen"(tm), but
 there is no real sanity-checking done for this, yet.
 
-There is also `tcallp` which performs a tail-call which returns from the procedure
+There is also `tcallp` which performs a tail-call, effectively doubling as a return
 with the return value of the call. As it does not return to the procedure, it can
 (and generally should) be the last thing in a given block. Tail-calls *always* clean
 up the stack *before* the call, so infinite chains of tail-calls are fine, but if
