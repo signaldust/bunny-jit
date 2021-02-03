@@ -55,10 +55,9 @@ The test-driver `bin/bjit` parses this simple language from `stdin` and compiles
 it into native code, which is written to `out.bin` for disassembly purposes
 (eg. with `./dump-bin.sh` if you have `gobjdump` in path).
 
-You can certainly run it too, but you'll have to copy it to executable memory.
-Note that such memory also must be readable (but should not be writable) since
-we place constants (eg. for floating point) directly after the code in order to
-avoid having to relocate a separate `.rodata` section.
+You can certainly run it too, but you'll have to copy it to executable memory
+(and readable, in case the target supports executable-only; we place constants
+directly after code in order to avoid having to relocate a separate `.rodata`).
 
 There is now `bjit::Module` that can do this for you, but I haven't got around
 to updating the front-end yet.
