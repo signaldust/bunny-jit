@@ -17,7 +17,7 @@ Features:
   * small and simple (by virtue of elegant design), yet tries to avoid being naive
   * portable<sup>1</sup> C++11 without dependencies (other than STL)
   * uses low-level portable instruction set that models common architectures
-  * supports integers, single- and double-floats
+  * supports integers, single- and double-floats (probably SIMD at some point)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
   * performs roughly<sup>2</sup> DCE, GCSE+LICM (PRE?), CF/CP and register allocation (as of now)
   * assembles to native x64 binary code with simple module system that supports [hot-patching](#patching-calls)
