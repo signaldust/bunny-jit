@@ -542,7 +542,5 @@ struct AsmX64
 #define _store_f64(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0xF2, 0x0F, 0x11)
 #define _store_f128(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0x0F, 0x29)
 
-// MOVQ
-
 
 }
