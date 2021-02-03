@@ -204,7 +204,7 @@ To clarify `env` is *only* used by the compiler when:
  - when `newLabel()` is called: the types are copied
  - when `emitLabel()` is called: phis are generated for the stored types
  - when a jump to a label is emitted: `env` is added to target `phi` alternatives
- - wh
+ - when a [call](#alling-functions) is emitted: the arguments are taken from `env`
 
 ### Instruction set?
 
