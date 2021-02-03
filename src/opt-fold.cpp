@@ -271,9 +271,14 @@ bool Proc::opt_fold()
                         progress = true;
                         break;
                     case ops::isub:
-                        // FIXME: rewrite as iaddI with negated immediated?
+                        // prefer iaddI as we can encode it as LEA
                         op.opcode = ops::isubI;
                         op.imm32 = (int32_t) N1.i64;
+                        if(op.imm32 != -op.imm32)
+                        {
+                            op.opcode = ops::iaddI;
+                            op.imm32 = -op.imm32;
+                        }
                         op.in[1] = noVal;
                         progress = true;
                         break;
@@ -1226,7 +1231,56 @@ bool Proc::opt_fold()
                         op.opcode = ops::lci;
                         progress = true;
                         break;
-    
+
+                    // floating point, these should be safe
+                    // do we want to do some fast-math opts though?
+                    case ops::fadd:
+                        op.f32 = N0.f32 + N1.f32;
+                        op.opcode = ops::lcf;
+                        progress = true;
+                        break;
+                        
+                    case ops::fsub:
+                        op.f32 = N0.f32 - N1.f32;
+                        op.opcode = ops::lcf;
+                        progress = true;
+                        break;
+                        
+                    case ops::fmul:
+                        op.f32 = N0.f32 * N1.f32;
+                        op.opcode = ops::lcf;
+                        progress = true;
+                        break;
+                        
+                    case ops::fdiv:
+                        op.f32 = N0.f32 / N1.f32;
+                        op.opcode = ops::lcf;
+                        progress = true;
+                        break;
+                        
+                    case ops::dadd:
+                        op.f64 = N0.f64 + N1.f64;
+                        op.opcode = ops::lcd;
+                        progress = true;
+                        break;
+                        
+                    case ops::dsub:
+                        op.f64 = N0.f64 - N1.f64;
+                        op.opcode = ops::lcd;
+                        progress = true;
+                        break;
+                        
+                    case ops::dmul:
+                        op.f64 = N0.f64 * N1.f64;
+                        op.opcode = ops::lcd;
+                        progress = true;
+                        break;
+                        
+                    case ops::ddiv:
+                        op.f64 = N0.f64 / N1.f64;
+                        op.opcode = ops::lcd;
+                        progress = true;
+                        break;
                 }
                 
                 // CSE: do this after simplification
