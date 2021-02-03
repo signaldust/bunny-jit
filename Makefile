@@ -73,7 +73,7 @@ clean:
 
 $(foreach i,$(TESTS_CPP),$(eval $(call TestTarget,$(i))))
 
-$(FRONTEND): $(FRONT_OBJECTS)
+$(FRONTEND): $(FRONT_OBJECTS) $(LIBRARY)
 	@echo LINK $@
 	@$(MAKEDIR) "$(BJIT_BINDIR)"
 	@$(LINKBIN) -o $@ $(FRONT_OBJECTS) $(LINKFLAGS)
