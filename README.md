@@ -16,7 +16,7 @@ Check back in a week or two and it's probably a lot more robust.
 Features:
   * small and simple (by virtue of elegant design), yet tries to avoid being naive
   * portable<sup>1</sup> C++11 without dependencies (other than STL)
-  * uses low-level portable bytecode that models common architectures
+  * uses low-level portable instruction set that models common architectures
   * supports integers, single- and double-floats (singles are not well-tested)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
   * performs roughly<sup>2</sup> DCE, GCSE+LICM (PRE?), CF/CP and register allocation (as of now)
