@@ -63,6 +63,24 @@ to updating the front-end yet.
 
 Bunnies are small and cute and will take over the world in the near future.
 
+## License?
+
+I should paste this into every file, but for the time being:
+
+```
+/****************************************************************************\
+* Bunny-JIT is (c) Copyright pihlaja@signaldust.com 2021                     *
+*----------------------------------------------------------------------------*
+* You can use and/or redistribute this for whatever purpose, free of charge, *
+* provided that the above copyright notice and this permission notice appear *
+* in all copies of the software or it's associated documentation.            *
+*                                                                            *
+* THIS SOFTWARE IS PROVIDED "AS-IS" WITHOUT ANY WARRANTY. USE AT YOUR OWN    *
+* RISK. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE HELD LIABLE FOR ANYTHING.  *
+\****************************************************************************/
+```
+The `Makefile` is not covered by this license and can be considered public domain.
+
 ## How to build?
 
 On Unix-like system with `clang` (and `libtool`) installed,
@@ -96,24 +114,6 @@ The `Makefile` currently won't work on Windows though (at least not without some
 like Cygwin; I haven't tried), I will fix this eventually (it can be fixed, I'm just lazy).
 In the mean time, it should be possible to compile everything under `src/` into
 a static library and link with whatever other source files you have.
-
-## License?
-
-I should paste this into every file, but for the time being:
-
-```
-/****************************************************************************\
-* Bunny-JIT is (c) Copyright pihlaja@signaldust.com 2021                     *
-*----------------------------------------------------------------------------*
-* You can use and/or redistribute this for whatever purpose, free of charge, *
-* provided that the above copyright notice and this permission notice appear *
-* in all copies of the software or it's associated documentation.            *
-*                                                                            *
-* THIS SOFTWARE IS PROVIDED "AS-IS" WITHOUT ANY WARRANTY. USE AT YOUR OWN    *
-* RISK. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE HELD LIABLE FOR ANYTHING.  *
-\****************************************************************************/
-```
-The `Makefile` is not covered by this license and can be considered public domain.
 
 ## Contributing?
 
