@@ -4,7 +4,12 @@
 // List of operations, order is significant
 //  _(name, nOutputs, nInputs)
 
-// output flags
+// output flags:
+//
+// if both SIDEFX and CSE are defined (eg. idiv) then we treat it as
+// having SIDEFX for "safe" optimization, and CSE for "unsafe" optimizations
+//
+
 #define BJIT_SIDEFX 0x10    // never DCE
 #define BJIT_CSE    0x20    // can CSE
 #define BJIT_NOMOVE 0x40    // must be in the beginning of a block
@@ -138,11 +143,11 @@
     /* don't CSE divisions for now, because we don't want to */ \
     /* move exceptions to the other side of a load or store  */ \
     /* FIXME: is this a case where should accept UB? */ \
-    _(idiv, BJIT_SIDEFX+1, 2), \
-    _(imod, BJIT_SIDEFX+1, 2), \
+    _(idiv, BJIT_SIDEFX+BJIT_CSE+1, 2), \
+    _(imod, BJIT_SIDEFX+BJIT_CSE+1, 2), \
     /* unsigned integer arithmetic */ \
-    _(udiv, BJIT_SIDEFX+1, 2), \
-    _(umod, BJIT_SIDEFX+1, 2), \
+    _(udiv, BJIT_SIDEFX+BJIT_CSE+1, 2), \
+    _(umod, BJIT_SIDEFX+BJIT_CSE+1, 2), \
     /* integer bitwise */ \
     _(inot, BJIT_CSE+1, 1), \
     _(iand, BJIT_CSE+1, 2), \

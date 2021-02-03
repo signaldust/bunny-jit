@@ -595,8 +595,8 @@ namespace bjit
             do
             {
                 assert(++iterOpt < 0x100);
-                opt_dce();
-            } while(opt_fold(unsafe) || opt_sink());
+                opt_dce(unsafe);
+            } while(opt_fold(unsafe) || opt_sink(unsafe));
         }
 
         // used to break critical edges, returns the new block
@@ -766,10 +766,10 @@ namespace bjit
         bool opt_fold(bool unsafe);
 
         // opt-sink.cpp
-        bool opt_sink();
+        bool opt_sink(bool unsafe);
 
         // opt-dce.cpp
-        void opt_dce();
+        void opt_dce(bool unsafe = false);
 
         // opt-dom.cpp - used by opt-dce()
         void opt_dom();
