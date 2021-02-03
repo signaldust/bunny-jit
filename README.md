@@ -3,7 +3,8 @@
 This is a tiny optimising SSA-based JIT backend, currently targeting x64, but
 designed to be (somewhat) portable. The [build-system](#how-to-build) expects
 Unix environment (and `libtool`), but the code should work on Windows as well (simply
-compile everything from `src/`; let me know if it needs some tweaking).
+compile everything from `src/`; let me know if it needs some tweaking, I'll test it
+myself eventually).
 
 This is work in relatively early progress. It sort of works, but some things like
 [function calls](#calling-functions) are not done robustly yet and there are likely serious bugs hiding.
