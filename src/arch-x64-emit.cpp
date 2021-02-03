@@ -39,7 +39,7 @@ namespace bjit
 void Module::arch_compileStubFar(uintptr_t address)
 {
     // MOVABS + indirect jump, always use RAX as the register
-    bytes.push_back(0x40);  // REX.W
+    bytes.push_back(0x48);  // REX.W ..
     bytes.push_back(0xB8);  // MOVABS RAX, imm64
     for(int i = 0; i < 8; ++i)
     {
