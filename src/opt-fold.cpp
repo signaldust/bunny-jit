@@ -81,7 +81,7 @@ struct OpCSE
 We try to avoid any folding here that isn't guaranteed to be profitable.
 
 */
-bool Proc::opt_fold()
+bool Proc::opt_fold(bool allowUnsafe)
 {
     //debug();
 

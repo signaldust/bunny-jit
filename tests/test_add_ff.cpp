@@ -9,20 +9,17 @@ int main()
     {
         bjit::Proc      proc(0, "ff");
         proc.fret(proc.fadd(proc.env[0], proc.env[1]));
-        proc.opt();
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "dd");
         proc.dret(proc.dadd(proc.env[0], proc.env[1]));
-        proc.opt();
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "dd");
         proc.dret(proc.cf2d(proc.fadd(
             proc.cd2f(proc.env[0]), proc.cd2f(proc.env[1]))));
-        proc.opt();
         module.compile(proc);
     }
     

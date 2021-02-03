@@ -213,10 +213,8 @@ void bjit::parse(std::vector<uint8_t> & codeOut)
     p.iret(p.lci(0));
     p.debug();
 
-    printf("-- Optimizing:\n");
-    p.opt();
-
-    p.compile(codeOut);
+    printf("-- Compiling:\n");
+    p.compile(codeOut, 1);
 }
 
 // helper to figure out what to do with statements

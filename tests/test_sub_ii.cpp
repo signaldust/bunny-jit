@@ -9,8 +9,6 @@ int main()
 
     proc.iret(proc.isub(proc.env[0], proc.env[1]));
 
-    proc.opt();
-    
     int i = module.compile(proc);
 
     assert(module.load());
