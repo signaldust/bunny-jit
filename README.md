@@ -359,7 +359,9 @@ that is not actually a stub (we don't check this in any way).
 
 Near-calls can also be patched, either globally with `Module::patchCalls(oldT,newT)`
 or locally in one procedure with `Module::patchCallsIn(inProc,oldT,newT)` where 
-`soldT` and `newT` are the old and new targets respectively.
+`oldT` and `newT` are the old and new targets respectively. There is currently no
+support for patching a single call though (you'll need to compile some stubs for
+that).
 
 Note that `Module::patch()` does not apply *any* patches if it can't also load all
 newly compiled code, but they remain pending and will be applied on module reload.
