@@ -35,14 +35,11 @@ on the fly (eg. for performance reasons), but including something like LLVM woul
 be a total overkill. Why add a gigabyte of dependencies, if you can get most of the
 high-value stuff with less than 10k lines of sparse C++?
 
-It is intended for situations where combinatorial explosion
-makes template expansion of all possible alternatives at compile time infeasible
-(or impossible, if the possible domain is infinite), yet one would like to avoid
-interpretive overhead. Because we're trying to gain performance, we're willing to
-spend some time on optimization, but because we're still aiming at interactive uses
-we try not to go crazy with funky heuristics. Instead we aim to find a set of
-simple and general optimizations that will always lead to a fixed-point. This rules
-out optimizations such as loop-unrolling where profitability is not clear.
+It is primarily intended for generating run-time specialized code, especially where
+this can give significant performance advantages, so we spend some time on optimization,
+but because we're still aiming at interactive uses we try not to go crazy heuristics.
+Instead we aim to find a set of general optimizations that always lead to a fixed-point.
+This rules out optimizations such as loop-unrolling where profitability is not clear.
 
 It can also be used as a backend for custom languages. It might not be great for
 dynamic languages that rely heavily on memory optimizations (we don't optimize loads
