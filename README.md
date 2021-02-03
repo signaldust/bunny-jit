@@ -65,7 +65,10 @@ Bunnies are small and cute and will take over the world in the near future.
 
 ## How to build?
 
-On Unix-like system with `clang` installed, simply run `make` (or `make -j`).
+On Unix-like system with `clang` (and `libtool`) installed,
+simply run `make` (or `make -j`).
+
+Ideally that's all, rest of this chapter is mostly just detail.
 
 We override `clang` for `CC` but if `BJIT_USE_CC` is defined, then this is used;
 use this if you don't want to use `clang` for some weird reason. If `BJIT_BUILDDIR`
