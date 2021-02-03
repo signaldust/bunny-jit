@@ -867,8 +867,6 @@ namespace bjit
         // levelOpt: 0:DCE, 1:all-safe, 2:all, see Proc::compile
         int compile(Proc & proc, unsigned levelOpt = 1)
         {
-            assert(!exec_mem);
-            
             int index = offsets.size();
             offsets.push_back(bytes.size());
             
@@ -882,7 +880,7 @@ namespace bjit
 
         // compile a stub, this counts as a procedure in terms of
         // near-indexes, but only contains a jump to an external address
-        int compileStubFar(uintptr_t address)
+        int compileStub(uintptr_t address)
         {
             int index = offsets.size();
             offsets.push_back(bytes.size());
