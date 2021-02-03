@@ -36,29 +36,6 @@ namespace bjit
     };
 };
 
-void Module::arch_compileStubFar(uintptr_t address)
-{
-    // MOVABS + indirect jump, always use RAX as the register
-    bytes.push_back(0x40);  // REX.W
-    bytes.push_back(0xB8);  // MOVABS RAX, imm64
-    for(int i = 0; i < 8; ++i)
-    {
-        bytes.push_back(address & 0xff);
-        address >>= 8;
-    }
-    bytes.push_back(0xFF);  // indirect jump
-    bytes.push_back(0xE0);  // r=4, rm=RAX
-}
-
-void Module::arch_patchStubFar(void * ptr, unsigned offset, uintptr_t address)
-{
-    for(int i = 0; i < 8; ++i)
-    {
-        (2+(uint8_t*)ptr)[i] = (address & 0xff);
-        address >>= 8;
-    }
-}
-
 void Proc::arch_emit(std::vector<uint8_t> & out)
 {
     for(auto & b : blocks) { b.flags.codeDone = false; }
