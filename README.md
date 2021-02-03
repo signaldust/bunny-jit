@@ -351,6 +351,9 @@ be updated (in executable code) next time either `Module::patch()` or `Module::l
 is called. Note that "bad things will happen"(tm) if you try to patch a procedure
 that is not actually a stub (we don't check this in any way).
 
+Near-calls can also be patched, either globally with `Module::patchCalls(old,new)`
+or locally in one procedure with `Module::patchCallsIn(inProc,old,new)`.
+
 ## What it does?
 
 Here's a somewhat silly example:
