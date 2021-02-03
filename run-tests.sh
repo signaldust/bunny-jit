@@ -10,11 +10,6 @@ END
 
 cat << END | bin/bjit
     x := 0/0; y := x/1u;
-    while(x < 10) { if(y != 2) x = x+1; x = x+1; } return y;
-END
-
-cat << END | bin/bjit
-    x := 0/0; y := x/1u;
     while(x < 10) { if(y != 2) y = x+1; x = x+1; } return x;
 END
 
