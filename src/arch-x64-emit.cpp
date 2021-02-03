@@ -207,7 +207,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 #endif
                 // RIP-relative call
                 a64.emit(0xE8);
-                nearReloc.emplace_back(NearReloc{(uint32_t)out.size(), i.imm32});
+                nearReloc.emplace_back(
+                    NearReloc{(uint32_t)out.size(), (uint32_t)i.imm32});
                 a64.emit32(-4-out.size());
 #ifdef _WIN32
                 // "home locations" for registers
@@ -485,7 +486,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 }
                 // near jump
                 a64.emit(0xE9);
-                nearReloc.emplace_back(NearReloc{(uint32_t)out.size(), i.imm32});
+                nearReloc.emplace_back(
+                    NearReloc{(uint32_t)out.size(), (uint32_t)i.imm32});
                 a64.emit32(-4-out.size());
                 break;
 

@@ -37,7 +37,7 @@ namespace bjit
                 {
                     float       f32;
                     
-                    uint32_t    imm32;
+                    int32_t     imm32;
                     uint32_t    phiIndex;
                     
                     struct  // used by arguments
