@@ -173,7 +173,6 @@ uintptr_t Module::unload()
     // do near-patches on unload if any
     for(auto & p : nearPatches)
     {
-        uint32_t delta = offsets[p.newTarget] - offsets[p.oldTarget];
         for(auto & r : relocs)
         {
             if(r.codeOffset < p.offsetStart
