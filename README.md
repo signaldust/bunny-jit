@@ -20,7 +20,7 @@ Features:
   * supports integers, single- and double-floats (singles are not well-tested)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
   * performs roughly<sup>1</sup> DCE, GCSE+LICM (PRE?), CF/CP and register allocation (as of now)
-  * assembles to native x64 binary code (ready to be copied to executable memory)
+  * assembles to native x64 binary code with simple module system that supports [hot-patching](#patching-calls)
   * uses `std::vector` to manage memory, keeps `valgrind` happy, tries to be cache efficient
 
 <sup>1</sup><i>
@@ -345,11 +345,20 @@ constant address every time, `Module` also supports stubs. To compile a stub, ca
 `Module::compileStub()` with the memory address of the target procedure. Stubs count
 as procedures in terms of indexes and can be called with near calls.
 
+### Patching calls
+
 You can also change stub targets later by calling `Module::patchStub()` with the
 index of a previously compiled stub and a new target address. The stub target will
 be updated (in executable code) next time either `Module::patch()` or `Module::load()`
 is called. Note that "bad things will happen"(tm) if you try to patch a procedure
 that is not actually a stub (we don't check this in any way).
+
+Near-calls can also be patched, either globally with `Module::patchCalls(oldT,newT)`
+or locally in one procedure with `Module::patchCallsIn(inProc,oldT,newT)` where 
+`soldT` and `newT` are the old and new targets respectively.
+
+Note that `Module::patch()` does not apply *any* patches if it can't also load all
+newly compiled code, but they remain pending and will be applied on module reload.
 
 ## What it does?
 

@@ -209,7 +209,7 @@ namespace bjit
     struct NearReloc
     {
         uint32_t    codeOffset;     // where to add offset
-        uint32_t    symbolIndex;    // which offset to add
+        uint32_t    procIndex;    // which offset to add
     };
 
     struct too_many_ops {};
@@ -860,7 +860,51 @@ namespace bjit
             arch_patchStub(bytes.data(), offsets[index], address);
             
             // store this for patch() to also patch live
-            if(exec_mem) stubPatches.emplace_back(PatchStub{index, address});
+            if(isLoaded()) stubPatches.emplace_back(PatchStub{index, address});
+        }
+
+        // patch all calls to oldTarget to call newTarget instead
+        // you will also need to either patch() or unload()+load()
+        // the module for the changes to become active
+        void patchCalls(unsigned oldTarget, unsigned newTarget)
+        {
+            if(isLoaded())
+            {
+                nearPatches.emplace_back(
+                    PatchNear{oldTarget, newTarget,
+                    0, (unsigned) bytes.size()});
+            }
+            else
+            {
+                for(auto & r : relocs)
+                {
+                    if(r.procIndex == oldTarget) r.procIndex = newTarget;
+                }
+            }
+        }
+
+        // same as patchCalls() but only patch calls in a given proc
+        void patchCallsIn(unsigned inProc, unsigned oldTarget, unsigned newTarget)
+        {
+            unsigned rangeStart = offsets[inProc];
+            unsigned rangeEnd = (inProc+1 < offsets.size())
+                ? offsets[inProc+1] : (unsigned) bytes.size();
+                
+            if(isLoaded())
+            {
+                nearPatches.emplace_back(
+                    PatchNear{oldTarget, newTarget, rangeStart, rangeEnd});
+            }
+            else
+            {
+                for(auto & r : relocs)
+                {
+                    if(r.codeOffset < rangeStart
+                    || r.codeOffset >= rangeEnd) continue;
+                    
+                    if(r.procIndex == oldTarget) r.procIndex = newTarget;
+                }
+            }
         }
 
         // returns Proc index
@@ -894,10 +938,21 @@ namespace bjit
     private:
         struct PatchStub
         {
-            unsigned    symbolIndex;
+            unsigned    procIndex;
             uintptr_t   newAddress;
         };
         std::vector<PatchStub>  stubPatches;
+
+        struct PatchNear
+        {
+            unsigned    oldTarget;
+            unsigned    newTarget;
+
+            unsigned    offsetStart;
+            unsigned    offsetEnd;
+        };
+        std::vector<PatchNear>  nearPatches;
+        
         std::vector<NearReloc>  relocs;
         
         std::vector<uint32_t>   offsets;

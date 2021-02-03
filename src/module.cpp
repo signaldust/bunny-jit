@@ -59,8 +59,8 @@ uintptr_t Module::load(unsigned mmapSizeMin)
     memcpy(exec_mem, bytes.data(), bytes.size());
     for(auto & r : relocs)
     {
-        assert(r.symbolIndex < offsets.size());
-        ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += offsets[r.symbolIndex];
+        assert(r.procIndex < offsets.size());
+        ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += offsets[r.procIndex];
     }
 
 #ifdef BJIT_USE_MMAP
@@ -114,17 +114,35 @@ bool Module::patch()
     {
         if(r.codeOffset < loadSize) continue;
         
-        assert(r.symbolIndex < offsets.size());
-        ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += offsets[r.symbolIndex];
+        assert(r.procIndex < offsets.size());
+        ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += offsets[r.procIndex];
     }
     loadSize = bytes.size();
 
     // do all pending stub-patches
     for(auto & p : stubPatches)
     {
-        arch_patchStub(exec_mem, offsets[p.symbolIndex], p.newAddress);
+        arch_patchStub(exec_mem, offsets[p.procIndex], p.newAddress);
     }
     stubPatches.clear();
+
+    // near patches
+    for(auto & p : nearPatches)
+    {
+        uint32_t delta = offsets[p.newTarget] - offsets[p.oldTarget];
+        for(auto & r : relocs)
+        {
+            if(r.codeOffset < p.offsetStart
+            || r.codeOffset >= p.offsetEnd) continue;
+            
+            if(r.procIndex == p.oldTarget)
+            {
+                r.procIndex = p.newTarget;
+                ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += delta;
+            }
+        }
+    }
+    nearPatches.clear();
 
 #ifdef BJIT_USE_MMAP
     // return zero on success
@@ -152,8 +170,25 @@ uintptr_t Module::unload()
 
     uintptr_t ret = (uintptr_t) exec_mem;
 
+    // do near-patches on unload if any
+    for(auto & p : nearPatches)
+    {
+        uint32_t delta = offsets[p.newTarget] - offsets[p.oldTarget];
+        for(auto & r : relocs)
+        {
+            if(r.codeOffset < p.offsetStart
+            || r.codeOffset >= p.offsetEnd) continue;
+            
+            if(r.procIndex == p.oldTarget)
+            {
+                r.procIndex = p.newTarget;
+            }
+        }
+    }
+
     // patches are not useful after unload
     stubPatches.clear();
+    nearPatches.clear();
     
     exec_mem = 0;
     mmapSize = 0;
