@@ -23,9 +23,9 @@ Features:
   * assembles to native x64 binary code with simple module system that supports [hot-patching](#patching-calls)
   * uses `std::vector` to manage memory, keeps `valgrind` happy, tries to be cache efficient
 
-<sup>1</sup><i>Obviously loading code on the fly is not entirely portable, but we
-support generic `mmap`/`mprotect` (including macOS) and Windows (latter untested,
-let me know if you try it before I get around to checking it).</i>
+<sup>1</sup><i>Obviously loading code on the fly is not entirely portable (we are
+fully W^X compliant), but we support generic `mmap`/`mprotect` (including macOS)
+and Windows (latter untested, should work, let me know if you try it before me).</i>
 
 <sup>2</sup><i>
 I find it slightly challenging to relate exactly to traditional compiler
