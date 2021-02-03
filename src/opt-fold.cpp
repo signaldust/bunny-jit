@@ -1284,179 +1284,173 @@ bool Proc::opt_fold(bool unsafe)
                 }
                 
                 // CSE: do this after simplification
-                if(op.canCSE() && (unsafe || !op.hasSideFX()))
+                if(!op.canCSE() || (!unsafe && op.hasSideFX())) continue;
+                
+                auto * ptr = cseTable.find(op);
+
+                if(ptr && ptr->index == op.index) continue;
+                
+                if(ptr)
                 {
-                    auto * ptr = cseTable.find(op);
-
-                    if(ptr && ptr->index == op.index) continue;
-                    
-                    if(ptr)
-                    {
-                        // closest common dominator
-                        auto & other = ops[ptr->index];
-                        auto pb = ptr->block;
-                        int ccd = 0;
-                        int iMax = std::min(
-                            blocks[b].dom.size(), blocks[pb].dom.size());
-                            
-                        for(int i = 0; i < iMax; ++i)
-                        {
-                            if(blocks[b].dom[i] == blocks[pb].dom[i]) ccd = i;
-                            else break;
-                        }
-
-                        // we need to sanity check phis and post-doms
-                        bool bad = false;
+                    // closest common dominator
+                    auto & other = ops[ptr->index];
+                    auto pb = ptr->block;
+                    int ccd = 0;
+                    int iMax = std::min(
+                        blocks[b].dom.size(), blocks[pb].dom.size());
                         
-                        // check post-dominator condition
-                        for(int i = b ; i; i = blocks[i].idom)
-                        {
-                            // NOTE: DCE checks phis, so don't worry
-                            if(ccd == blocks[i].idom) break; // this is fine
-                            if(bad) break;
-                            if(blocks[blocks[i].idom].pdom != i) bad = true;
-                        }
-
-                        // check post-dominator condition
-                        if(!bad)
-                        for(int i = pb; i; i = blocks[i].idom)
-                        {
-                            // NOTE: DCE checks phis, so don't worry
-                            if(ccd == blocks[i].idom) break; // this is fine
-                            if(bad) break;
-                            if(blocks[blocks[i].idom].pdom != i) bad = true;
-                        }
-
-                        //printf("CSE: %04x, %04x: %s\n",
-                        //    op.index, other.index, bad ? "BAD" : "GOOD");
-
-                        if(bad) { cseTable.insert(op); continue; }
-
-                        if(ccd == ptr->block)
-                        {
-                            rename.add(op.index, ptr->index);
-                            op.makeNOP();
-                            
-                            progress = true;
-                            continue;
-                        }
-                        else if(ccd == b)
-                        {
-                            rename.add(other.index, op.index);
-                            other.makeNOP();
-                            
-                            cseTable.insert(op);
-                            
-                            progress = true;
-                            continue;
-                        }
-                        else
-                        {
-                            bc = noVal;
-                            op.block = ccd;
-    
-                            // try to move this op backwards
-                            int k = blocks[ccd].code.size();
-                            blocks[ccd].code.push_back(op.index);
-                            while(k--)
-                            {
-                                // don't move past anything with sideFX
-                                // but DO move past jumps
-                                if(blocks[ccd].code[k] != noVal
-                                && ops[blocks[ccd].code[k]].opcode > ops::jmp
-                                && !ops[blocks[ccd].code[k]].canMove()) break;
-                                
-                                // sanity check that we don't move past inputs
-                                bool canMove = true;
-                                for(int j = 0; j < op.nInputs(); ++j)
-                                {
-                                    if(blocks[ccd].code[k] != op.in[j]) continue;
-                                    canMove = false;
-                                    break;
-                                }
-
-                                if(!canMove) break;
-    
-                                // move
-                                std::swap(blocks[ccd].code[k],
-                                    blocks[ccd].code[k+1]);
-                            }
-
-                            rename.add(other.index, op.index);
-                            other.makeNOP();
-                            
-                            cseTable.insert(op);
-                            progress = true;
-                        }
-                    }
-                    else 
+                    for(int i = 0; i < iMax; ++i)
                     {
-                        // walk up the idom chain
-                        auto mblock = b;
-                        while(mblock)
-                        {
-                            bool done = false;
-                            for(int k = 0; k < op.nInputs(); ++k)
-                            {
-                                if(mblock != ops[op.in[k]].block) continue;
-                                done = true;
-                                break;
-                            }
-                            if(done) break;
+                        if(blocks[b].dom[i] == blocks[pb].dom[i]) ccd = i;
+                        else break;
+                    }
 
-                            // sanity check post-dominators
-                            auto idom = blocks[mblock].idom;
-                            if(blocks[idom].pdom != mblock) break;
-                                
-                            mblock = blocks[mblock].idom;
-                        }
+                    // we need to sanity check phis and post-doms
+                    bool bad = false;
+                    
+                    // check post-dominator condition
+                    for(int i = b ; i; i = blocks[i].idom)
+                    {
+                        // NOTE: DCE checks phis, so don't worry
+                        if(ccd == blocks[i].idom) break; // this is fine
+                        if(blocks[blocks[i].idom].pdom != i) bad = true;
+                        if(bad) break;
+                    }
 
-                        // if target branches, then just give up, for now
-                        // we don't want to hoist stuff back into loops
-                        //
-                        // we should add loop headers elsewhere
-                        if(ops[blocks[mblock].code.back()].opcode < ops::jmp)
-                        {
-                            mblock = b;
-                        }
+                    // check post-dominator condition
+                    if(!bad)
+                    for(int i = pb; i; i = blocks[i].idom)
+                    {
+                        // NOTE: DCE checks phis, so don't worry
+                        if(ccd == blocks[i].idom) break; // this is fine
+                        if(blocks[blocks[i].idom].pdom != i) bad = true;
+                        if(bad) break;
+                    }
 
-                        // if mblock is the current block, then we can't move
-                        if(mblock != b)
-                        {
-                            bc = noVal;
-                            op.block = mblock;
-    
-                            // try to move the new op backwards
-                            int k = blocks[mblock].code.size();
-                            blocks[mblock].code.push_back(op.index);
-                            while(k--)
-                            {
-                                // don't move past anything with sideFX
-                                // but DO move past jumps
-                                if(blocks[mblock].code[k] != noVal
-                                && ops[blocks[mblock].code[k]].opcode > ops::jmp
-                                && !ops[blocks[mblock].code[k]].canMove()) break;
-                                
-                                // sanity check that we don't move past inputs
-                                bool canMove = true;
-                                for(int j = 0; j < op.nInputs(); ++j)
-                                {
-                                    if(blocks[mblock].code[k] != op.in[j]) continue;
-                                    canMove = false;
-                                    break;
-                                }
+                    //printf("CSE: %04x, %04x: %s\n",
+                    //    op.index, other.index, bad ? "BAD" : "GOOD");
 
-                                if(!canMove) break;
-    
-                                // move
-                                std::swap(blocks[mblock].code[k],
-                                    blocks[mblock].code[k+1]);
-                            }
-                        }
+                    if(bad) { /* fallback to hoisting */ }
+                    else if(ccd == ptr->block)
+                    {
+                        rename.add(op.index, ptr->index);
+                        op.makeNOP();
+                        
+                        progress = true;
+                    }
+                    else if(ccd == b)
+                    {
+                        rename.add(other.index, op.index);
+                        other.makeNOP();
                         
                         cseTable.insert(op);
+                        
+                        progress = true;
+                    }
+                    else
+                    {
+                        bc = noVal;
+                        op.block = ccd;
+
+                        // try to move this op backwards
+                        int k = blocks[ccd].code.size();
+                        blocks[ccd].code.push_back(op.index);
+                        while(k--)
+                        {
+                            // don't move past anything with sideFX
+                            // but DO move past jumps
+                            if(blocks[ccd].code[k] != noVal
+                            && ops[blocks[ccd].code[k]].opcode > ops::jmp
+                            && !ops[blocks[ccd].code[k]].canMove()) break;
+                            
+                            // sanity check that we don't move past inputs
+                            bool canMove = true;
+                            for(int j = 0; j < op.nInputs(); ++j)
+                            {
+                                if(blocks[ccd].code[k] != op.in[j]) continue;
+                                canMove = false;
+                                break;
+                            }
+
+                            if(!canMove) break;
+
+                            // move
+                            std::swap(blocks[ccd].code[k],
+                                blocks[ccd].code[k+1]);
+                        }
+
+                        rename.add(other.index, op.index);
+                        other.makeNOP();
+                        
+                        cseTable.insert(op);
+                        progress = true;
                     }
                 }
+                
+                // walk up the idom chain
+                auto mblock = b;
+                while(mblock)
+                {
+                    bool done = false;
+                    for(int k = 0; k < op.nInputs(); ++k)
+                    {
+                        if(mblock != ops[op.in[k]].block) continue;
+                        done = true;
+                        break;
+                    }
+                    if(done) break;
+
+                    // sanity check post-dominators
+                    auto idom = blocks[mblock].idom;
+                    if(blocks[idom].pdom != mblock) break;
+                        
+                    mblock = blocks[mblock].idom;
+                }
+
+                // if target branches, then just give up, for now
+                // we don't want to hoist stuff back into loops
+                //
+                // we should add loop headers elsewhere
+                if(ops[blocks[mblock].code.back()].opcode < ops::jmp)
+                {
+                    mblock = b;
+                }
+
+                // if mblock is the current block, then we can't move
+                if(mblock != b)
+                {
+                    bc = noVal;
+                    op.block = mblock;
+
+                    // try to move the new op backwards
+                    int k = blocks[mblock].code.size();
+                    blocks[mblock].code.push_back(op.index);
+                    while(k--)
+                    {
+                        // don't move past anything with sideFX
+                        // but DO move past jumps
+                        if(blocks[mblock].code[k] != noVal
+                        && ops[blocks[mblock].code[k]].opcode > ops::jmp
+                        && !ops[blocks[mblock].code[k]].canMove()) break;
+                        
+                        // sanity check that we don't move past inputs
+                        bool canMove = true;
+                        for(int j = 0; j < op.nInputs(); ++j)
+                        {
+                            if(blocks[mblock].code[k] != op.in[j]) continue;
+                            canMove = false;
+                            break;
+                        }
+
+                        if(!canMove) break;
+
+                        // move
+                        std::swap(blocks[mblock].code[k],
+                            blocks[mblock].code[k+1]);
+                    }
+                }
+                
+                cseTable.insert(op);
             }
         }
         if(progress) anyProgress = true;

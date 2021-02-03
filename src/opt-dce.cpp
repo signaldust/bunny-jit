@@ -69,7 +69,7 @@ void Proc::opt_dce(bool unsafe)
                         if(ops[i].opcode < ops::jmp && target == ops[i].label[k^1]
                         && ops[blocks[target].code[0]].opcode == ops::phi)
                         {
-                            bool unsafe = false;
+                            bool bad = false;
                             auto vs = noVal, vt = noVal;
                             for(auto & a : blocks[target].args)
                             {
@@ -82,13 +82,13 @@ void Proc::opt_dce(bool unsafe)
                                 // if these don't match, then threading is not safe
                                 if(vs != vt)
                                 {
-                                    printf("unsafe: B%d:%04x vs. B%d:%04x\n",
+                                    if(0) printf("bad: B%d:%04x vs. B%d:%04x\n",
                                         ops[i].block, vs, ops[i].label[k], vt);
-                                    unsafe = true; break;
+                                    bad = true; break;
                                 }
                             }
 
-                            if(unsafe) break;
+                            if(bad) break;
                         }
                         
                         // patch target phis
