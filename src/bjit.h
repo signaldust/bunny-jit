@@ -809,6 +809,8 @@ namespace bjit
         template <typename T>
         T * getPointer(int index)
         {
+            assert(exec_mem);
+            
             void    *vptr = offsets[index] + (uint8_t*)exec_mem;
             return reinterpret_cast<T*&>(vptr);
         }
