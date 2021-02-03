@@ -128,6 +128,9 @@ some drastic changes on a regular basis. I also recommend opening an issue if
 you want to start building something on top of it, so we can discuss stability
 of interfaces (which for the time being are subject to change without notice).
 
+The `omena` branch is my laptop's remote and generally contains the latest and
+greatest and most broken code.
+
 ## Instructions?
 
 The first step is to include `src/bjit.h`.
