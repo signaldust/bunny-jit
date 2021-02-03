@@ -44,5 +44,7 @@ bin/test_calln
 
 bin/test_fib
 
+bin/test_call_stub
+
 echo "Looks like it didn't crash, at least... ;-)"
 

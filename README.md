@@ -169,17 +169,19 @@ return an index. Either of these can take an "optimization level" (default: `1`)
 that can be `0` for DCE-only, `1` for "safe" or `2` to allow "unsafe" optimizations
 (eg. "fast-math" floating-point, ignore possibility of divide-by-zero, etc).
 
-Multiple procedures can be compiled into the same module.
-See [below](#calling-functions) on how procedures can call each other. `Module::load()` 
+Multiple procedures can be compiled into the same module. See [below](#calling-functions)
+on how procedures can call each other or external functions. `Module::load()` 
 will load the module into executable memory and `Module::unload()` will unload it.
-A module can be loaded and unloaded multiple times and additional procedures
-added whenever the module is unloaded. *(NOTE: Module loading is untested on Windows.)*.
+A module can be loaded and unloaded multiple times. Additional procedures can be
+compiled at any time, but they will not be loaded until the `Module` is either
+reloaded or module is hot-patched with `Module::patch()` (see `bjit.h` for details).
+
+*(NOTE: Module loading is untested on Windows.)*.
 
 When a `Module` is loaded call `Module::getPointer<T>()` with an index
 returned by `Module::compile()` to get a pointer to your function (with `T`
 being the type of the function; we don't check this, we just typecast for you).
 See one of the tests (eg. `tests/test_add_ii.cpp`) for an example.
-
 
 ### Env?
 
@@ -312,17 +314,18 @@ should be fairly obvious when seen in debug, eg. `jugeI`is a conditional jump on
 
 ## Calling functions?
 
-Function call support is still somewhat limited, but it is possible to call external
-functions with up to 4 parameters with `icallp`, `fcallp` and `dcallp` which take
-a pointer to a function (as SSA value; use `lci` for constant address) and the number
-of arguments. The arguments are taken from the end of `env` (ie. `push_back()` them
-left-to-right; calls don't pop the arguments, you'll have to clean them up yourself).
-`icallp` returns an integer value, `fcallp` returns single-float
-and `dcallp` returns a double-float value.
-
-Note that the support is currently not particularly robust as it relies on register
+Function call support is still somewhat limited as we only support up to 4 parameters
+and the support is currently not particularly robust as it relies on register
 allocator not accidentally overwriting parameters. This "should not happen"(tm), but
 there is no real sanity-checking done for this, yet.
+
+There are essentially two types of calls: near-calls and indirect calls.
+
+Indirect ("pointer") calls can be done with `icallp`, `fcallp` and `dcallp` which take
+a pointer to a function (as SSA value) and the number of arguments. The arguments are
+taken from the end of `env` (ie. `push_back()` them left-to-right; calls don't pop the
+arguments, you'll have to clean them up yourself). `icallp` returns an integer value,
+`fcallp` returns single-float and `dcallp` returns a double-float value.
 
 There is also `tcallp` which performs a tail-call, effectively doubling as a return
 with the return value of the call. As it does not return to the procedure, it can
@@ -336,6 +339,17 @@ be used to call other procedures in the same module. These take the (compile-tim
 index of the procedure as their first parameter. `Module::compile()` is guaranteed to
 give procedures sequential indexes starting from `0` so the target procedure need not be
 compiled first as long as the index is valid by the time `Module::load()` is called.
+
+In order to call functions outside the module without having to use `lci` to load a
+constant address every time, `Module` also supports stubs. To compile a stub, call
+`Module::compileStub()` with the memory address of the target procedure. Stubs count
+as procedures in terms of indexes and can be called with near calls.
+
+You can also change stub targets later by calling `Module::patchStub()` with the
+index of a previously compiled stub and a new target address. The stub target will
+be updated (in executable code) next time either `Module::patch()` or `Module::load()`
+is called. Note that "bad things will happen"(tm) if you try to patch a procedure
+that is not actually a stub (we don't check this in any way).
 
 ## What it does?
 

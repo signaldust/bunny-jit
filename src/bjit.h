@@ -797,30 +797,76 @@ namespace bjit
         ~Module() { if(exec_mem) unload(); }
 
         // load compiled procedures into executable memory
-        // returns true on success
+        //
+        // returns address of the allocated block on success
+        // returns zero on failure (system error or unsupported platform)
         //
         // use getPointer() to get pointers to procedures
-        bool load();
+        //
+        // load() always allocates enough executable memory to load
+        // the module, but always at least mmapSizeMin bytes, see patch()
+        uintptr_t load(unsigned mmapSizeMin = 0);
+
+        // attempt to patch changes to a currently loaded module
+        //
+        // a module can be patched if any additional code fits into
+        // the allocated block, or if only stub-targets have changed
+        //
+        // returns true on success
+        //
+        // patch() will temporarily adjust memory access to read-write
+        // and no-execute, and should not be called while another thread
+        // is executing code in the module, but patching a module with
+        // suspended stack-frames (callers or another thread) is fine
+        // as patch() will never attempt to move the module
+        //
+        // if the function fails because the module cannot be patched,
+        // then patch will not adjust the executable memory in any way
+        // (ie. if code doesn't fit, it won't touch stubs either)
+        //
+        // in this case you need to unload() and load() the module again
+        // (and patch any pending return addresses in the stack yourself;
+        // note that unload() and load() will give you the needed offsets)
+        //
+        // currently patch() will assert() if a system error occurs when
+        // trying to change memory permissions (in either direction)
+        //
+        bool patch();
+
+        // returns true if module is currently loaded
+        bool isLoaded() { return 0 != exec_mem; }
 
         // unload module from executable memory
-        void unload();
+        //
+        // returns the block that was unallocated
+        uintptr_t unload();
 
         // returns the address of a proc in executable memory
         template <typename T>
-        T * getPointer(int index)
+        T * getPointer(unsigned index)
         {
             assert(exec_mem);
+            assert(offsets[index] < loadSize);
             
             void    *vptr = offsets[index] + (uint8_t*)exec_mem;
             return reinterpret_cast<T*&>(vptr);
+        }
+
+        // patch a stub with new address
+        // you will also need to either patch() or unload()+load()
+        // the module for the changes to becomes active
+        void patchStub(unsigned index, uintptr_t address)
+        {
+            arch_patchStub(bytes.data(), offsets[index], address);
+            
+            // store this for patch() to also patch live
+            if(exec_mem) stubPatches.emplace_back(PatchStub{index, address});
         }
 
         // returns Proc index
         // levelOpt: 0:DCE, 1:all-safe, 2:all, see Proc::compile
         int compile(Proc & proc, unsigned levelOpt = 1)
         {
-            assert(!exec_mem);
-            
             int index = offsets.size();
             offsets.push_back(bytes.size());
             
@@ -832,14 +878,40 @@ namespace bjit
             return index;
         }
 
+        // compile a stub, this counts as a procedure in terms of
+        // near-indexes, but only contains a jump to an external address
+        int compileStub(uintptr_t address)
+        {
+            int index = offsets.size();
+            offsets.push_back(bytes.size());
+
+            arch_compileStub(address);
+            return index;
+        }
+
         const std::vector<uint8_t> & getBytes() const { return bytes; }
         
     private:
+        struct PatchStub
+        {
+            unsigned    symbolIndex;
+            uintptr_t   newAddress;
+        };
+        std::vector<PatchStub>  stubPatches;
         std::vector<NearReloc>  relocs;
         
         std::vector<uint32_t>   offsets;
         std::vector<uint8_t>    bytes;
-        void    *exec_mem = 0;
+
+        
+        void        *exec_mem = 0;
+        unsigned    loadSize = 0;
+        unsigned    mmapSize = 0;
+
+        // in arch-XX-emit.cpp
+        void arch_compileStub(uintptr_t address);
+
+        void arch_patchStub(void * ptr, unsigned offset, uintptr_t address);
 
     };
 
