@@ -30,23 +30,9 @@ variables to optimize, we simplify a value graph. We don't really have loops eit
 just control-flow edges. But this is more or less what we end up with currently.
 See [below](#optimizations).</i>
 
-Bunny-JIT is intended for situations where it is desirable to create some native code
-on the fly (eg. for performance reasons), but including something like LLVM would
-be a total overkill. Why add a gigabyte of dependencies, if you can get most of the
-high-value stuff with less than 10k lines of sparse C++?
 
-It is primarily intended for generating run-time specialized code, especially where
-this can give significant performance advantages, so we spend some time on optimization,
-but because we're still aiming at interactive uses we try not to go crazy heuristics.
-Instead we aim to find a set of general optimizations that always lead to a fixed-point.
-This rules out optimizations such as loop-unrolling where profitability is not clear.
-
-It can also be used as a backend for custom languages. It might not be great for
-dynamic languages that rely heavily on memory optimizations (we don't optimize loads
-and stores), but even then it might serve as a decent prototype backend.
-
-It comes with some sort of simple front-end language, but this is intended more
-for testing (and I guess example) than as a serious programming language.
+Bunny-JIT comes with some sort of simple front-end language, but this is intended
+more for testing (and I guess example) than as a serious programming language.
 
 The test-driver `bin/bjit` parses this simple language from `stdin` and compiles
 it into native code, which is written to `out.bin` for disassembly purposes
@@ -62,6 +48,21 @@ to updating the front-end yet.
 ## Why Bunny?
 
 Bunnies are small and cute and will take over the world in the near future.
+
+Bunny-JIT is intended for situations where it is desirable to create some native code
+on the fly (eg. for performance reasons), but including something like LLVM would
+be a total overkill. Why add a gigabyte of dependencies, if you can get most of the
+high-value stuff with less than 10k lines of sparse C++?
+
+It is primarily intended for generating run-time specialized code, especially where
+this can give significant performance advantages, so we spend some time on optimization,
+but because we're still aiming at interactive uses we try not to go crazy heuristics.
+Instead we aim to find a set of general optimizations that always lead to a fixed-point.
+This rules out optimizations such as loop-unrolling where profitability is not clear.
+
+It can also be used as a backend for custom languages. It might not be great for
+dynamic languages that rely heavily on memory optimizations (we don't optimize loads
+and stores), but even then it might serve as a decent prototype backend.
 
 ## License?
 
