@@ -425,6 +425,24 @@ namespace bjit
         }
 
         // same as icallp but functions returning floats
+        unsigned fcallp(unsigned ptr, unsigned n)
+        {
+            passArgs(n);
+            unsigned i = addOp(ops::fcallp, Op::_f32);
+            ops[i].in[0] = ptr;
+            return i;
+        }
+
+        // near-call version
+        unsigned fcalln(unsigned index, unsigned n)
+        {
+            passArgs(n);
+            unsigned i = addOp(ops::fcalln, Op::_f32);
+            ops[i].imm32 = index;
+            return i;
+        }
+        
+        // same as icallp but functions returning doubles
         unsigned dcallp(unsigned ptr, unsigned n)
         {
             passArgs(n);

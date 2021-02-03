@@ -9,7 +9,13 @@ int isub2(int a, int b)
     return a - b;
 }
 
-double fsub2(double a, double b)
+float fsub2(float a, float b)
+{
+    printf("%f - %f = %f\n", a, b, a-b);
+    return a - b;
+}
+
+double dsub2(double a, double b)
 {
     printf("%f - %f = %f\n", a, b, a-b);
     return a - b;
@@ -39,8 +45,15 @@ int main()
         module.compile(proc);
     }
     {
+        bjit::Proc      proc(0, "ff");
+        proc.fret(proc.fcallp(proc.lci(uintptr_t(fsub2)), 2));
+        proc.debug();
+        proc.opt();
+        module.compile(proc);
+    }
+    {
         bjit::Proc      proc(0, "dd");
-        proc.dret(proc.dcallp(proc.lci(uintptr_t(fsub2)), 2));
+        proc.dret(proc.dcallp(proc.lci(uintptr_t(dsub2)), 2));
         proc.debug();
         proc.opt();
         module.compile(proc);
@@ -65,7 +78,9 @@ int main()
     printf("tcall\n");
     assert(module.getPointer<int(int,int)>(1)(7, 1) == 7);
     printf("fcall\n");
-    assert(module.getPointer<double(double,double)>(2)(5.5, 2) == 3.5);
+    assert(module.getPointer<float(float,float)>(2)(15.5f, 6.f) == 9.5f);
+    printf("dcall\n");
+    assert(module.getPointer<double(double,double)>(3)(5.5, 2) == 3.5);
 
     return 0;
 }
