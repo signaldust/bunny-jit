@@ -655,6 +655,7 @@ namespace bjit
             ops[i].opcode = opcode;
             ops[i].in[0] = noVal;
             ops[i].in[1] = noVal;
+            ops[i].scc = noSCC;
             ops[i].flags.type = type;
             ops[i].index = i;
             ops[i].block = block;

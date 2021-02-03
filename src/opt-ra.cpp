@@ -971,8 +971,8 @@ void Proc::findSCC()
 
     std::vector<bool>   sccUsed;
 
-    // reset all ops
-    for(auto & op : ops) if(op.hasOutput()) op.scc = noSCC;
+    // keep this as sanity check for now, we can remove it later
+    for(auto & op : ops) if(op.hasOutput()) assert(op.scc == noSCC);
     
     // livescan live
     for(auto bi : live)

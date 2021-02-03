@@ -22,6 +22,7 @@ void bjit::Proc::debugOp(uint16_t iop) const
     if(op.hasOutput())
     {
         if(op.flags.spill) printf("=[%04x]= ", op.scc);
+        else if(op.scc == noSCC) printf("  ----   ");
         else printf(" (%04x)  ", op.scc);
         //else printf("        ");
     }
@@ -86,7 +87,10 @@ void bjit::Proc::debugOp(uint16_t iop) const
     {
         for(auto & a : blocks[op.block].args[op.phiIndex].alts)
         {
-            printf(" L%d:[%04x]:%04x", a.src, ops[a.val].scc, a.val);
+            if(ops[a.val].scc != noSCC)
+                printf(" L%d:[%04x]:%04x", a.src, ops[a.val].scc, a.val);
+            else 
+                printf(" L%d:[----]:%04x", a.src, a.val);
         }
     }
 
@@ -121,8 +125,10 @@ void bjit::Proc::debug() const
             for(int i = 0; i < blocks[b].livein.size(); ++i)
             {
                 if(!(0x7&(i))) printf("\n; Live: ");
-                printf(" [%04x]:%04x",
-                    ops[blocks[b].livein[i]].scc, blocks[b].livein[i]);
+                if(ops[blocks[b].livein[i]].scc != noSCC)
+                    printf(" [%04x]:%04x",
+                        ops[blocks[b].livein[i]].scc, blocks[b].livein[i]);
+                else printf(" [----]:%04x",blocks[b].livein[i]);
             }
             //if(0)
             if(raDone)
