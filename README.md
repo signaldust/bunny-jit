@@ -74,11 +74,15 @@ and/or `BJIT_BINDIR` are defined, these will be used instead of `build/` and `bi
 There is also `make test` that will build everything and then run `run-tests.sh`
 to do some basic sanity checking (very limited for now).
 
-Any source files in `src/` are linked to `build/bjit.a` and each `tests/<name>.cpp`
-is compiled into a separate `bin/<name>` for testing purposes. After building
-you can use `bin/bjit` to test the library with the interactive front-end parser,
-but note that this doesn't actually run the code, it just compiles it into `out.bin`.
-If you add files, there's no need to touch the `Makefile` as it's all magic.
+Any source files in `src/` are compiled and collected to `build/bjit.a` and each
+`tests/<name>.cpp` is compiled into a separate `bin/<name>` for testing purposes.
+Any source files in `front/` are compiled into `bin/bjit` which you can use after
+building to test the library with the interactive front-end parser, but note that
+this doesn't actually run the code (yet), it just compiles it into `out.bin`.
+
+There should be no need to touch the `Makefile` at all just to add additional files
+unless you also need a new build-target (other than for a new test in `tests/` as
+those get their build-targets automatically).
 
 Should you somehow run into issues with automatic dependencies, type `make clean`
 to start fresh. Should not happen, but just in case. I hereby place the `Makefile`
