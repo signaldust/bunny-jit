@@ -347,8 +347,8 @@ as procedures in terms of indexes and can be called with near calls.
 
 ### Patching calls
 
-You can also change stub targets later by calling `Module::patchStub()` with the
-index of a previously compiled stub and a new target address. The stub target will
+You can also change far call stub targets later by calling `Module::patchStub()` with
+the index of a previously compiled stub and a new target address. The stub target will
 be updated (in executable code) next time either `Module::patch()` or `Module::load()`
 is called. Note that "bad things will happen"(tm) if you try to patch a procedure
 that is not actually a stub (we don't check this in any way).
