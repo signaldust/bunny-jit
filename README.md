@@ -35,14 +35,11 @@ on the fly (eg. for performance reasons), but including something like LLVM woul
 be a total overkill. Why add a gigabyte of dependencies, if you can get most of the
 high-value stuff with less than 10k lines of sparse C++?
 
-It is intended for situations where combinatorial explosion
-makes template expansion of all possible alternatives at compile time infeasible
-(or impossible, if the possible domain is infinite), yet one would like to avoid
-interpretive overhead. Because we're trying to gain performance, we're willing to
-spend some time on optimization, but because we're still aiming at interactive uses
-we try not to go crazy with funky heuristics. Instead we aim to find a set of
-simple and general optimizations that will always lead to a fixed-point. This rules
-out optimizations such as loop-unrolling where profitability is not clear.
+It is primarily intended for generating run-time specialized code, especially where
+this can give significant performance advantages, so we spend some time on optimization,
+but because we're still aiming at interactive uses we try not to go crazy heuristics.
+Instead we aim to find a set of general optimizations that always lead to a fixed-point.
+This rules out optimizations such as loop-unrolling where profitability is not clear.
 
 It can also be used as a backend for custom languages. It might not be great for
 dynamic languages that rely heavily on memory optimizations (we don't optimize loads
@@ -68,7 +65,10 @@ Bunnies are small and cute and will take over the world in the near future.
 
 ## How to build?
 
-On Unix-like system with `clang` installed, simply run `make` (or `make -j`).
+On Unix-like system with `clang` (and `libtool`) installed,
+simply run `make` (or `make -j`).
+
+Ideally that's all, rest of this chapter is mostly just detail.
 
 We override `clang` for `CC` but if `BJIT_USE_CC` is defined, then this is used;
 use this if you don't want to use `clang` for some weird reason. If `BJIT_BUILDDIR`
@@ -143,6 +143,15 @@ Put them into [`env`](#env) instead.
 To generate instructions, you can then call the instruction methods on `Proc`
 which are described [below](#instruction-set). Note that the last instruction
 of every block must be either a jump (conditional or unconditional) or a return.
+Any instructions are placed into the last emitted label or the entry-block if
+no labels have been emitted yet.
+
+To generate new labels call `Proc::newLabel()` and to start emitting code to a
+previous created label call `Proc:emitLabel()` (see [env](#env) below). Any labels
+must always be created (but not necessarily emitted) before emitting jumps to them.
+Any given label can only be emitted once (ie. calling `emitLabel()` makes the
+contents of the previous block final; this is done as sanity checking only,
+so let me know if you can demonstrate a use-case where this should be relaxed).
 
 Most instructions take their parameters as SSA values. The exceptions are
 `lci`/`lcf`/`lcd` which take immediate constants and jump-labels which must be
@@ -189,6 +198,16 @@ certainly be more intelligent and only keep stuff in `env` when `phi`s are
 potentially required, but this is not a requirement: the very first pass of
 DCE will get rid of any excess `phi`s just fine.
 
+To clarify `env` is *only* used by the compiler when:
+
+ - at entry to new procedure to return arguments
+ - when `newLabel()` is called: the types are copied
+ - when `emitLabel()` is called: phis are generated for the stored types
+ - when a jump to a label is emitted: `env` is added to target `phi` alternatives
+ - when a [call](#alling-functions) is emitted: the arguments are taken from `env`
+
+### Instruction set?
+
 Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
 in undefined behaviour (ie. invalid code or `assert`). The compiler should never
@@ -210,8 +229,6 @@ Instructions starting `i` are for integers, `u` are unsigned variants when
 there is a distinction, `f` is single-precision float and `d` is double-precision
 float. Note that floating-point comparisons return integers, even though they expect
 `_f32` or `_f64` parameters.
-
-### Instruction set?
 
 The compiler currently exposes the following instructions:
 
