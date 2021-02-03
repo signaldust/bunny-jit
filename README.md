@@ -140,11 +140,10 @@ Note that we don't have an LLVM-like *mem2reg* optimization, so you should not p
 variables in memory unless you need to index an array or pass a pointer somewhere.
 Put them into [`env`](#env) instead.
 
-To generate instructions, you can then call the instruction methods on `Proc`
-which are described [below](#instruction-set). Note that the last instruction
-of every block must be either a jump (conditional or unconditional) or a return.
-Any instructions are placed into the last emitted label or the entry-block if
-no labels have been emitted yet.
+To generate instructions, you can then call [instruction methods](#instruction-set)
+on `Proc`. The last instruction of every block must be either a jump (conditional
+or unconditional), a return instruction or a tail-call. Any instructions are placed
+into the last emitted label or the entry-block if no labels have been emitted yet.
 
 To generate new labels call `Proc::newLabel()` and to start emitting code to a
 previous created label call `Proc:emitLabel()` (see [env](#env) below). Any labels
