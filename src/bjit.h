@@ -855,12 +855,12 @@ namespace bjit
         // patch a stub with new address
         // you will also need to either patch() or unload()+load()
         // the module for the changes to becomes active
-        void patchStubFar(unsigned index, uintptr_t address)
+        void patchStub(unsigned index, uintptr_t address)
         {
-            arch_patchStubFar(bytes.data(), offsets[index], address);
+            arch_patchStub(bytes.data(), offsets[index], address);
             
             // store this for patch() to also patch live
-            if(exec_mem) patchesStubFar.emplace_back(PStubFar{index, address});
+            if(exec_mem) stubPatches.emplace_back(PatchStub{index, address});
         }
 
         // returns Proc index
@@ -887,19 +887,19 @@ namespace bjit
             int index = offsets.size();
             offsets.push_back(bytes.size());
 
-            arch_compileStubFar(address);
+            arch_compileStub(address);
             return index;
         }
 
         const std::vector<uint8_t> & getBytes() const { return bytes; }
         
     private:
-        struct PStubFar
+        struct PatchStub
         {
             unsigned    symbolIndex;
             uintptr_t   newAddress;
         };
-        std::vector<PStubFar>   patchesStubFar;
+        std::vector<PatchStub>  stubPatches;
         std::vector<NearReloc>  relocs;
         
         std::vector<uint32_t>   offsets;
@@ -911,9 +911,9 @@ namespace bjit
         unsigned    mmapSize = 0;
 
         // in arch-XX-emit.cpp
-        void arch_compileStubFar(uintptr_t address);
+        void arch_compileStub(uintptr_t address);
 
-        void arch_patchStubFar(void * ptr, unsigned offset, uintptr_t address);
+        void arch_patchStub(void * ptr, unsigned offset, uintptr_t address);
 
     };
 

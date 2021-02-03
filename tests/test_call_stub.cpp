@@ -24,7 +24,7 @@ int main()
     bjit::Module    module;
 
     // proc 0, stub
-    module.compileStubFar(0);
+    module.compileStub(0);
 
     // proc 1, near-call stub
     {
@@ -45,14 +45,14 @@ int main()
         printf(" - Wrote out.bin\n");
     }
 
-    module.patchStubFar(0, (uintptr_t)&hello);
+    module.patchStub(0, (uintptr_t)&hello);
     module.patch();
     
     assert(module.getPointer<int()>(1)() == 42);
 
     module.unload();
     
-    module.patchStubFar(0, (uintptr_t)&helloAgain);
+    module.patchStub(0, (uintptr_t)&helloAgain);
     module.load();
     assert(module.getPointer<int()>(1)() == 45);
 

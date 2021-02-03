@@ -120,11 +120,11 @@ bool Module::patch()
     loadSize = bytes.size();
 
     // do all pending stub-patches
-    for(auto & p : patchesStubFar)
+    for(auto & p : stubPatches)
     {
-        arch_patchStubFar(exec_mem, offsets[p.symbolIndex], p.newAddress);
+        arch_patchStub(exec_mem, offsets[p.symbolIndex], p.newAddress);
     }
-    patchesStubFar.clear();
+    stubPatches.clear();
 
 #ifdef BJIT_USE_MMAP
     // return zero on success
@@ -152,8 +152,8 @@ uintptr_t Module::unload()
 
     uintptr_t ret = (uintptr_t) exec_mem;
 
-    // clear stale patches
-    patchesStubFar.clear();
+    // patches are not useful after unload
+    stubPatches.clear();
     
     exec_mem = 0;
     mmapSize = 0;
