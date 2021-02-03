@@ -201,20 +201,20 @@ into `env`). Note that you can adjust the size of `env` as you please as long
 as constraints match for jump-sites, but keep in mind that `emitLabel()` will
 resize `env` back to what it was at the time of `newLabel()`.
 
-I should emphasis that you don't necessarily need to put everything into `env`
+I should emphasize that you don't necessarily need to put everything into `env`
 if your front-end already knows that it doesn't need any `phi`s because it's
 never assigned to (locally or globally). If you understand SSA, then you can
 certainly be more intelligent and only keep stuff in `env` when `phi`s are
 potentially required, but this is not a requirement: the very first pass of
 DCE will get rid of any excess `phi`s just fine.
 
-To clarify `env` is *only* used by the compiler when:
+To clarify `env` is *only* used by the compiler:
 
- - at entry to new procedure to return arguments
+ - at entry to new procedure it receives the arguments
  - when `newLabel()` is called: the types are copied
  - when `emitLabel()` is called: phis are generated for the stored types
  - when a jump to a label is emitted: `env` is added to target `phi` alternatives
- - when a [call](#alling-functions) is emitted: the arguments are taken from `env`
+ - when a [call](#calling-functions) is emitted: the arguments are taken from `env`
 
 ### Instruction set?
 
