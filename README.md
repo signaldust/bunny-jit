@@ -716,7 +716,8 @@ when they are only needed after the loop exits.
 
 This is really all we currently do, but because we only worry about graph
 theory rather than variables, we get a fairly powerful set of optimisations
-essentially for free (well, some CPU is spent, but this isn't a stage0 JIT).
+essentially for free (well, some CPU is spent, but this isn't a stage0 JIT
+and you can skip optimization if you prefer low quality code compiled faster).
 The only tricky part of the code-motion is to make sure it finds a fixed-point.
 
 On the other hand Bunny-JIT does not perform any sort of aliasing analysis
