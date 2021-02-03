@@ -11,37 +11,31 @@ int main()
     {
         bjit::Proc      proc(0, "i");
         proc.iret(proc.u8(proc.env[0]));
-        proc.opt();
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "i");
         proc.iret(proc.u16(proc.env[0]));
-        proc.opt();
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "i");
         proc.iret(proc.u32(proc.env[0]));
-        proc.opt();
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "i");
         proc.iret(proc.i8(proc.env[0]));
-        proc.opt();
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "i");
         proc.iret(proc.i16(proc.env[0]));
-        proc.opt();
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "i");
         proc.iret(proc.i32(proc.env[0]));
-        proc.opt();
         module.compile(proc);
     }
 

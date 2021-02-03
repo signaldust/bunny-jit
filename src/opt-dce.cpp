@@ -3,7 +3,7 @@
 
 using namespace bjit;
 
-void Proc::opt_dce()
+void Proc::opt_dce(bool unsafe)
 {
     auto hadLiveSize = live.size();
     bool progress = true;
@@ -247,7 +247,10 @@ void Proc::opt_dce()
                 
                 auto & op = ops[b.code[i]];
                 if(op.opcode == ops::nop) continue;
-                if(op.hasSideFX() || op.nUse) continue;
+                
+                // NOTE: nUse aliases on labels, check other stuff first
+                if((op.hasSideFX() && (!unsafe || !op.canCSE()))
+                || op.nUse) continue;
 
                 switch(op.nInputs())
                 {
@@ -373,7 +376,7 @@ void Proc::findUsesBlock(int b, bool inOnly)
 
 void Proc::livescan()
 {
-    opt_dce();
+    opt_dce(false);
     assert(live.size());   // at least one DCE required
     
     for(auto & op : ops)

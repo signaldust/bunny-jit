@@ -3,7 +3,7 @@
 
 using namespace bjit;
 
-bool Proc::opt_sink()
+bool Proc::opt_sink(bool unsafe)
 {
     livescan(); // need live-in information
 
@@ -54,7 +54,8 @@ bool Proc::opt_sink()
 
             // is this something we're allowed to move?
             // does it have local uses?
-            if(!op.canCSE() || op.nUse) continue;
+            if(!op.canCSE() || op.nUse
+            || (!unsafe && op.hasSideFX())) continue;
 
             // it must be live-out in at least one block
             bool live0 = false, live1 = false;

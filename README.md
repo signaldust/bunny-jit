@@ -163,14 +163,14 @@ the block-indexes returned by `Proc::newLabel()`. For instructions
 with output values, the methods return the new SSA values and other
 instructions return `void`.
 
-When you're done you should typicall call `Proc::opt()` to optimize. This is
-optional, but you will typically get very poor code if you skip this as by default
-the compiler only does simple DCE and register allocation.
-
 Next you can either call `Proc::compile()` to obtain native code, or you can
 create a `bjit::Module` and pass the `Proc` to `Module::compile()` which will
-return an index. Multiple procedures can be compiled into the same module.
-See [below](#calling-functions) on how they can call each other. `Module::load()` 
+return an index. Either of these can take an "optimization level" (default: `1`)
+that can be `0` for DCE-only, `1` for "safe" or `2` to allow "unsafe" optimizations
+(eg. "fast-math" floating-point, ignore possibility of divide-by-zero, etc).
+
+Multiple procedures can be compiled into the same module.
+See [below](#calling-functions) on how procedures can call each other. `Module::load()` 
 will load the module into executable memory and `Module::unload()` will unload it.
 A module can be loaded and unloaded multiple times and additional procedures
 added whenever the module is unloaded. *(NOTE: Module loading is untested on Windows.)*.
@@ -259,11 +259,13 @@ double-float version of the same (still produce integer `0` or `1`).
 `iadd a b`, `isub a b` and `imul a b` perform (signed or unsigned) integer
 addition, subtraction and multiplication, while `ineg a` negates an integer
 
-`idiv a b` and `imod a b` perform signed division and modulo, divide-by-zero
-might be *undefined behaviour* in the future (undecided, would allow CSE on divisions)
+`idiv a b` and `imod a b` perform signed division and modulo, note that
+divide-by-zero is *undefined behaviour* for `levelOpt=2` (ie. hardware
+exceptions might not happen where expected)
 
-`udiv a b` and `umod a b` perform unsigned division and modulo, divide-by-zero
-might be *undefined behaviour* in the future (undecided, would allow CSE on divisions)
+`udiv a b` and `umod a b` perform unsigned division and modulo, note that
+divide-by-zero is *undefined behaviour* for `levelOpt=2` (ie. hardware
+exceptions might not happen where expected)
 
 `inot a`, `iand a b`, `ior a b` and `ixor a b` perform bitwise logical operations
 

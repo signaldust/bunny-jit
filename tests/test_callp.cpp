@@ -33,7 +33,6 @@ int main()
         proc.env[0] = proc.iadd(proc.env[0], proc.lci(1));
         proc.iret(proc.icallp(proc.lci(uintptr_t(isub2)), 2));
         proc.debug();
-        proc.opt();
         module.compile(proc);
     }
     {
@@ -41,21 +40,18 @@ int main()
         proc.env[0] = proc.iadd(proc.env[0], proc.lci(1));
         proc.tcallp(proc.lci(uintptr_t(isub2)), 2);
         proc.debug();
-        proc.opt();
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "ff");
         proc.fret(proc.fcallp(proc.lci(uintptr_t(fsub2)), 2));
         proc.debug();
-        proc.opt();
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "dd");
         proc.dret(proc.dcallp(proc.lci(uintptr_t(dsub2)), 2));
         proc.debug();
-        proc.opt();
         module.compile(proc);
     }
 

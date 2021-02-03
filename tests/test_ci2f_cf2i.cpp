@@ -10,7 +10,6 @@ int main()
         bjit::Proc      proc(0, "if");
         proc.iret(proc.cf2i(proc.fadd(proc.ci2f(proc.env[0]), proc.env[1])));
         
-        proc.opt();
         module.compile(proc);
     }
 
@@ -19,7 +18,6 @@ int main()
         bjit::Proc      proc(0, "id");
         proc.iret(proc.cd2i(proc.dadd(proc.ci2d(proc.env[0]), proc.env[1])));
         
-        proc.opt();
         module.compile(proc);
     }
 

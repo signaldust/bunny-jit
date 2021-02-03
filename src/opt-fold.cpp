@@ -81,7 +81,7 @@ struct OpCSE
 We try to avoid any folding here that isn't guaranteed to be profitable.
 
 */
-bool Proc::opt_fold()
+bool Proc::opt_fold(bool unsafe)
 {
     //debug();
 
@@ -1284,7 +1284,7 @@ bool Proc::opt_fold()
                 }
                 
                 // CSE: do this after simplification
-                if(op.canCSE())
+                if(op.canCSE() && (unsafe || !op.hasSideFX()))
                 {
                     auto * ptr = cseTable.find(op);
 

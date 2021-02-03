@@ -13,21 +13,18 @@ int main()
     {
         bjit::Proc      proc(0, "ii");
         proc.iret(proc.isub(proc.env[0], proc.env[1]));
-        proc.opt();
         module.compile(proc);
     }
     // proc 1, icalln
     {
         bjit::Proc      proc(0, "ii");
         proc.iret(proc.icalln(2, 2));
-        proc.opt();
         module.compile(proc);
     }
     // proc 2: tcalln
     {
         bjit::Proc      proc(0, "ii");
         proc.tcalln(0, 2);
-        proc.opt();
         module.compile(proc);
     }
     

@@ -254,21 +254,18 @@ namespace bjit
         void debugOp(uint16_t index) const;
         const char * regName(int r) const;
 
-        void opt()
+        // Compiles code into 'bytes' (does not truncate).
+        //
+        // Takes optimization level:
+        //  - 0: DCE only
+        //  - 1: "safe" optimizations only (default)
+        //  - 2: "unsafe" optimizations also (eg. fast-math, no div-by-zero)
+        //
+        // Consider using Module::compile() instead
+        void compile(std::vector<uint8_t> & bytes, unsigned levelOpt)
         {
-            // do DCE first, then fold
-            // repeat until neither does progress
-            // check sanity limit for better test-automation
-            int iterOpt = 0;
-            do
-            {
-                assert(++iterOpt < 0x100);
-                opt_dce();
-            } while(opt_fold() || opt_sink());
-        }
-
-        void compile(std::vector<uint8_t> & bytes)
-        {
+            if(levelOpt) opt(levelOpt > 1);
+            
             allocRegs();
             arch_emit(bytes);
         }
@@ -589,6 +586,19 @@ namespace bjit
 
         unsigned currentBlock;
 
+        void opt(bool unsafe = false)
+        {
+            // do DCE first, then fold
+            // repeat until neither does progress
+            // check sanity limit for better test-automation
+            int iterOpt = 0;
+            do
+            {
+                assert(++iterOpt < 0x100);
+                opt_dce(unsafe);
+            } while(opt_fold(unsafe) || opt_sink(unsafe));
+        }
+
         // used to break critical edges, returns the new block
         // tries to fix most info, but not necessarily all
         uint16_t breakEdge(uint16_t from, uint16_t to)
@@ -753,13 +763,13 @@ namespace bjit
         void findSCC();     // resolve stack congruence classes
 
         // opt-fold.cpp
-        bool opt_fold();
+        bool opt_fold(bool unsafe);
 
         // opt-sink.cpp
-        bool opt_sink();
+        bool opt_sink(bool unsafe);
 
         // opt-dce.cpp
-        void opt_dce();
+        void opt_dce(bool unsafe = false);
 
         // opt-dom.cpp - used by opt-dce()
         void opt_dom();
@@ -799,19 +809,22 @@ namespace bjit
         template <typename T>
         T * getPointer(int index)
         {
+            assert(exec_mem);
+            
             void    *vptr = offsets[index] + (uint8_t*)exec_mem;
             return reinterpret_cast<T*&>(vptr);
         }
 
         // returns Proc index
-        int compile(Proc & proc)
+        // levelOpt: 0:DCE, 1:all-safe, 2:all, see Proc::compile
+        int compile(Proc & proc, unsigned levelOpt = 1)
         {
             assert(!exec_mem);
             
             int index = offsets.size();
             offsets.push_back(bytes.size());
             
-            proc.compile(bytes);
+            proc.compile(bytes, levelOpt);
 
             auto & procReloc = proc.getReloc();
             relocs.insert(relocs.end(), procReloc.begin(), procReloc.end());
