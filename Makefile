@@ -36,8 +36,13 @@ LINKFLAGS := $(LIBRARY) -lc++
 # Automatically figure out source files
 LIB_SOURCES := $(wildcard src/*.cpp)
 
-OBJECTS := $(patsubst %,$(BJIT_BUILDDIR)/%.o,$(LIB_SOURCES))
-DEPENDS := $(OBJECTS:.o=.d)
+LIB_OBJECTS := $(patsubst %,$(BJIT_BUILDDIR)/%.o,$(LIB_SOURCES))
+DEPENDS := $(LIB_OBJECTS:.o=.d)
+
+# Front-end
+FRONTEND := $(BJIT_BINDIR)/$(TARGET)$(BINEXT)
+FRONT_OBJECTS := $(patsubst %,$(BJIT_BUILDDIR)/%.o,$(wildcard front/*.cpp))
+DEPENDS += $(FRONT_OBJECTS:.o=.d)
 
 # automatic target generation for any .cpp files in tests/
 define TestTarget
@@ -54,7 +59,7 @@ TESTS := $(patsubst tests/%.cpp,$(BJIT_BINDIR)/%$(BINEXT),$(TESTS_CPP))
 
 .PHONY: all test clean
 
-all: $(LIBRARY) $(TESTS)
+all: $(LIBRARY) $(FRONTEND) $(TESTS)
 	@echo DONE
 
 test: all
@@ -68,10 +73,15 @@ clean:
 
 $(foreach i,$(TESTS_CPP),$(eval $(call TestTarget,$(i))))
 
-$(LIBRARY): $(OBJECTS)
+$(FRONTEND): $(FRONT_OBJECTS)
+	@echo LINK $@
+	@$(MAKEDIR) "$(BJIT_BINDIR)"
+	@$(LINKBIN) -o $@ $(FRONT_OBJECTS) $(LINKFLAGS)
+
+$(LIBRARY): $(LIB_OBJECTS)
 	@echo LIB $@
 	@$(MAKEDIR) "$(dir $@)"
-	@$(LINKLIB) -o $@ $(OBJECTS)
+	@$(LINKLIB) -o $@ $(LIB_OBJECTS)
 
 $(BJIT_BUILDDIR)/%.c.o: %.c
 	@echo CC $<
