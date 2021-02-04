@@ -273,7 +273,7 @@ namespace bjit
                 }
             }
 
-            fprintf(stderr, "hashtable warning: probe failed\n");
+            fprintf(stderr, "bjit::HashTable warning: probe failed\n");
 
             // if we are here then something is wrong with
             // our probing function.. but resize to play safe

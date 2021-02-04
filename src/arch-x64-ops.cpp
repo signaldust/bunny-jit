@@ -11,7 +11,7 @@ RegMask Op::regsMask()
         case _f32: return regs::mask_float;
         case _f64: return regs::mask_float;
 
-        default: printf("%s\n", strOpcode()); BJIT_ASSERT(false);
+        default: BJIT_LOG("%s\n", strOpcode()); BJIT_ASSERT(false);
     }
 }
 

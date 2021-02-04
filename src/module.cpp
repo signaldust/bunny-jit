@@ -42,7 +42,7 @@ uintptr_t Module::load(unsigned mmapSizeMin)
         MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if(!exec_mem)
     {
-        fprintf(stderr, "warning: mmap failed in bjit::Module::load()\n");
+        BJIT_LOG("error: mmap failed in bjit::Module::load()\n");
         return 0;
     }
 #endif
@@ -50,7 +50,7 @@ uintptr_t Module::load(unsigned mmapSizeMin)
     exec_mem = VirtualAlloc(0, mmapSize, MEM_COMMIT, PAGE_READWRITE);
     if(!exec_mem)
     {
-        fprintf(stderr, "warning: VirtualAlloc failed in bjit::Module::load()\n");
+        BJIT_LOG("error: VirtualAlloc failed in bjit::Module::load()\n");
         return 0;
     }
 #endif
@@ -67,7 +67,7 @@ uintptr_t Module::load(unsigned mmapSizeMin)
     // return zero on success
     if(mprotect(exec_mem, mmapSize, PROT_READ | PROT_EXEC))
     {
-        fprintf(stderr, "warning: mprotect failed in bjit::Module::load()\n");
+        BJIT_LOG("error: mprotect failed in bjit::Module::load()\n");
         // if we can't set executable, then try to unload
         unload();
         return 0;
@@ -79,7 +79,7 @@ uintptr_t Module::load(unsigned mmapSizeMin)
     DWORD   oldFlags = 0;
     if(!VirtualProtect(exec_mem, mmapSize, PAGE_EXECUTE_READ, &oldFlags))
     {
-        fprintf(stderr, "warning: mprotect failed in bjit::Module::load()\n");
+        BJIT_LOG("error: mprotect failed in bjit::Module::load()\n");
         // if we can't set executable, then try to unload
         unload();
         return 0;

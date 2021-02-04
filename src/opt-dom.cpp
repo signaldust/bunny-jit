@@ -187,5 +187,5 @@ void Proc::opt_dom()
         }
     }
 
-    printf(" Dom:%d", domIters);
+    BJIT_LOG(" Dom:%d", domIters);
 };
