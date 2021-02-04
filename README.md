@@ -28,11 +28,10 @@ fully W^X compliant), but we support generic `mmap`/`mprotect` (eg. Linux, macOS
 and Windows (latter untested, should work, let me know if you try it before me).</i>
 
 <sup>2</sup><i>
-I find it slightly challenging to relate exactly to traditional compiler
-optimisations that insist talking about variables and such things. We don't have
-variables to optimize, we simplify a value graph. We don't really have loops either,
-just control-flow edges. But this is more or less what we end up with currently.
-See [below](#optimizations).</i>
+We sort of don't do these things specifically, because we really just perform DCE,
+CSE, some generic hoisting/sinking and constant folding, but because of how we do
+all these globally relying on SSA invariants, this is more or less what we end up
+with currently. See [below](#optimizations).</i>
 
 
 Bunny-JIT comes with some sort of simple front-end language, but this is intended
