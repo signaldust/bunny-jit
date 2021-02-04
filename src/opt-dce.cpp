@@ -289,7 +289,7 @@ void Proc::opt_dce(bool unsafe)
         }
     }
     
-    printf(" DCE:%d", iters);
+    printf("\n DCE:%d", iters);
     
     // if we made no progress, then don't bother rebuild other info
     if(live.size() == hadLiveSize && iters == 1) { return; }

@@ -21,6 +21,8 @@ bool Proc::opt_cse(bool unsafe)
     Rename rename;
     bool progress = false;
 
+    printf(" CSE");
+
     // pairs, packed into uint32_t for cheap sort
     assert(sizeof(uint32_t) == 2*sizeof(noVal));
     std::vector<uint32_t>   pairs;

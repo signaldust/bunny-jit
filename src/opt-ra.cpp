@@ -15,7 +15,7 @@ void Proc::allocRegs()
     findSCC();
     livescan();
 
-    printf(" RA:BB\n");
+    printf(" RA:BB");
 
     std::vector<uint16_t>   codeOut;
 
@@ -967,7 +967,7 @@ void Proc::findSCC()
     livescan(); // need live-in registers
 
     assert(!raDone);
-    printf(" RA:SCC\n");
+    printf(" RA:SCC");
 
     std::vector<bool>   sccUsed;
 
