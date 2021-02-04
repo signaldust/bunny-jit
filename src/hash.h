@@ -196,7 +196,7 @@ namespace bjit
             Slot() : hash(slotFree) {}
         };
 
-        unsigned    nUsed;  // for resize control
+        unsigned    nUsed   = 0;  // for resize control
 
         // use std::vector for memory management
         std::vector<Slot>   slots;
