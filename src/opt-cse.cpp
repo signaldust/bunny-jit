@@ -123,6 +123,9 @@ bool Proc::opt_cse(bool unsafe)
         }
     }
 
+    // found no pairs, we're done
+    if(!pairs.size()) return false;
+
     // sort collected pairs
     std::make_heap(pairs.begin(), pairs.end());
     std::sort_heap(pairs.begin(), pairs.end());
@@ -289,6 +292,9 @@ bool Proc::opt_cse(bool unsafe)
             progress = true;
         }
     }
+
+    // don't need renames if we found nothing
+    if(!progress) return false;
 
     // rename pass
     for(auto b : live)
