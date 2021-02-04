@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstdio>
 
+#include "hash.h"
 #include "ir-ops.h"
 
 #include "arch-x64.h"   // FIXME: check for arch
@@ -125,6 +126,63 @@ namespace bjit
 
     static const uint16_t   noVal = 0xffff;
     static const uint16_t   noSCC = 0xffff;
+
+    // This stores the data CSE needs in our hash table.
+    // Only used by CSE, but defined here so that we can
+    // allocate the hash table just once.
+    struct OpCSE
+    {
+        // not included in hash
+        uint16_t index = noVal;
+        uint16_t block = noVal;
+    
+        // rest is hashed
+        union
+        {
+            struct {
+                uint32_t imm32 = 0;
+                uint16_t in[2] = { noVal, noVal };
+            };
+    
+            // for lci/lcf
+            int64_t     i64;
+        };
+        uint16_t opcode = noVal;
+    
+        OpCSE() {}
+        OpCSE(Op const & op) { set(op); }
+    
+        void set(Op const & op)
+        {
+            index = op.index;
+            block = op.block;
+            opcode = op.opcode;
+            if(op.hasI64() || op.hasF64())
+            {
+                i64 = op.i64;
+            }
+            else
+            {
+                in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
+                in[1] = op.nInputs() >= 2 ? op.in[1] : noVal;
+                imm32 = op.hasImm32() ? op.imm32 : 0;
+            }
+        }
+    
+        // NOTE: we need temporary to force the "noVals"
+        bool isEqual(Op const & op) const
+        { OpCSE tmp(op); return isEqual(tmp); }
+    
+        // NOTE: we need temporary to force the "noVals"
+        static uint64_t getHash(Op const & op)
+        { OpCSE tmp(op); return getHash(tmp); }
+        
+        bool isEqual(OpCSE const & op) const
+        { return i64 == op.i64 && opcode == op.opcode; }
+    
+        static uint64_t getHash(OpCSE const & op)
+        { return hash64(op.i64 + op.opcode); }
+    };
 
     // Variable rename tracker
     struct Rename
@@ -575,8 +633,12 @@ namespace bjit
         
         bool    raDone = false;
         int     nSlots = 0;     // number of slots after raDone
+
+        int     liveOps = 0;    // collect count in DCE
         
         RegMask usedRegs = 0;   // for callee saved on prolog/epilog
+
+        HashTable<OpCSE>        cseTable;
         
         std::vector<uint16_t>   todo;   // this is used for block todos
         std::vector<uint16_t>   live;   // live blocks, used for stuff
@@ -596,7 +658,7 @@ namespace bjit
             {
                 assert(++iterOpt < 0x100);
                 opt_dce(unsafe);
-            } while(opt_fold(unsafe) || opt_sink(unsafe));
+            } while(opt_fold(unsafe) || opt_cse(unsafe) || opt_sink(unsafe));
         }
 
         // used to break critical edges, returns the new block
@@ -765,6 +827,9 @@ namespace bjit
 
         // opt-fold.cpp
         bool opt_fold(bool unsafe);
+
+        // opt-cse.cpp
+        bool opt_cse(bool unsafe);
 
         // opt-sink.cpp
         bool opt_sink(bool unsafe);
