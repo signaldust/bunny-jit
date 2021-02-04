@@ -1,10 +1,18 @@
 
 #pragma once
 
-#include <cassert>
 #include <cstdint>
 #include <vector>
 #include <cstdio>
+
+#ifdef BJIT_NO_ASSERT
+#  define BJIT_ASSERT(x)    do{}while(0)
+#endif
+
+#ifndef BJIT_ASSERT
+#  include <cassert>
+#  define BJIT_ASSERT(x)    assert(x)
+#endif
 
 #include "hash.h"
 #include "ir-ops.h"
@@ -299,7 +307,7 @@ namespace bjit
                 case 'i': env.push_back(iarg()); break;
                 case 'f': env.push_back(farg()); break;
                 case 'd': env.push_back(darg()); break;
-                default: assert(false);
+                default: BJIT_ASSERT(false);
                 }
             }
         }
@@ -334,7 +342,7 @@ namespace bjit
         unsigned newLabel()
         {
             unsigned label = blocks.size();
-            assert(label < noVal);
+            BJIT_ASSERT(label < noVal);
             
             blocks.resize(label + 1);
             
@@ -353,9 +361,9 @@ namespace bjit
 
         void emitLabel(unsigned label)
         {
-            assert(label < blocks.size());
+            BJIT_ASSERT(label < blocks.size());
             // use live-flag to enforce "emit once"
-            assert(!blocks[label].flags.live);
+            BJIT_ASSERT(!blocks[label].flags.live);
             blocks[label].flags.live = true;
             currentBlock = label;
 
@@ -403,13 +411,13 @@ namespace bjit
             unsigned i = addOp(ops::jmp, Op::_none); ops[i].label[0] = label;
 
             // add phi source
-            assert(label < blocks.size());
-            assert(env.size() == blocks[label].args.size());
+            BJIT_ASSERT(label < blocks.size());
+            BJIT_ASSERT(env.size() == blocks[label].args.size());
             
             auto & args = blocks[label].args;
             for(int a = 0; a < env.size(); ++a)
             {
-                assert(ops[args[a].phiop].flags.type == ops[env[a]].flags.type);
+                BJIT_ASSERT(ops[args[a].phiop].flags.type == ops[env[a]].flags.type);
                 args[a].add(env[a], currentBlock);
             }
         }
@@ -428,17 +436,17 @@ namespace bjit
             ops[i].label[1] = labelElse;
             
             // add phi source
-            assert(labelThen < blocks.size());
-            assert(labelElse < blocks.size());
-            assert(env.size() == blocks[labelThen].args.size());
-            assert(env.size() == blocks[labelElse].args.size());
+            BJIT_ASSERT(labelThen < blocks.size());
+            BJIT_ASSERT(labelElse < blocks.size());
+            BJIT_ASSERT(env.size() == blocks[labelThen].args.size());
+            BJIT_ASSERT(env.size() == blocks[labelElse].args.size());
             
             auto & aThen = blocks[labelThen].args;
             auto & aElse = blocks[labelElse].args;
             for(int a = 0; a < env.size(); ++a)
             {
-                assert(ops[aThen[a].phiop].flags.type == ops[env[a]].flags.type);
-                assert(ops[aElse[a].phiop].flags.type == ops[env[a]].flags.type);
+                BJIT_ASSERT(ops[aThen[a].phiop].flags.type == ops[env[a]].flags.type);
+                BJIT_ASSERT(ops[aElse[a].phiop].flags.type == ops[env[a]].flags.type);
                 aThen[a].add(env[a], currentBlock);
                 aElse[a].add(env[a], currentBlock);
             }
@@ -535,13 +543,13 @@ namespace bjit
 #define BJIT_OP1(x,t,t0) \
     unsigned x(unsigned v0) { \
         unsigned i = addOp(ops::x, Op::t); \
-        ops[i].in[0] = v0; assert(ops[v0].flags.type==Op::t0); return i; }
+        ops[i].in[0] = v0; BJIT_ASSERT(ops[v0].flags.type==Op::t0); return i; }
         
 #define BJIT_OP2(x,t,t0,t1) \
     unsigned x(unsigned v0, unsigned v1) { \
         unsigned i = addOp(ops::x, Op::t); \
-        ops[i].in[0] = v0; assert(ops[v0].flags.type==Op::t0); \
-        ops[i].in[1] = v1; assert(ops[v1].flags.type==Op::t1); return i; }
+        ops[i].in[0] = v0; BJIT_ASSERT(ops[v0].flags.type==Op::t0); \
+        ops[i].in[1] = v1; BJIT_ASSERT(ops[v1].flags.type==Op::t1); return i; }
 
         BJIT_OP2(ilt,_ptr,_ptr,_ptr); BJIT_OP2(ige,_ptr,_ptr,_ptr);
         BJIT_OP2(igt,_ptr,_ptr,_ptr); BJIT_OP2(ile,_ptr,_ptr,_ptr);
@@ -591,15 +599,15 @@ namespace bjit
 #define BJIT_LOAD(x, t) \
     unsigned x(unsigned v0, int32_t imm32) { \
         unsigned i = addOp(ops::x, Op::t); \
-        ops[i].in[0] = v0; assert(ops[v0].flags.type == Op::_ptr); \
+        ops[i].in[0] = v0; BJIT_ASSERT(ops[v0].flags.type == Op::_ptr); \
         ops[i].imm32 = imm32; return i; }
 
         // stores take pointer+offset and value to store
 #define BJIT_STORE(x, t) \
     unsigned x(unsigned ptr, int32_t imm32, unsigned val) { \
         unsigned i = addOp(ops::x, Op::_none); \
-        ops[i].in[0] = ptr; assert(ops[ptr].flags.type == Op::_ptr); \
-        ops[i].in[1] = val; assert(ops[val].flags.type == Op::t); \
+        ops[i].in[0] = ptr; BJIT_ASSERT(ops[ptr].flags.type == Op::_ptr); \
+        ops[i].in[1] = val; BJIT_ASSERT(ops[val].flags.type == Op::t); \
         ops[i].imm32 = imm32; return i; }
 
         BJIT_LOAD(li8, _ptr); BJIT_LOAD(li16, _ptr);
@@ -656,7 +664,7 @@ namespace bjit
             int iterOpt = 0;
             do
             {
-                assert(++iterOpt < 0x100);
+                BJIT_ASSERT(++iterOpt < 0x100);
                 opt_dce(unsafe);
             } while(opt_fold(unsafe) || opt_cse(unsafe) || opt_sink(unsafe));
         }
@@ -707,7 +715,7 @@ namespace bjit
         unsigned newOp(uint16_t opcode, Op::Type type, uint16_t block)
         {
 #if !defined(__cpp_exceptions) && !defined(_CPPUNWIND)
-            assert(ops.size() < noVal);
+            BJIT_ASSERT(ops.size() < noVal);
 #else
             if(ops.size() == noVal) throw too_many_ops();
 #endif
@@ -759,7 +767,7 @@ namespace bjit
             
             ops[i].indexTotal = nPassTotal++;
 
-            assert(ops[i].opcode != ops::nop);
+            BJIT_ASSERT(ops[i].opcode != ops::nop);
         }
 
         // integer and floating-point parameters to procedure
@@ -767,9 +775,9 @@ namespace bjit
         // FIXME: up to 4 until we have better calling convention support
         unsigned iarg()
         {
-            assert(nArgsTotal < 4);    // the most that will work on Windows
-            assert(!currentBlock); // must be block zero
-            assert(!blocks[0].code.size()
+            BJIT_ASSERT(nArgsTotal < 4);    // the most that will work on Windows
+            BJIT_ASSERT(!currentBlock); // must be block zero
+            BJIT_ASSERT(!blocks[0].code.size()
                 || ops[blocks[0].code.back()].opcode == ops::alloc
                 || ops[blocks[0].code.back()].opcode == ops::iarg
                 || ops[blocks[0].code.back()].opcode == ops::farg
@@ -783,9 +791,9 @@ namespace bjit
 
         unsigned farg()
         {
-            assert(nArgsTotal < 4);    // the most that will work on Windows
-            assert(!currentBlock); // must be block zero
-            assert(!blocks[0].code.size()
+            BJIT_ASSERT(nArgsTotal < 4);    // the most that will work on Windows
+            BJIT_ASSERT(!currentBlock); // must be block zero
+            BJIT_ASSERT(!blocks[0].code.size()
                 || ops[blocks[0].code.back()].opcode == ops::alloc
                 || ops[blocks[0].code.back()].opcode == ops::iarg
                 || ops[blocks[0].code.back()].opcode == ops::farg
@@ -799,9 +807,9 @@ namespace bjit
         
         unsigned darg()
         {
-            assert(nArgsTotal < 4);    // the most that will work on Windows
-            assert(!currentBlock); // must be block zero
-            assert(!blocks[0].code.size()
+            BJIT_ASSERT(nArgsTotal < 4);    // the most that will work on Windows
+            BJIT_ASSERT(!currentBlock); // must be block zero
+            BJIT_ASSERT(!blocks[0].code.size()
                 || ops[blocks[0].code.back()].opcode == ops::alloc
                 || ops[blocks[0].code.back()].opcode == ops::iarg
                 || ops[blocks[0].code.back()].opcode == ops::farg
@@ -894,7 +902,7 @@ namespace bjit
         // (and patch any pending return addresses in the stack yourself;
         // note that unload() and load() will give you the needed offsets)
         //
-        // currently patch() will assert() if a system error occurs when
+        // currently patch() will BJIT_ASSERT() if a system error occurs when
         // trying to change memory permissions (in either direction)
         //
         bool patch();
@@ -911,8 +919,8 @@ namespace bjit
         template <typename T>
         T * getPointer(unsigned index)
         {
-            assert(exec_mem);
-            assert(offsets[index] < loadSize);
+            BJIT_ASSERT(exec_mem);
+            BJIT_ASSERT(offsets[index] < loadSize);
             
             void    *vptr = offsets[index] + (uint8_t*)exec_mem;
             return reinterpret_cast<T*&>(vptr);

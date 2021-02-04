@@ -29,7 +29,7 @@ bool Proc::opt_fold(bool unsafe)
 {
     //debug();
 
-    assert(live.size());   // should have at least one DCE pass done
+    BJIT_ASSERT(live.size());   // should have at least one DCE pass done
 
     Rename rename;
 

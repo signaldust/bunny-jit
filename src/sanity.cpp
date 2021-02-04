@@ -12,7 +12,7 @@ using namespace bjit;
 // 
 void Proc::sanity()
 {
-    assert(live.size());    // must have one pass DCE
+    BJIT_ASSERT(live.size());    // must have one pass DCE
 
     livescan();
     opt_dce();  // do another round to get use counts?
@@ -27,8 +27,8 @@ void Proc::sanity()
             //debugOp(c);
 
             // sanity check that block/index are correct
-            assert(op.index == c);
-            assert(op.block == b);
+            BJIT_ASSERT(op.index == c);
+            BJIT_ASSERT(op.block == b);
 
             if(op.opcode == ops::phi)
             {
@@ -42,10 +42,10 @@ void Proc::sanity()
                         phiSourceInComeFrom = true;
                         break;
                     }
-                    assert(phiSourceInComeFrom);
+                    BJIT_ASSERT(phiSourceInComeFrom);
                     ++phiSourcesFound;
                 }
-                assert(phiSourcesFound == blocks[b].args[op.phiIndex].alts.size());
+                BJIT_ASSERT(phiSourcesFound == blocks[b].args[op.phiIndex].alts.size());
             }
             
             // sanity check that definitions dominate uses
@@ -62,7 +62,7 @@ void Proc::sanity()
                     }
                 }
                 
-                assert(inputDominates);
+                BJIT_ASSERT(inputDominates);
                 
                 bool liveIn = (ops[op.in[i]].block == b);
                 if(!liveIn)
@@ -72,7 +72,7 @@ void Proc::sanity()
                         if(in == op.in[i]) liveIn = true;
                     }
                 }
-                assert(liveIn);
+                BJIT_ASSERT(liveIn);
             }
         }
     }
