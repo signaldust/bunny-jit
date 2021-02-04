@@ -183,7 +183,7 @@ void Proc::allocRegs()
                 }
             }
 
-            assert(false);
+            BJIT_ASSERT(false);
         };
         
         
@@ -379,7 +379,7 @@ void Proc::allocRegs()
                     {
                         ops[in].flags.spill = true;
                         ops[rr].in[0] = in;
-                        assert(ops[op.in[i]].scc == ops[in].scc);
+                        BJIT_ASSERT(ops[op.in[i]].scc == ops[in].scc);
                         ops[rr].scc = ops[in].scc;
                     }
 
@@ -398,7 +398,7 @@ void Proc::allocRegs()
             // sanity check that we got the renames right
             for(int i = 0; i < op.nInputs(); ++i)
             {
-                assert(regstate[ops[op.in[i]].reg] == op.in[i]);
+                BJIT_ASSERT(regstate[ops[op.in[i]].reg] == op.in[i]);
             }
             
             // check to free once all inputs are done
@@ -544,7 +544,7 @@ void Proc::allocRegs()
                 mask &=~(1ull<<ops[op.in[1]].reg);
             
             op.reg = findBest(mask, prefer, c+1);
-            assert(op.reg < regs::nregs);
+            BJIT_ASSERT(op.reg < regs::nregs);
             regstate[op.reg] = op.index; // blocks[b].code[c];
             
         }
@@ -624,7 +624,7 @@ void Proc::allocRegs()
                         else
                         {
                             printf("PHI LOOP: Broken SCCs?\n");
-                            assert(false);
+                            BJIT_ASSERT(false);
                         }
                     }
                     
@@ -796,7 +796,7 @@ void Proc::allocRegs()
                     if(sregs[t] == tregs[t]) continue;
 
                     // at this point simple restore should work?
-                    //assert(sregs[t] == noVal);
+                    //BJIT_ASSERT(sregs[t] == noVal);
                     
                     if(ra_debug) printf("reload -> %s:%04x (%04x)\n",
                             regName(t), tregs[t], sregs[t]);
@@ -827,7 +827,7 @@ void Proc::allocRegs()
             memcpy(blocks[out].regsOut, sregs, sizeof(sregs));
         };
 
-        assert(b < blocks.size());
+        BJIT_ASSERT(b < blocks.size());
     
         // make a copy, since we'll be adding new ops
         const auto op = ops[blocks[b].code.back()];
@@ -948,7 +948,7 @@ void Proc::allocRegs()
     }
 
     std::vector<uint16_t>   slots(sccUsed.size(), 0xffff);
-    assert(!nSlots);
+    BJIT_ASSERT(!nSlots);
     for(int s = 0; s < slots.size(); ++s)
         if(sccUsed[s]) slots[s] = nSlots++;
 
@@ -966,13 +966,13 @@ void Proc::findSCC()
 {
     livescan(); // need live-in registers
 
-    assert(!raDone);
+    BJIT_ASSERT(!raDone);
     printf(" RA:SCC");
 
     std::vector<bool>   sccUsed;
 
     // keep this as sanity check for now, we can remove it later
-    for(auto & op : ops) if(op.hasOutput()) assert(op.scc == noSCC);
+    for(auto & op : ops) if(op.hasOutput()) BJIT_ASSERT(op.scc == noSCC);
     
     // livescan live
     for(auto bi : live)
@@ -990,9 +990,9 @@ void Proc::findSCC()
             // unless it's a loop-thru PHI which we fix below
             bool useAfterDefine = (ops[in].scc != noSCC
             || (ops[in].opcode == ops::phi && ops[in].block == bi));
-            assert(useAfterDefine);
+            BJIT_ASSERT(useAfterDefine);
             // this is just a sanity check
-            assert(ops[in].scc < sccUsed.size());
+            BJIT_ASSERT(ops[in].scc < sccUsed.size());
             sccUsed[ops[in].scc] = true;
 
             if(scc_debug) printf("Live in: %04x:[%04x]\n", in, ops[in].scc);
@@ -1036,7 +1036,7 @@ void Proc::findSCC()
                 // if this is last-use, free the SCC
                 if(!--ops[ops[c].in[i]].nUse)
                 {
-                    assert(ops[ops[c].in[i]].scc < sccUsed.size());
+                    BJIT_ASSERT(ops[ops[c].in[i]].scc < sccUsed.size());
                     sccUsed[ops[ops[c].in[i]].scc] = false;
                 }
             }
@@ -1044,7 +1044,7 @@ void Proc::findSCC()
             if(ops[c].hasOutput())
             {
                 // find a free SCC
-                assert(ops[c].scc == noSCC);
+                BJIT_ASSERT(ops[c].scc == noSCC);
                 
                 for(int i = 0; i < sccUsed.size(); ++i)
                 {
@@ -1094,7 +1094,7 @@ void Proc::findSCC()
     // third pass, add renames to invalid jmps
     for(auto b : live)
     {
-        assert(blocks[b].flags.live);
+        BJIT_ASSERT(blocks[b].flags.live);
         
         int nSCC = sccUsed.size();
         

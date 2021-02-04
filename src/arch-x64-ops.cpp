@@ -11,7 +11,7 @@ RegMask Op::regsMask()
         case _f32: return regs::mask_float;
         case _f64: return regs::mask_float;
 
-        default: printf("%s\n", strOpcode()); assert(false);
+        default: printf("%s\n", strOpcode()); BJIT_ASSERT(false);
     }
 }
 
@@ -45,7 +45,7 @@ RegMask Op::regsOut()
             case 2: return (1ull<<regs::r8);
             case 3: return (1ull<<regs::r9);
 
-            default: assert(false); // FIXME: RA can't handle
+            default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #else
             switch(indexType)   // SysV uses position by type
@@ -57,7 +57,7 @@ RegMask Op::regsOut()
             case 4: return (1ull<<regs::r8);
             case 5: return (1ull<<regs::r9);
 
-            default: assert(false); // FIXME: RA can't handle
+            default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #endif
         case ops::farg:
@@ -70,7 +70,7 @@ RegMask Op::regsOut()
             case 2: return (1ull<<regs::xmm2);
             case 3: return (1ull<<regs::xmm3);
 
-            default: assert(false); // FIXME: RA can't handle
+            default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #else
             switch(indexType)   // SysV uses position by type
@@ -84,7 +84,7 @@ RegMask Op::regsOut()
             case 6: return (1ull<<regs::xmm6);
             case 7: return (1ull<<regs::xmm7);
 
-            default: assert(false); // FIXME: RA can't handle
+            default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #endif
     }
@@ -166,7 +166,7 @@ RegMask Op::regsIn(int i)
             case 2: return (1ull<<regs::r8);
             case 3: return (1ull<<regs::r9);
 
-            default: assert(false); // FIXME: RA can't handle
+            default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #else
             switch(indexType)   // SysV uses position by type
@@ -178,7 +178,7 @@ RegMask Op::regsIn(int i)
             case 4: return (1ull<<regs::r8);
             case 5: return (1ull<<regs::r9);
 
-            default: assert(false); // FIXME: RA can't handle
+            default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #endif
         case ops::fpass:
@@ -191,7 +191,7 @@ RegMask Op::regsIn(int i)
             case 2: return (1ull<<regs::xmm2);
             case 3: return (1ull<<regs::xmm3);
 
-            default: assert(false); // FIXME: RA can't handle
+            default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #else
             switch(indexType)   // SysV uses position by type
@@ -205,7 +205,7 @@ RegMask Op::regsIn(int i)
             case 6: return (1ull<<regs::xmm6);
             case 7: return (1ull<<regs::xmm7);
 
-            default: assert(false); // FIXME: RA can't handle
+            default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #endif
 

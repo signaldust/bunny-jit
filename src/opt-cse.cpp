@@ -24,7 +24,7 @@ bool Proc::opt_cse(bool unsafe)
     printf(" CSE");
 
     // pairs, packed into uint32_t for cheap sort
-    assert(sizeof(uint32_t) == 2*sizeof(noVal));
+    BJIT_ASSERT(sizeof(uint32_t) == 2*sizeof(noVal));
     std::vector<uint32_t>   pairs;
 
     // clear hash
@@ -117,7 +117,7 @@ bool Proc::opt_cse(bool unsafe)
             else
             {
                 // we should never find this op in the table anymore
-                assert(ptr->index != op.index);
+                BJIT_ASSERT(ptr->index != op.index);
 
                 // add to pairs, original op goes to MSB
                 pairs.push_back(op.index + (uint32_t(ptr->index) << 16));
@@ -210,7 +210,7 @@ bool Proc::opt_cse(bool unsafe)
         else if(b0 == b1)
         {
             // same block case, figure out which one is earlier
-            assert(b0 == ccd);
+            BJIT_ASSERT(b0 == ccd);
 
             bool found = false;
             for(auto & c : blocks[ccd].code)
@@ -235,7 +235,7 @@ bool Proc::opt_cse(bool unsafe)
                     break;
                 }
             }
-            assert(found);
+            BJIT_ASSERT(found);
         }
         else if(ccd == b1)
         {

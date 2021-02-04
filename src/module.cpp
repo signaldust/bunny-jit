@@ -24,7 +24,7 @@ using namespace bjit;
 
 uintptr_t Module::load(unsigned mmapSizeMin)
 {
-    assert(!exec_mem);
+    BJIT_ASSERT(!exec_mem);
 
 #ifndef BJIT_CAN_LOAD
     return 0;
@@ -59,7 +59,7 @@ uintptr_t Module::load(unsigned mmapSizeMin)
     memcpy(exec_mem, bytes.data(), bytes.size());
     for(auto & r : relocs)
     {
-        assert(r.procIndex < offsets.size());
+        BJIT_ASSERT(r.procIndex < offsets.size());
         ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += offsets[r.procIndex];
     }
 
@@ -91,20 +91,20 @@ uintptr_t Module::load(unsigned mmapSizeMin)
 
 bool Module::patch()
 {
-    assert(exec_mem);
+    BJIT_ASSERT(exec_mem);
     
     // check if patching is going to work?
     if(mmapSize < bytes.size()) return false;
 
 #ifdef BJIT_USE_MMAP
     // return zero on success
-    assert(!mprotect(exec_mem, mmapSize, PROT_READ | PROT_WRITE));
+    BJIT_ASSERT(!mprotect(exec_mem, mmapSize, PROT_READ | PROT_WRITE));
 #endif
 #ifdef _WIN32
     // Note that VirtualProtect REQUIRES oldFlags to be a valid pointer!
     // returns non-zero on success
     DWORD   oldFlags = 0;
-    assert(VirtualProtect(exec_mem, mmapSize, PAGE_READWRITE, &oldFlags));
+    BJIT_ASSERT(VirtualProtect(exec_mem, mmapSize, PAGE_READWRITE, &oldFlags));
 #endif
 
     // copy and relocate, only new ones
@@ -114,7 +114,7 @@ bool Module::patch()
     {
         if(r.codeOffset < loadSize) continue;
         
-        assert(r.procIndex < offsets.size());
+        BJIT_ASSERT(r.procIndex < offsets.size());
         ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += offsets[r.procIndex];
     }
     loadSize = bytes.size();
@@ -146,12 +146,12 @@ bool Module::patch()
 
 #ifdef BJIT_USE_MMAP
     // return zero on success
-    assert(!mprotect(exec_mem, mmapSize, PROT_READ | PROT_EXEC));
+    BJIT_ASSERT(!mprotect(exec_mem, mmapSize, PROT_READ | PROT_EXEC));
 #endif
 #ifdef _WIN32
     // Note that VirtualProtect REQUIRES oldFlags to be a valid pointer!
     // returns non-zero on success
-    assert(VirtualProtect(exec_mem, mmapSize, PAGE_EXECUTE_READ, &oldFlags));
+    BJIT_ASSERT(VirtualProtect(exec_mem, mmapSize, PAGE_EXECUTE_READ, &oldFlags));
 #endif    
 
     return true;
@@ -159,7 +159,7 @@ bool Module::patch()
 
 uintptr_t Module::unload()
 {
-    assert(exec_mem);
+    BJIT_ASSERT(exec_mem);
 
 #ifdef BJIT_USE_MMAP
     munmap(exec_mem, mmapSize);

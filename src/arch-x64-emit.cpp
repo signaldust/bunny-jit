@@ -100,7 +100,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
     // this tracks additional stack offset
     // when we need to adjust stack during calls
-    assert(ops[0].opcode == ops::alloc);
+    BJIT_ASSERT(ops[0].opcode == ops::alloc);
     unsigned    frameOffset = ((ops[0].imm32+0xf)&~0xf);;
 
     // need 8 mod 16 - add slots, emit "prelude" if necessary
@@ -996,14 +996,14 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::phi: break;   // this is just NOP here
             
             case ops::reload:
-                assert(ops[i.in[0]].scc != noSCC);
+                BJIT_ASSERT(ops[i.in[0]].scc != noSCC);
                 if(i.flags.type == Op::_f64)
                     _load_f64(i.reg, regs::rsp, frameOffset + 8*ops[i.in[0]].scc);
                 else if(i.flags.type == Op::_f32)
                     _load_f32(i.reg, regs::rsp, frameOffset + 8*ops[i.in[0]].scc);
                 else if(i.flags.type == Op::_ptr)
                     _load_i64(i.reg, regs::rsp, frameOffset + 8*ops[i.in[0]].scc);
-                else assert(false);
+                else BJIT_ASSERT(false);
                 break;
 
             case ops::rename:
@@ -1016,17 +1016,17 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                     _MOVSSxx(i.reg, ops[i.in[0]].reg);
                 else if(i.flags.type == Op::_ptr)
                     _MOVrr(i.reg, ops[i.in[0]].reg);
-                else assert(false);
+                else BJIT_ASSERT(false);
                 break;
                 
-            default: assert(false);
+            default: BJIT_ASSERT(false);
         }
 
         // if marked for spill, store to stack
         if(i.flags.spill)
         {
-            assert(i.scc != noSCC);
-            // use the flagged type for spills, so that we'll assert
+            BJIT_ASSERT(i.scc != noSCC);
+            // use the flagged type for spills, so that we'll BJIT_ASSERT
             // if we forget to add stuff here if we add more types
             if(i.flags.type == Op::_f64)
                 _store_f64(i.reg, regs::rsp, frameOffset + 8*i.scc);
@@ -1034,7 +1034,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 _store_f32(i.reg, regs::rsp, frameOffset + 8*i.scc);
             else if(i.flags.type == Op::_ptr)
                 _store_i64(i.reg, regs::rsp, frameOffset + 8*i.scc);
-            else assert(false);
+            else BJIT_ASSERT(false);
         }
     };
 

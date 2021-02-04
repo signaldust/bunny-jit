@@ -47,8 +47,8 @@ void bjit::Proc::debugOp(uint16_t iop) const
     // this should now hold
     if(!op.hasI64() && !op.hasF64())
     {
-        if(op.nInputs() < 2) assert(op.in[1] == noVal);
-        if(op.nInputs() < 1) assert(op.in[0] == noVal);
+        if(op.nInputs() < 2) BJIT_ASSERT(op.in[1] == noVal);
+        if(op.nInputs() < 1) BJIT_ASSERT(op.in[0] == noVal);
     }
 
     // special-case reload to not print register
@@ -69,7 +69,7 @@ void bjit::Proc::debugOp(uint16_t iop) const
                 if(ops[op.in[1]].opcode == ops::nop) printf(" <BAD:1>");
                 break;
             case 0: break;
-            default: assert(false);
+            default: BJIT_ASSERT(false);
         }
     }
 

@@ -168,13 +168,13 @@ void Proc::opt_dce(bool unsafe)
                     for(auto & src : alts)
                     {
                         // if this happens, then CSE messed up
-                        assert(ops[src.val].opcode != ops::nop);
+                        BJIT_ASSERT(ops[src.val].opcode != ops::nop);
                         
                         while(ops[src.val].opcode == ops::phi
                         && blocks[ops[src.val].block]
                             .args[ops[src.val].phiIndex].alts.size() == 1)
                         {
-                            assert(src.val != i);
+                            BJIT_ASSERT(src.val != i);
                             src.val = blocks[ops[src.val].block]
                                 .args[ops[src.val].phiIndex].alts[0].val;
                         }
@@ -299,7 +299,7 @@ void Proc::opt_dce(bool unsafe)
     for(int b = live.size();b--;)
     {
         // if this fails, we're probably missing return
-        assert(blocks[live[b]].code.size());
+        BJIT_ASSERT(blocks[live[b]].code.size());
         auto & op = ops[blocks[live[b]].code.back()];
         if(op.opcode < ops::jmp)
         {
@@ -382,7 +382,7 @@ void Proc::findUsesBlock(int b, bool inOnly)
 void Proc::livescan()
 {
     opt_dce(false);
-    assert(live.size());   // at least one DCE required
+    BJIT_ASSERT(live.size());   // at least one DCE required
     
     for(auto & op : ops)
     {

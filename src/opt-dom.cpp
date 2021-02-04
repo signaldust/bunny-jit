@@ -126,7 +126,7 @@ void Proc::opt_dom()
         {
             // this is entry block
             if(!b) continue;
-            assert(blocks[b].comeFrom.size());
+            BJIT_ASSERT(blocks[b].comeFrom.size());
 
             tdom = live;
             for(auto & f : blocks[b].comeFrom)
