@@ -15,7 +15,7 @@ void Proc::allocRegs()
     findSCC();
     livescan();
 
-    printf(" RA:BB");
+    BJIT_LOG(" RA:BB");
 
     std::vector<uint16_t>   codeOut;
 
@@ -81,7 +81,7 @@ void Proc::allocRegs()
             }
         }
 
-        if(ra_debug) printf("L%d:\n", b);
+        if(ra_debug) BJIT_LOG("L%d:\n", b);
 
         uint16_t    regstate[regs::nregs];
         memcpy(regstate, blocks[b].regsIn, sizeof(regstate));
@@ -117,7 +117,7 @@ void Proc::allocRegs()
             // if preferred register is impossible, clear it
             if(reg != regs::nregs && !((1ull<<reg)&mask))
             {
-                //printf("incompatible: mask %012llx (reg: %012llx)\n",
+                //BJIT_LOG("incompatible: mask %012llx (reg: %012llx)\n",
                 //    mask, (1ull<<reg));
                 reg = regs::nregs;
             }
@@ -128,7 +128,7 @@ void Proc::allocRegs()
             {
                 if(((1ull<<r) & mask) && regstate[r] == noVal)
                 {
-                    if(ra_debug) printf("found free: %s\n", regName(r));
+                    if(ra_debug) BJIT_LOG("found free: %s\n", regName(r));
                     return r;
                 }
             }
@@ -139,7 +139,7 @@ void Proc::allocRegs()
                 unsigned r = 0, s = 64;
                 while(s >>= 1) if(mask & ~((1ull<<s)-1))
                     { r += s; mask >>= s; }
-                if(ra_debug) printf("one reg: %s\n", regName(r));
+                if(ra_debug) BJIT_LOG("one reg: %s\n", regName(r));
                 return r;
             }
             
@@ -151,7 +151,7 @@ void Proc::allocRegs()
                     if(op.in[j] != regstate[ops[op.in[j]].reg]) continue;
 
                     if(ra_debug)
-                    printf("op uses reg: %s\n", regName(ops[op.in[j]].reg));
+                    BJIT_LOG("op uses reg: %s\n", regName(ops[op.in[j]].reg));
 
                     mask &=~ (1ull<<ops[op.in[j]].reg);
                     
@@ -161,7 +161,7 @@ void Proc::allocRegs()
                         unsigned r = 0, s = 64;
                         while(s >>= 1) if(mask & ~((1ull<<s)-1))
                             { r += s; mask >>= s; }
-                        if(ra_debug) printf("last reg reg: %s\n", regName(r));
+                        if(ra_debug) BJIT_LOG("last reg reg: %s\n", regName(r));
                         return r;
                     }
                 }
@@ -178,7 +178,7 @@ void Proc::allocRegs()
             {
                 if((1ull<<r) & mask)
                 {
-                    if(ra_debug) printf("any random: %s\n", regName(r));
+                    if(ra_debug) BJIT_LOG("any random: %s\n", regName(r));
                     return r;
                 }
             }
@@ -247,7 +247,7 @@ void Proc::allocRegs()
 
                 if(wr != regs::nregs && r != wr)
                 {
-                    if(ra_debug) printf("; need rename for %04x (%s -> %s) \n",
+                    if(ra_debug) BJIT_LOG("; need rename for %04x (%s -> %s) \n",
                         op.in[i], regName(ops[op.in[i]].reg), regName(r));
 
                     // should we try to save existing?
@@ -268,7 +268,7 @@ void Proc::allocRegs()
                         int s = findBest(smask, regs::nregs, c+1);
                         if(s != r && s != wr)
                         {
-                            if(ra_debug) printf("; saving %04x (%s -> %s) \n",
+                            if(ra_debug) BJIT_LOG("; saving %04x (%s -> %s) \n",
                                     regstate[r], regName(r), regName(s));
                             uint16_t sr = newOp(ops::rename,
                                 ops[regstate[r]].flags.type, b);
@@ -290,7 +290,7 @@ void Proc::allocRegs()
                         {
                             // FIXME: we can XCHG but we'll need 2-out ops
                             if(ra_debug)
-                                printf("; could not save %04x\n", regstate[r]);
+                                BJIT_LOG("; could not save %04x\n", regstate[r]);
                         }
                     }
 
@@ -302,7 +302,7 @@ void Proc::allocRegs()
                         || ops[ops[op.in[i]].in[1]].reg != r)
                     && (ops[op.in[i]].regsOut() & (1ull<<r)))
                     {
-                        if(ra_debug) printf("; Can patch...\n");
+                        if(ra_debug) BJIT_LOG("; Can patch...\n");
                         regstate[ops[op.in[i]].reg] = noVal;
                         ops[op.in[i]].reg = r;
                         regstate[r] = op.in[i];
@@ -311,17 +311,17 @@ void Proc::allocRegs()
                     {
                         if(ra_debug)
                         {
-                            printf("; Can't patch: ");
+                            BJIT_LOG("; Can't patch: ");
                             if(op.in[i] != (codeOut.size() > 1
                                 ? codeOut[codeOut.size()-2] : noVal))
-                                printf("last %04x\n",
+                                BJIT_LOG("last %04x\n",
                                     (codeOut.size() > 1
                                     ? codeOut[codeOut.size()-2] : noVal));
                             if(!((ops[op.in[i]].nInputs()<2
                             || ops[ops[op.in[i]].in[1]].reg != r)))
-                                printf("in[1] reg\n");
+                                BJIT_LOG("in[1] reg\n");
                             if(!(ops[op.in[i]].regsOut() & (1ull<<r)))
-                                printf("out mask\n");
+                                BJIT_LOG("out mask\n");
                         }
                         uint16_t rr = newOp(ops::rename, ops[op.in[0]].flags.type, b);
                         
@@ -347,7 +347,7 @@ void Proc::allocRegs()
 
                 if(regstate[r] != op.in[i])
                 {
-                    if(ra_debug) printf("; need reload for %04x into %s\n",
+                    if(ra_debug) BJIT_LOG("; need reload for %04x into %s\n",
                         op.in[i], regName(r));
 
                     auto in = op.in[i];
@@ -363,7 +363,7 @@ void Proc::allocRegs()
                         in = ops[in].in[0];
                     }
                     
-                    if(ra_debug) printf("; need reload for %04x into %s\n",
+                    if(ra_debug) BJIT_LOG("; need reload for %04x into %s\n",
                         op.in[i], regName(r));
 
                     uint16_t rr = newOp(ops::reload, ops[op.in[i]].flags.type, b);
@@ -406,7 +406,7 @@ void Proc::allocRegs()
             {
                 if(!--ops[op.in[i]].nUse)
                 {
-                    if(ra_debug) printf("last use %04x (%s)\n",
+                    if(ra_debug) BJIT_LOG("last use %04x (%s)\n",
                         op.in[i], regName(ops[op.in[i]].reg));
                     if(regstate[ops[op.in[i]].reg] == op.in[i])
                     {
@@ -437,7 +437,7 @@ void Proc::allocRegs()
     
                     if(s < regs::nregs && regstate[s] == noVal)
                     {
-                        if(ra_debug) printf("; saving lost %04x (%s -> %s) \n",
+                        if(ra_debug) BJIT_LOG("; saving lost %04x (%s -> %s) \n",
                                 regstate[r], regName(r), regName(s));
                     
                         uint16_t sr = newOp(ops::rename,
@@ -457,7 +457,7 @@ void Proc::allocRegs()
                         codeOut.push_back(sr);
     
                     }
-                    else if(ra_debug) printf("; could not save lost v%04x (%s)\n",
+                    else if(ra_debug) BJIT_LOG("; could not save lost v%04x (%s)\n",
                         regstate[r], regName(r));
                     
                     regstate[r] = noVal;
@@ -559,7 +559,7 @@ void Proc::allocRegs()
             }
             else
             {
-                //printf("keep %04x in %s\n", blocks[b].regsIn[i], regName(i));
+                //BJIT_LOG("keep %04x in %s\n", blocks[b].regsIn[i], regName(i));
             }
         }
     }
@@ -580,7 +580,7 @@ void Proc::allocRegs()
         }
     }
 
-    printf(" RA:JMP");
+    BJIT_LOG(" RA:JMP");
 
     std::vector<uint16_t>   newBlocks;
     
@@ -597,7 +597,7 @@ void Proc::allocRegs()
 
             Rename rename;  // for correcting target PHIs
 
-            if(ra_debug) printf("Args L%d (L%d)-> L%d\n", b, out, target);
+            if(ra_debug) BJIT_LOG("Args L%d (L%d)-> L%d\n", b, out, target);
 
             for(auto & a : blocks[target].args)
             {
@@ -623,7 +623,7 @@ void Proc::allocRegs()
                         }
                         else
                         {
-                            printf("PHI LOOP: Broken SCCs?\n");
+                            BJIT_LOG("PHI LOOP: Broken SCCs?\n");
                             BJIT_ASSERT(false);
                         }
                     }
@@ -676,7 +676,7 @@ void Proc::allocRegs()
                 {
                     if(tregs[r] == noVal && sregs[r] == noVal) continue;
 
-                    printf(" %s src: %04x dst: %04x\n",
+                    BJIT_LOG(" %s src: %04x dst: %04x\n",
                         regName(r), sregs[r], tregs[r]);
                 }
             };
@@ -684,7 +684,7 @@ void Proc::allocRegs()
             bool done = false;
             while(!done)
             {
-                if(ra_debug) printf("Shuffle L%d:\n", b);
+                if(ra_debug) BJIT_LOG("Shuffle L%d:\n", b);
                 done = true;
 
                 // this is a bit too spammy to put into ra_debug
@@ -706,7 +706,7 @@ void Proc::allocRegs()
                             uint16_t rr = newOp(ops::rename,
                                 ops[sregs[s]].flags.type, out);
                             
-                            if(ra_debug) printf("move: %s:%04x -> %s:%04x\n",
+                            if(ra_debug) BJIT_LOG("move: %s:%04x -> %s:%04x\n",
                                 regName(s), sregs[s], regName(t), rr);
 
                             rename.add(sregs[s], rr);
@@ -762,7 +762,7 @@ void Proc::allocRegs()
                             uint16_t rr = newOp(ops::rename,
                                 ops[sregs[s]].flags.type, out);
                             
-                            if(ra_debug) printf(
+                            if(ra_debug) BJIT_LOG(
                                 "move: %s:%04x -> %s:%04x, cycle breaker: %04x\n",
                                 regName(s), sregs[s], regName(r), rr, sregs[r]);
 
@@ -798,7 +798,7 @@ void Proc::allocRegs()
                     // at this point simple restore should work?
                     //BJIT_ASSERT(sregs[t] == noVal);
                     
-                    if(ra_debug) printf("reload -> %s:%04x (%04x)\n",
+                    if(ra_debug) BJIT_LOG("reload -> %s:%04x (%04x)\n",
                             regName(t), tregs[t], sregs[t]);
 
                     uint16_t rr = newOp(ops::reload, ops[tregs[t]].flags.type, out);
@@ -956,7 +956,7 @@ void Proc::allocRegs()
 
     raDone = true;
 
-    printf(" DONE\n");
+    BJIT_LOG(" DONE\n");
 
     // this won't work unless we fixed it :)
     if(fix_sanity) sanity();
@@ -967,7 +967,7 @@ void Proc::findSCC()
     livescan(); // need live-in registers
 
     BJIT_ASSERT(!raDone);
-    printf(" RA:SCC");
+    BJIT_LOG(" RA:SCC");
 
     std::vector<bool>   sccUsed;
 
@@ -995,7 +995,7 @@ void Proc::findSCC()
             BJIT_ASSERT(ops[in].scc < sccUsed.size());
             sccUsed[ops[in].scc] = true;
 
-            if(scc_debug) printf("Live in: %04x:[%04x]\n", in, ops[in].scc);
+            if(scc_debug) BJIT_LOG("Live in: %04x:[%04x]\n", in, ops[in].scc);
         }
 
         for(auto c : b.code)
@@ -1014,7 +1014,7 @@ void Proc::findSCC()
                     }
                     else
                     {
-                        if(scc_debug) printf("not valid: %04x:[%04x]\n",
+                        if(scc_debug) BJIT_LOG("not valid: %04x:[%04x]\n",
                             s.val, ops[s.val].scc);
                     }
                 }
@@ -1022,7 +1022,7 @@ void Proc::findSCC()
                 // if we can't find one, then pick a new-one
                 if(ops[c].scc == noSCC)
                 {
-                    if(scc_debug) printf("need new SCC for phi\n");
+                    if(scc_debug) BJIT_LOG("need new SCC for phi\n");
                     ops[c].scc = sccUsed.size();
                     sccUsed.push_back(true);
                 }
@@ -1111,7 +1111,7 @@ void Proc::findSCC()
                 if(s.src == b && ops[s.val].scc != ops[a.phiop].scc)
                 {
                     if(scc_debug)
-                        printf("rename jump: %04x:[%04x] -> %04x:[%04x]\n",
+                        BJIT_LOG("rename jump: %04x:[%04x] -> %04x:[%04x]\n",
                         s.val, ops[s.val].scc, a.phiop, ops[a.phiop].scc);
     
                     uint16_t rr = newOp(ops::rename, ops[s.val].flags.type, b);

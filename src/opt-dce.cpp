@@ -82,7 +82,7 @@ void Proc::opt_dce(bool unsafe)
                                 // if these don't match, then threading is not safe
                                 if(vs != vt)
                                 {
-                                    if(0) printf("bad: B%d:%04x vs. B%d:%04x\n",
+                                    if(0) BJIT_LOG("bad: B%d:%04x vs. B%d:%04x\n",
                                         ops[i].block, vs, ops[i].label[k], vt);
                                     bad = true; break;
                                 }
@@ -289,7 +289,7 @@ void Proc::opt_dce(bool unsafe)
         }
     }
     
-    printf("\n DCE:%d", iters);
+    BJIT_LOG("\n DCE:%d", iters);
     
     // if we made no progress, then don't bother rebuild other info
     if(live.size() == hadLiveSize && iters == 1) { return; }
@@ -355,7 +355,7 @@ void Proc::findUsesBlock(int b, bool inOnly)
                 {
                     if(s.src != b) continue;
                     
-                    if(0) printf("live out %d->%d : v%04x\n",
+                    if(0) BJIT_LOG("live out %d->%d : v%04x\n",
                         b, op.label[k], s.val);
 
                     ++ops[s.val].nUse;
@@ -412,7 +412,7 @@ void Proc::livescan()
                 // is this a variable that we need?
                 if(!ops[i].hasOutput() || !ops[i].nUse) continue;
 
-                //printf(" v%04x live in %d\n", i, live[b]);
+                //BJIT_LOG(" v%04x live in %d\n", i, live[b]);
                 blocks[live[b]].livein.push_back(i);
                 ops[i].nUse = 0;
             }
@@ -421,5 +421,5 @@ void Proc::livescan()
         }
     }
 
-    printf(" Live:%d", iter);
+    BJIT_LOG(" Live:%d", iter);
 }

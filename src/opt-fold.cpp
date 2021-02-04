@@ -1232,7 +1232,7 @@ bool Proc::opt_fold(bool unsafe)
     }
 
     //debug();
-    printf(" Fold:%d", iter);
+    BJIT_LOG(" Fold:%d", iter);
 
     return anyProgress;
 }

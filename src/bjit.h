@@ -14,6 +14,11 @@
 #  define BJIT_ASSERT(x)    assert(x)
 #endif
 
+#ifndef BJIT_LOG
+#  include <cstdio>
+#  define BJIT_LOG(...)     fprintf(stderr, __VA_ARGS__)
+#endif
+
 #include "hash.h"
 #include "ir-ops.h"
 
@@ -673,7 +678,7 @@ namespace bjit
         // tries to fix most info, but not necessarily all
         uint16_t breakEdge(uint16_t from, uint16_t to)
         {
-            printf(" BCE[%d,%d]", from, to);
+            BJIT_LOG(" BCE[%d,%d]", from, to);
             uint16_t b = blocks.size();
             blocks.resize(blocks.size() + 1);
 

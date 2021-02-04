@@ -17,7 +17,7 @@ bool Proc::opt_sink(bool unsafe)
         }
     }
 
-    printf(" SINK");
+    BJIT_LOG(" SINK");
 
     //debug();
 
@@ -130,7 +130,7 @@ bool Proc::opt_sink(bool unsafe)
                 tcode[i] = tcode[i-tmp0.size()];
             }
             
-            //printf("Moving B%d -> B%d:\n", b, jmp.label[0]);
+            //BJIT_LOG("Moving B%d -> B%d:\n", b, jmp.label[0]);
             
             // then work merge tmp which needs to be reversed
             for(int i = insertAt; tmp0.size(); i++)
@@ -165,7 +165,7 @@ bool Proc::opt_sink(bool unsafe)
                 tcode[i] = tcode[i-tmp1.size()];
             }
 
-            //printf("Moving B%d -> B%d:\n", b, jmp.label[1]);
+            //BJIT_LOG("Moving B%d -> B%d:\n", b, jmp.label[1]);
             
             // then work merge tmp which needs to be reversed
             for(int i = insertAt; tmp1.size(); i++)

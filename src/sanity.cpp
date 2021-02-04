@@ -77,5 +77,5 @@ void Proc::sanity()
         }
     }
 
-    printf(" SANE\n");
+    BJIT_LOG(" SANE\n");
 }
