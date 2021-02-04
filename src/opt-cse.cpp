@@ -11,9 +11,9 @@ static const bool cse_debug = false;    // print decisions
 /*
 
  We do three passes here:
-   1. collect potential pairs into the hash
-   2. try to combine ops, try to hoist ops
-   3. final rename pass
+   1. hoist and collect potential pairs by matching with hash
+   2. expand all the potential pairs, then do CSE if possible
+   3. finally do a rename+cleanup pass to fix the code
 
 */
 bool Proc::opt_cse(bool unsafe)
