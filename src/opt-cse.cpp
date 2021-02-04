@@ -2,9 +2,11 @@
 #include "bjit.h"
 
 #include <vector>
-#include <algorithm>    // use STL heapsort?
+#include <algorithm>    // use STL heapsort
 
 using namespace bjit;
+
+static const bool cse_debug = false;    // print decisions
 
 /*
 
@@ -164,7 +166,7 @@ bool Proc::opt_cse(bool unsafe)
         auto b0 = op0.block;
         auto b1 = op1.block;
         
-        printf("CSE: %04x vs. %04x: ", p >> 16, p & noVal);
+        if(cse_debug) printf("CSE: %04x vs. %04x: ", p >> 16, p & noVal);
 
         // closest common dominator
         int ccd = 0;
@@ -199,7 +201,7 @@ bool Proc::opt_cse(bool unsafe)
             if(bad) break;
         }
 
-        if(bad) { printf("BAD\n"); }
+        if(bad) { if(cse_debug) printf("BAD\n"); }
         else if(b0 == b1)
         {
             // same block case, figure out which one is earlier
@@ -210,7 +212,8 @@ bool Proc::opt_cse(bool unsafe)
             {
                 if(c == op0.index)
                 {
-                    printf("GOOD: %04x first in block\n", op0.index);
+                    if(cse_debug)
+                        printf("GOOD: %04x first in block\n", op0.index);
                     rename.add(op1.index, op0.index);
                     op1.makeNOP();
                     progress = found = true;
@@ -219,7 +222,8 @@ bool Proc::opt_cse(bool unsafe)
 
                 if(c == op1.index)
                 {
-                    printf("GOOD: %04x first in block\n", op1.index);
+                    if(cse_debug) 
+                        printf("GOOD: %04x first in block\n", op1.index);
                     rename.add(op0.index, op1.index);
                     op0.makeNOP();
                     progress = found = true;
@@ -230,7 +234,7 @@ bool Proc::opt_cse(bool unsafe)
         }
         else if(ccd == b1)
         {
-            printf("GOOD: %04x in ccd\n", op1.index);
+            if(cse_debug) printf("GOOD: %04x in ccd\n", op1.index);
             rename.add(op0.index, op1.index);
             op0.makeNOP();
 
@@ -238,7 +242,7 @@ bool Proc::opt_cse(bool unsafe)
         }
         else if(ccd == b0)
         {
-            printf("GOOD: %04x in ccd\n", op0.index);
+            if(cse_debug) printf("GOOD: %04x in ccd\n", op0.index);
             rename.add(op1.index, op0.index);
             op1.makeNOP();
             
@@ -246,7 +250,7 @@ bool Proc::opt_cse(bool unsafe)
         }
         else
         {
-            printf("GOOD: move to CCD:%d\n", ccd);
+            if(cse_debug) printf("GOOD: move to CCD:%d\n", ccd);
         
             // NOTE: We do a lazy clear of the original position
             // in the rename pass below when block doesn't match.
