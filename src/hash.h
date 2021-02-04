@@ -79,13 +79,26 @@ namespace bjit
 
         unsigned size() { return nUsed; }
 
-        HashTable(unsigned reserve = 0)
+        // return total capacity before resize
+        unsigned capacity()
         {
-            // calculate next power of two up from size
-            unsigned wantSize = minSlots;
-            while(wantSize < reserve) wantSize <<= 1;
+            // FIXME: properly test that this isn't off-by-one or something?
+            return (slots.size() * (freeFactor-1)) / freeFactor;
+        }
 
-            resize(wantSize);
+        HashTable(unsigned reserveCapacity = 0) { reserve(reserveCapacity); }
+
+        void reserve(unsigned fitSize)
+        {
+            if(fitSize < minSlots) fitSize = minSlots;
+            
+            // FIXME: properly test that  this isn't off-by-one or something?
+            fitSize = 1 + fitSize * (freeFactor+1) / freeFactor;
+
+            unsigned wantSize = minSlots;
+            while(wantSize < fitSize) wantSize <<= 1;
+            
+            if(wantSize > slots.size()) resize(wantSize);
         }
 
         // return existing item matching key or null
@@ -277,6 +290,9 @@ namespace bjit
 
             // swap with the existing slots
             slots.swap(tmp);
+
+            // fast-path resize on empty table
+            if(!nUsed) return;
 
             // reset load factor, this gets recalculated
             nUsed = 0;
