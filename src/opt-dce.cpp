@@ -236,6 +236,10 @@ void Proc::opt_dce(bool unsafe)
             }
         }
 
+        // count how many ops we have alive
+        // this is used by CSE for intelligent hash sizing
+        liveOps = 0;
+        
         for(auto bi : live)
         {
             auto & b = blocks[bi];
@@ -281,6 +285,7 @@ void Proc::opt_dce(bool unsafe)
             }
 
             b.code.resize(j);
+            liveOps += j;
         }
     }
     

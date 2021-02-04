@@ -1,66 +1,10 @@
 
 #include "bjit.h"
-#include "hash.h"
 
 #include <vector>
 #include <algorithm>    // use STL heapsort?
 
 using namespace bjit;
-
-// This stores the data CSE needs in our hash table.
-struct OpCSE
-{
-    // not included in hash
-    uint16_t index = noVal;
-    uint16_t block = noVal;
-
-    // rest is hashed
-    union
-    {
-        struct {
-            uint32_t imm32 = 0;
-            uint16_t in[2] = { noVal, noVal };
-        };
-
-        // for lci/lcf
-        int64_t     i64;
-    };
-    uint16_t opcode = noVal;
-
-    OpCSE() {}
-    OpCSE(Op const & op) { set(op); }
-
-    void set(Op const & op)
-    {
-        index = op.index;
-        block = op.block;
-        opcode = op.opcode;
-        if(op.hasI64() || op.hasF64())
-        {
-            i64 = op.i64;
-        }
-        else
-        {
-            in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
-            in[1] = op.nInputs() >= 2 ? op.in[1] : noVal;
-            imm32 = op.hasImm32() ? op.imm32 : 0;
-        }
-    }
-
-    // NOTE: we need temporary to force the "noVals"
-    bool isEqual(Op const & op) const
-    { OpCSE tmp(op); return isEqual(tmp); }
-
-    // NOTE: we need temporary to force the "noVals"
-    static uint64_t getHash(Op const & op)
-    { OpCSE tmp(op); return getHash(tmp); }
-    
-    bool isEqual(OpCSE const & op) const
-    { return i64 == op.i64 && opcode == op.opcode; }
-
-    static uint64_t getHash(OpCSE const & op)
-    { return hash64(op.i64 + op.opcode); }
-};
 
 /*
 
@@ -75,11 +19,13 @@ bool Proc::opt_cse(bool unsafe)
     Rename rename;
     bool progress = false;
 
-    HashTable<OpCSE> cseTable(ops.size());
-
     // pairs, packed into uint32_t for cheap sort
     assert(sizeof(uint32_t) == 2*sizeof(noVal));
     std::vector<uint32_t>   pairs;
+
+    // clear hash
+    cseTable.clear();
+    if(cseTable.capacity() < liveOps) cseTable.reserve(liveOps);
 
     // pair collection pass
     for(auto b : live)
@@ -94,108 +40,8 @@ bool Proc::opt_cse(bool unsafe)
             
             // CSE: do this after simplification
             if(!op.canCSE() || (!unsafe && op.hasSideFX())) continue;
-            
-            auto * ptr = cseTable.find(op);
 
-            if(ptr && ptr->index == op.index) continue;
-            
-            if(ptr)
-            {
-                // closest common dominator
-                auto & other = ops[ptr->index];
-                auto pb = ptr->block;
-                int ccd = 0;
-                int iMax = std::min(
-                    blocks[b].dom.size(), blocks[pb].dom.size());
-                    
-                for(int i = 0; i < iMax; ++i)
-                {
-                    if(blocks[b].dom[i] == blocks[pb].dom[i]) ccd = i;
-                    else break;
-                }
-
-                // we need to sanity check phis and post-doms
-                bool bad = false;
-                
-                // check post-dominator condition
-                for(int i = b ; i; i = blocks[i].idom)
-                {
-                    // NOTE: DCE checks phis, so don't worry
-                    if(ccd == blocks[i].idom) break; // this is fine
-                    if(blocks[blocks[i].idom].pdom != i) bad = true;
-                    if(bad) break;
-                }
-
-                // check post-dominator condition
-                if(!bad)
-                for(int i = pb; i; i = blocks[i].idom)
-                {
-                    // NOTE: DCE checks phis, so don't worry
-                    if(ccd == blocks[i].idom) break; // this is fine
-                    if(blocks[blocks[i].idom].pdom != i) bad = true;
-                    if(bad) break;
-                }
-
-                //printf("CSE: %04x, %04x: %s\n",
-                //    op.index, other.index, bad ? "BAD" : "GOOD");
-
-                if(bad) { /* fallback to hoisting */ }
-                else if(ccd == ptr->block)
-                {
-                    rename.add(op.index, ptr->index);
-                    op.makeNOP();
-                    
-                    progress = true;
-                }
-                else if(ccd == b)
-                {
-                    rename.add(other.index, op.index);
-                    other.makeNOP();
-                    
-                    cseTable.insert(op);
-                    
-                    progress = true;
-                }
-                else
-                {
-                    bc = noVal;
-                    op.block = ccd;
-
-                    // try to move this op backwards
-                    int k = blocks[ccd].code.size();
-                    blocks[ccd].code.push_back(op.index);
-                    while(k--)
-                    {
-                        // don't move past anything with sideFX
-                        // but DO move past jumps
-                        if(blocks[ccd].code[k] != noVal
-                        && ops[blocks[ccd].code[k]].opcode > ops::jmp
-                        && !ops[blocks[ccd].code[k]].canMove()) break;
-                        
-                        // sanity check that we don't move past inputs
-                        bool canMove = true;
-                        for(int j = 0; j < op.nInputs(); ++j)
-                        {
-                            if(blocks[ccd].code[k] != op.in[j]) continue;
-                            canMove = false;
-                            break;
-                        }
-
-                        if(!canMove) break;
-
-                        // move
-                        std::swap(blocks[ccd].code[k],
-                            blocks[ccd].code[k+1]);
-                    }
-
-                    rename.add(other.index, op.index);
-                    other.makeNOP();
-                    
-                    cseTable.insert(op);
-                    progress = true;
-                }
-            }
-            
+            // always try to hoist first?
             // walk up the idom chain
             auto mblock = b;
             while(mblock)
@@ -258,16 +104,187 @@ bool Proc::opt_cse(bool unsafe)
                         blocks[mblock].code[k+1]);
                 }
             }
-            
-            cseTable.insert(op);
 
+            // now check if we have another op in the table?
+            // 
+            auto * ptr = cseTable.find(op);
+
+            if(!ptr)  cseTable.insert(op);
+            else
+            {
+                // we should never find this op in the table anymore
+                assert(ptr->index != op.index);
+
+                // add to pairs, original op goes to MSB
+                pairs.push_back(op.index + (uint32_t(ptr->index) << 16));
+            }
         }
     }
 
-    // 
+    // sort collected pairs
     std::make_heap(pairs.begin(), pairs.end());
     std::sort_heap(pairs.begin(), pairs.end());
 
+    // expand all other possible candidate pairs
+    int j = 0, limit = pairs.size();
+    for(int i = 1; i < limit; ++i)
+    {
+        // if representative pair is different, flush
+        if((pairs[j]&~noVal) != (pairs[i]&~noVal))
+        {
+            for(int p = j; p < i; ++p)
+            {
+                for(int q = p+1; q < i; ++q)
+                {
+                    pairs.push_back((pairs[p]&noVal) + ((pairs[q]&noVal)<<16));
+                }
+            }
+
+            j = i;
+        }
+    }
+    // last set from j to limit
+    for(int p = j; p < limit; ++p)
+    {
+        for(int q = p+1; q < limit; ++q)
+        {
+            pairs.push_back((pairs[p]&noVal) + ((pairs[q]&noVal)<<16));
+        }
+    }
+
+    for(auto & p : pairs)
+    {
+        auto & op0 = ops[p>>16];
+        auto & op1 = ops[p & noVal];
+
+        // did we already eliminate one of these
+        if(op0.opcode == ops::nop) continue;
+        if(op1.opcode == ops::nop) continue;
+
+        auto b0 = op0.block;
+        auto b1 = op1.block;
+        
+        printf("CSE: %04x vs. %04x: ", p >> 16, p & noVal);
+
+        // closest common dominator
+        int ccd = 0;
+        int iMax = std::min(
+            blocks[b0].dom.size(), blocks[b1].dom.size());
+            
+        for(int i = 0; i < iMax; ++i)
+        {
+            if(blocks[b0].dom[i] == blocks[b1].dom[i]) ccd = i;
+            else break;
+        }
+
+        // we need to sanity check phis and post-doms
+        bool bad = false;
+        
+        // check post-dominator condition
+        for(int i = b0 ; i; i = blocks[i].idom)
+        {
+            // NOTE: DCE checks phis, so don't worry
+            if(ccd == blocks[i].idom) break; // this is fine
+            if(blocks[blocks[i].idom].pdom != i) bad = true;
+            if(bad) break;
+        }
+
+        // check post-dominator condition
+        if(!bad)
+        for(int i = b1; i; i = blocks[i].idom)
+        {
+            // NOTE: DCE checks phis, so don't worry
+            if(ccd == blocks[i].idom) break; // this is fine
+            if(blocks[blocks[i].idom].pdom != i) bad = true;
+            if(bad) break;
+        }
+
+        if(bad) { printf("BAD\n"); }
+        else if(b0 == b1)
+        {
+            // same block case, figure out which one is earlier
+            assert(b0 == ccd);
+
+            bool found = false;
+            for(auto & c : blocks[ccd].code)
+            {
+                if(c == op0.index)
+                {
+                    printf("GOOD: %04x first in block\n", op0.index);
+                    rename.add(op1.index, op0.index);
+                    op1.makeNOP();
+                    progress = found = true;
+                    break;
+                }
+
+                if(c == op1.index)
+                {
+                    printf("GOOD: %04x first in block\n", op1.index);
+                    rename.add(op0.index, op1.index);
+                    op0.makeNOP();
+                    progress = found = true;
+                    break;
+                }
+            }
+            assert(found);
+        }
+        else if(ccd == b1)
+        {
+            printf("GOOD: %04x in ccd\n", op1.index);
+            rename.add(op0.index, op1.index);
+            op0.makeNOP();
+
+            progress = true;
+        }
+        else if(ccd == b0)
+        {
+            printf("GOOD: %04x in ccd\n", op0.index);
+            rename.add(op1.index, op0.index);
+            op1.makeNOP();
+            
+            progress = true;
+        }
+        else
+        {
+            printf("GOOD: move to CCD:%d\n", ccd);
+        
+            // NOTE: We do a lazy clear of the original position
+            // in the rename pass below when block doesn't match.
+            op0.block = ccd;
+
+            // try to move this op backwards
+            int k = blocks[ccd].code.size();
+            blocks[ccd].code.push_back(op0.index);
+            while(k--)
+            {
+                // don't move past anything with sideFX
+                // but DO move past jumps
+                if(blocks[ccd].code[k] != noVal
+                && ops[blocks[ccd].code[k]].opcode > ops::jmp
+                && !ops[blocks[ccd].code[k]].canMove()) break;
+                
+                // sanity check that we don't move past inputs
+                bool canMove = true;
+                for(int j = 0; j < op0.nInputs(); ++j)
+                {
+                    if(blocks[ccd].code[k] != op0.in[j]) continue;
+                    canMove = false;
+                    break;
+                }
+
+                if(!canMove) break;
+
+                // move
+                std::swap(blocks[ccd].code[k],
+                    blocks[ccd].code[k+1]);
+            }
+
+            rename.add(op1.index, op0.index);
+            op1.makeNOP();
+            
+            progress = true;
+        }
+    }
 
     // rename pass
     for(auto b : live)
@@ -277,6 +294,10 @@ bool Proc::opt_cse(bool unsafe)
             if(bc == noVal) continue;
 
             auto & op = ops[bc];
+
+            // Check if we've moved the op to another block
+            // and mark it as removed here if we did.
+            if(op.block != b) { bc = noVal; continue; }
 
             if(op.opcode == ops::nop) { continue; }
             
