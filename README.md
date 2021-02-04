@@ -137,6 +137,14 @@ of interfaces (which for the time being are subject to change without notice).
 The `omena` branch is my laptop's remote and generally contains the latest and
 greatest and most broken code.
 
+## Code of conduct?
+
+Github thinks having "code of conduct" is important, so here's one:
+
+This project is a safe-space for minorities of any kind.
+
+This project is **not** a safe-space for SJWs. Go away.
+
 ## Instructions?
 
 The first step is to include `src/bjit.h`.
