@@ -1,4 +1,4 @@
-# Bunny JIT
+# Bunny-JIT
 
 This is a tiny optimising SSA-based JIT backend, currently targeting x64, but
 designed to be (somewhat) portable. The [`Makefile`](#how-to-build) expects
