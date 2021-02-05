@@ -214,7 +214,9 @@ if compiled with exceptions, otherwise we `assert` as usual; note that instructi
 removed by DCE and renames/reloads generated during register allocation count towards
 this limit, so it can also happen during `compile()`, but if you're seriously worried
 about this limit, then Bunny-JIT is probably not the best choice for your use-case.
-As we do not expect to fail when used correctly, we do not provide other error
+
+As we do not expect to fail when used correctly (ie. if you're writing a front-end
+language, your front-end should do the error-checking), we do not provide other error
 reporting beyond generic `BJIT_ASSERT` (if you trap these in debugger though,
 the failure conditions should typically give a reasonable hint as to what went wrong).
 In practice, at this time it probably *will* `BJIT_ASSERT` on valid code in some cases;
