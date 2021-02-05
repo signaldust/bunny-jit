@@ -184,6 +184,7 @@ void Proc::allocRegs()
             }
 
             BJIT_ASSERT(false);
+            return regs::nregs;
         };
         
         

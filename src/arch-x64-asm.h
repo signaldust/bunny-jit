@@ -66,8 +66,10 @@ uint8_t _CC(uint8_t opcode)
         case ops::jine: case ops::jdne: case ops::jfne: case ops::jnz: return 0x5;
         case ops::jieq: case ops::jdeq: case ops::jfeq: case ops::jz:  return 0x4;
 
-        default: BJIT_ASSERT(false);
+        default: break;
     }
+    // silence warning if assert is nop
+    BJIT_ASSERT(false); return 0;
 }
 
 // see arch-x64.h for instruction encoding notes

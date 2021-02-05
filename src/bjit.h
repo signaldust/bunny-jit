@@ -5,7 +5,7 @@
 #include <vector>
 
 #ifdef BJIT_NO_ASSERT
-#  define BJIT_ASSERT(x)    do{}while(0)
+#  define BJIT_ASSERT(x)    do{if(x);}while(0);
 #endif
 
 #ifndef BJIT_ASSERT

@@ -11,8 +11,10 @@ RegMask Op::regsMask()
         case _f32: return regs::mask_float;
         case _f64: return regs::mask_float;
 
-        default: BJIT_LOG("%s\n", strOpcode()); BJIT_ASSERT(false);
+        default: BJIT_LOG("%s\n", strOpcode());
     }
+    // silence warning if assert is nop
+    BJIT_ASSERT(false); return 0;
 }
 
 RegMask Op::regsOut()
@@ -45,7 +47,8 @@ RegMask Op::regsOut()
             case 2: return (1ull<<regs::r8);
             case 3: return (1ull<<regs::r9);
 
-            default: BJIT_ASSERT(false); // FIXME: RA can't handle
+            // FIXME: We need to teach RA about stack parameters.
+            default: BJIT_ASSERT(false);
             }
 #else
             switch(indexType)   // SysV uses position by type
@@ -57,7 +60,8 @@ RegMask Op::regsOut()
             case 4: return (1ull<<regs::r8);
             case 5: return (1ull<<regs::r9);
 
-            default: BJIT_ASSERT(false); // FIXME: RA can't handle
+            // FIXME: We need to teach RA about stack parameters.
+            default: BJIT_ASSERT(false);
             }
 #endif
         case ops::farg:
@@ -70,7 +74,8 @@ RegMask Op::regsOut()
             case 2: return (1ull<<regs::xmm2);
             case 3: return (1ull<<regs::xmm3);
 
-            default: BJIT_ASSERT(false); // FIXME: RA can't handle
+            // FIXME: We need to teach RA about stack parameters.
+            default: BJIT_ASSERT(false);
             }
 #else
             switch(indexType)   // SysV uses position by type
@@ -84,10 +89,14 @@ RegMask Op::regsOut()
             case 6: return (1ull<<regs::xmm6);
             case 7: return (1ull<<regs::xmm7);
 
-            default: BJIT_ASSERT(false); // FIXME: RA can't handle
+            // FIXME: We need to teach RA about stack parameters.
+            default: BJIT_ASSERT(false);
             }
 #endif
     }
+
+    // silence warning if assert is nop
+    BJIT_ASSERT(false); return 0;
 }
 
 RegMask Op::regsIn(int i)
