@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <vector>
-#include <cstdio>
 
 #ifdef BJIT_NO_ASSERT
 #  define BJIT_ASSERT(x)    do{}while(0)
