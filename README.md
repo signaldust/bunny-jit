@@ -165,8 +165,10 @@ Put them into [`env`](#env) instead.
 
 To generate instructions, you can then call [instruction methods](#instruction-set)
 on `Proc`. The last instruction of every block must be either a jump (conditional
-or unconditional), a return instruction or a tail-call. Any instructions are placed
-into the last emitted label or the entry-block if no labels have been emitted yet.
+or unconditional), a return instruction or a tail-call (DCE can cleanup dead tails
+though, so a front-end can safely generate extra jumps or returns when in doubt).
+Any instructions are placed into the last emitted label or the entry-block if no
+labels have been emitted yet.
 
 To generate new labels call `Proc::newLabel()` and to start emitting code to a
 previous created label call `Proc:emitLabel()` (see [env](#env) below). Any labels
