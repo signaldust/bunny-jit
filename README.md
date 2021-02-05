@@ -8,8 +8,8 @@ myself eventually).
 
 This is work in somewhat early progress. It should mostly, but some things like
 [function calls](#calling-functions) are not very robust yet.
-I feel like it's getting to the point, where it's probably worthwhile to experiment
-with, but please expect to find (and preferably report) some bugs as the
+*I feel like it's getting to the point, where it's probably worthwhile to experiment
+with, but please expect to find (and preferably report) some bugs* as the
 test-coverage is still somewhat limited. The code tries to cross-check it's own
 invariants, but this is sadly not bullet-proof and some bugs (eg. issues with
 native binary encoding) won't be found this way.
