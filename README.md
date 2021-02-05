@@ -59,9 +59,9 @@ Bunny-JIT is intended for situations where it is desirable to create some native
 on the fly (eg. for performance reasons), but including something like LLVM would
 be a total overkill. Why add a gigabyte of dependencies, if you can get most of the
 high-value stuff with less than 10k lines of sparse C++? We're actually not even close
-to 10k lines yet, I'm just trying to be future proof. Our goal is not to produce the
-best possible code (go ahead and use LLVM), but rather to produce something that is
-still good enough to make dynamic code-generation worth the trouble.
+to 10k lines yet, I'm just trying to be future proof. Our goal is not necessarily
+to produce the best possible code (go use LLVM), but rather to produce something
+that is good enough to make dynamic code-generation worth the trouble.
 
 It is primarily intended for generating run-time specialized code, especially where
 this can give significant performance advantages, so we spend some time on optimization,
