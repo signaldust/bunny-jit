@@ -331,7 +331,7 @@ Stores follow the form `sXX ptr imm32 value` where `ptr` and `imm32` are like lo
 while `value` is the SSA value to store. Variants are like loads, but without
 the unsigned versions.
 
-Internal we have additional instructions that the fold-engine will use (in the
+Internally we have additional instructions that the fold-engine will use (in the
 future the exact set might vary between platforms, so we rely on fold), but they
 should be fairly obvious when seen in debug, eg. `jugeI`is a conditional jump on
 `uge` comparison with the second operand converted to an `imm32` field.
