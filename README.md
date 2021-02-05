@@ -2,9 +2,8 @@
 
 This is a tiny optimising SSA-based JIT backend, currently targeting x64, but
 designed to be (somewhat) portable. The [`Makefile`](#how-to-build) expects
-Unix environment (and `libtool`), but the code should work on Windows as well (simply
-compile everything from `src/`; let me know if it needs some tweaking, I'll test it
-myself eventually).
+either Unix environment (and `libtool`) or Windows with `clang` in path, but
+there is no real build magic (just compile everything in `src/` really).
 
 This is work in somewhat early progress. It should mostly work, but some things like
 [function calls](#calling-functions) are not very robust yet.
@@ -28,7 +27,7 @@ Features:
 
 <sup>1</sup><i>Obviously loading code on the fly is not entirely portable (we are
 fully W^X compliant), but we support generic `mmap`/`mprotect` (eg. Linux, macOS, etc)
-and Windows (latter untested, should work, let me know if you try it before me).</i>
+and Windows (now fixed and tested as well).</i>
 
 <sup>2</sup><i>
 We sort of don't do these things specifically, because we really just perform DCE,
@@ -94,10 +93,10 @@ The `Makefile` is not covered by this license and can be considered public domai
 
 ## How to build?
 
-On Unix-like system with `clang` (and `libtool`) installed,
-simply run `make` (or `make -j`).
+On Unix-like system or Windows with `clang` (and `libtool` on Unix) installed,
+simply run `make` (or `make -j`). Ideally that's all.
 
-Ideally that's all, rest of this chapter is mostly just detail.
+In case you need local overrides, the `Makefile` includes `local.make` if it exists.
 
 We override `clang` for `CC` but if `BJIT_USE_CC` is defined, then this is used;
 use this if you don't want to use `clang` for some weird reason. If `BJIT_BUILDDIR`
@@ -126,11 +125,6 @@ Should you somehow run into issues with automatic dependencies, type `make clean
 to start fresh. Should not happen, but just in case. I hereby place the `Makefile`
 into public domain so please adapt it for your own projects if you don't know how
 to write one properly.
-
-The `Makefile` currently won't work on Windows though (at least not without something
-like Cygwin; I haven't tried), I will fix this eventually (it can be fixed, I'm just lazy).
-In the mean time, it should be possible to compile everything under `src/` into
-a static library and link with whatever other source files you have.
 
 ## Contributing?
 
