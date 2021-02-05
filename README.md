@@ -177,9 +177,8 @@ so let me know if you can demonstrate a use-case where this should be relaxed).
 
 Most instructions take their parameters as SSA values. The exceptions are
 `lci`/`lcf`/`lcd` which take immediate constants and jump-labels which must be
-the block-indexes returned by `Proc::newLabel()`. For instructions
-with output values, the methods return the new SSA values and other
-instructions return `void`.
+labels returned by `Proc::newLabel()`. For instructions with output values,
+the methods return the new SSA values and other instructions return `void`.
 
 Next you can either call `Proc::compile()` to obtain native code, or you can
 create a `bjit::Module` and pass the `Proc` to `Module::compile()` which will
