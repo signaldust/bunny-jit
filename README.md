@@ -239,13 +239,15 @@ compiled with exceptions). Exceptions should not leak memory, but if you catch a
 exception, then you should assume that the throwing `Proc` (or `Module`) is no
 longer in consistent state.
 
-The compiler should never fail with valid data unless the IR size limit is exceeded
-(the limit is 64k IR instructions; we <code>throw&nbsp;bjit::too_many_ops</code>
+The compiler should never fail with valid data unless the IR size limit is exceeded.
+The limit is 64k IR instructions; we <code>throw&nbsp;bjit::too_many_ops</code>
 if compiled with exceptions, otherwise we `assert` as usual; note that instructions
 removed by DCE and renames/reloads generated during register allocation count towards
 this limit, so it can also happen during `compile()`, but if you're seriously worried
-about this limit, then Bunny-JIT is probably not the best choice for your use-case),
-so we do not provide error reporting other than the generic `BJIT_ASSERT` (lots of them). 
+about this limit, then Bunny-JIT is probably not the best choice for your use-case.
+As we do not expect to fail when used correctly, we do not provide other error
+reporting beyond generic `BJIT_ASSERT` (if you trap these in debugger though,
+the failure conditions should typically give a reasonable hint as to what went wrong).
 In practice, at this time it probably *will* `BJIT_ASSERT` on valid code in some cases;
 I'm working on test coverage, but please report a bug if you come across such cases.
 
