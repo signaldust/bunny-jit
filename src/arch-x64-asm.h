@@ -286,7 +286,7 @@ struct AsmX64
     // relocation baseOffset (ie. beginning of block)
     //
     // we'll patch the relocation address here
-    void _RM(bool wide, int reg, int base, int offset,
+    void _RM(int wide, int reg, int base, int offset,
         int op0, int op1 = -1, int op2 = -1)
     {
         _PREFIX(op0, op1, op2);

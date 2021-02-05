@@ -33,6 +33,7 @@ bin/test_sub_ii # test parameter order, mostly
 
 bin/test_ci2f_cf2i
 bin/test_sx_zx
+bin/test_load_store
 
 bin/test_callp
 bin/test_calln
