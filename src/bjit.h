@@ -177,7 +177,7 @@ namespace bjit
             {
                 in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
                 in[1] = op.nInputs() >= 2 ? op.in[1] : noVal;
-                imm32 = op.hasImm32() ? op.imm32 : 0;
+                imm32 = (op.hasImm32()||op.hasF32()) ? op.imm32 : 0;
             }
         }
     
