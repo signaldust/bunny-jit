@@ -55,7 +55,7 @@ int main()
         module.compile(proc);
     }
 
-    assert(module.load());
+    BJIT_ASSERT(module.load());
 
     auto codeOut = module.getBytes();
     if(codeOut.size())
@@ -68,13 +68,13 @@ int main()
     }
     
     printf("icall\n");
-    assert(module.getPointer<int(int,int)>(0)(5, 2) == 4);
+    BJIT_ASSERT(module.getPointer<int(int,int)>(0)(5, 2) == 4);
     printf("tcall\n");
-    assert(module.getPointer<int(int,int)>(1)(7, 1) == 7);
+    BJIT_ASSERT(module.getPointer<int(int,int)>(1)(7, 1) == 7);
     printf("fcall\n");
-    assert(module.getPointer<float(float,float)>(2)(15.5f, 6.f) == 9.5f);
+    BJIT_ASSERT(module.getPointer<float(float,float)>(2)(15.5f, 6.f) == 9.5f);
     printf("dcall\n");
-    assert(module.getPointer<double(double,double)>(3)(5.5, 2) == 3.5);
+    BJIT_ASSERT(module.getPointer<double(double,double)>(3)(5.5, 2) == 3.5);
 
     return 0;
 }

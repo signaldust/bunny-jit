@@ -3,16 +3,22 @@
 
 #include <cstdint>
 #include <vector>
-#include <cstdio>
 
+// If BJIT_NO_ASSERT is defined, we disable ALL error checking.
 #ifdef BJIT_NO_ASSERT
-#  define BJIT_ASSERT(x)    do{}while(0)
+#  define BJIT_ASSERT_T(x,y)    do{if(x);}while(0)
 #endif
 
-#ifndef BJIT_ASSERT
+// Otherwise assert() if exceptions are disabled, otherwise throw.
+#ifndef BJIT_ASSERT_T
+# if !defined(__cpp_exceptions) && !defined(_CPPUNWIND)
 #  include <cassert>
-#  define BJIT_ASSERT(x)    assert(x)
+#  define BJIT_ASSERT_T(x,y)    assert(x)
+# else
+#  define BJIT_ASSERT_T(x,y)    do{if(x); else throw y();}while(0)
+# endif
 #endif
+#define BJIT_ASSERT(x)          BJIT_ASSERT_T(x, bjit::internal_error);
 
 #ifndef BJIT_LOG
 #  include <cstdio>
@@ -178,7 +184,7 @@ namespace bjit
             {
                 in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
                 in[1] = op.nInputs() >= 2 ? op.in[1] : noVal;
-                imm32 = op.hasImm32() ? op.imm32 : 0;
+                imm32 = (op.hasImm32()||op.hasF32()) ? op.imm32 : 0;
             }
         }
     
@@ -284,6 +290,7 @@ namespace bjit
     };
 
     struct too_many_ops {};
+    struct internal_error {};
 
     struct Proc
     {
@@ -719,11 +726,8 @@ namespace bjit
         
         unsigned newOp(uint16_t opcode, Op::Type type, uint16_t block)
         {
-#if !defined(__cpp_exceptions) && !defined(_CPPUNWIND)
-            BJIT_ASSERT(ops.size() < noVal);
-#else
-            if(ops.size() == noVal) throw too_many_ops();
-#endif
+            BJIT_ASSERT_T(ops.size() < noVal, too_many_ops);
+            
             unsigned i = ops.size();
             
             ops.resize(i + 1);

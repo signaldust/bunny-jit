@@ -31,11 +31,11 @@ int main()
     
     printf(" - Wrote out.bin\n");
 
-    assert(module.load());
+    BJIT_ASSERT(module.load());
     
-    assert(module.getPointer<float(float,float)>(0)(1.f, 5.5f) == 6.5f);
-    assert(module.getPointer<double(double,double)>(1)(2.5, 3.25) == 5.75);
-    assert(module.getPointer<double(double,double)>(2)(3.25, 4.5) == 7.75);
+    BJIT_ASSERT(module.getPointer<float(float,float)>(0)(1.f, 5.5f) == 6.5f);
+    BJIT_ASSERT(module.getPointer<double(double,double)>(1)(2.5, 3.25) == 5.75);
+    BJIT_ASSERT(module.getPointer<double(double,double)>(2)(3.25, 4.5) == 7.75);
 
     return 0;
 }

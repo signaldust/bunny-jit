@@ -22,17 +22,17 @@ int main()
     }
 
 
-    assert(module.load());
+    BJIT_ASSERT(module.load());
     {
         auto ptr = module.getPointer<int(int,float)>(0);
         printf(" 2 + 5 = %d\n", ptr(2, 5));
-        assert(ptr(2,5) == 7);
+        BJIT_ASSERT(ptr(2,5) == 7);
     }
 
     {
         auto ptr = module.getPointer<int(int,double)>(1);
         printf(" 2 + 5 = %d\n", ptr(2, 5));
-        assert(ptr(2,5) == 7);
+        BJIT_ASSERT(ptr(2,5) == 7);
     }
 
     return 0;

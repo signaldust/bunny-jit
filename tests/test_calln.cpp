@@ -28,7 +28,7 @@ int main()
         module.compile(proc);
     }
     
-    assert(module.load());
+    BJIT_ASSERT(module.load());
 
     auto codeOut = module.getBytes();
     if(codeOut.size())
@@ -40,8 +40,8 @@ int main()
         printf(" - Wrote out.bin\n");
     }
     
-    assert(module.getPointer<int(int,int)>(1)(5, 2) == 3);
-    assert(module.getPointer<int(int,int)>(2)(7, 3) == 4);
+    BJIT_ASSERT(module.getPointer<int(int,int)>(1)(5, 2) == 3);
+    BJIT_ASSERT(module.getPointer<int(int,int)>(2)(7, 3) == 4);
 
     return 0;
 }

@@ -33,7 +33,7 @@ int main()
         module.compile(proc);
     }
     
-    assert(module.load());
+    BJIT_ASSERT(module.load());
 
     auto codeOut = module.getBytes();
     if(codeOut.size())
@@ -48,13 +48,13 @@ int main()
     module.patchStub(0, (uintptr_t)&hello);
     module.patch();
     
-    assert(module.getPointer<int()>(1)() == 42);
+    BJIT_ASSERT(module.getPointer<int()>(1)() == 42);
 
     module.unload();
     
     module.patchStub(0, (uintptr_t)&helloAgain);
     module.load();
-    assert(module.getPointer<int()>(1)() == 45);
+    BJIT_ASSERT(module.getPointer<int()>(1)() == 45);
 
     return 0;
 }
