@@ -80,10 +80,10 @@ TESTS := $(patsubst tests/%.cpp,$(BJIT_BINDIR)/%$(BINEXT),$(TESTS_CPP))
 
 .PHONY: all test clean
 
-all: $(LIBRARY) $(FRONTEND) $(TESTS)
+all: $(LIBRARY) $(FRONTEND)
 	@echo DONE
 
-test: all
+test: all $(TESTS)
 	@echo Running tests with output to 'test.out'
 	@/bin/bash -e ./run-tests.sh > test.out 2>&1 || /bin/bash -e ./run-tests.sh
 	@echo Tests done.
