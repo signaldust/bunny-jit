@@ -64,9 +64,10 @@ to produce the best possible code (go use LLVM), but rather to produce something
 that is good enough to make dynamic code-generation worth the trouble.
 
 It is primarily intended for generating run-time specialized code, especially where
-this can give significant performance advantages, so we spend some time on optimization,
-but because we're still aiming at interactive uses we try not to go crazy heuristics.
-Instead we aim to find a set of general optimizations that always lead to a fixed-point.
+this can give significant performance advantages, so we're willing to spend some
+time on optimization, but because we're still aiming at interactive uses we try not
+to go crazy heuristics and we try to be efficient about it. We aim to find a set of
+general optimizations that are reasonably efficient and always lead to a fixed-point.
 This rules out optimizations such as loop-unrolling where profitability is not clear.
 
 It can also be used as a backend for custom languages. It might not be great for
