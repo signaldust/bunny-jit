@@ -26,8 +26,8 @@ Features:
   * uses `std::vector` to manage memory, keeps `valgrind` happy, tries to be cache efficient
 
 <sup>1</sup><i>Obviously loading code on the fly is not entirely portable (we are
-fully W^X compliant), but we support generic `mmap`/`mprotect` (eg. Linux, macOS, etc)
-and Windows (now fixed and tested as well).</i>
+fully W^X compliant so we have to adjust access permissions), but we support generic
+`mmap`/`mprotect` (eg. Linux, macOS, etc) and Windows (now fixed and tested as well).</i>
 
 <sup>2</sup><i>
 We sort of don't do these things specifically, because we really just perform DCE,
