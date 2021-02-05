@@ -32,7 +32,8 @@ namespace bjit
     struct too_many_ops {};
     struct internal_error {};
 
-    // These add a bit of type-safe to the interface only.
+    // These add a bit of type-safety to the interface only.
+    //
     struct Value { uint16_t index; };
     struct Label { uint16_t index; };
 
