@@ -67,8 +67,6 @@ int main()
         printf(" - Wrote out.bin\n");
     }
     
-    auto ptr = module.getPointer<int(int,int)>(0);
-
     printf("icall\n");
     assert(module.getPointer<int(int,int)>(0)(5, 2) == 4);
     printf("tcall\n");

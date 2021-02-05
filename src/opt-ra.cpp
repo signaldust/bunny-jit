@@ -670,17 +670,6 @@ void Proc::allocRegs()
                 }
             }
 
-            auto debugRegfile = [&]()
-            {
-                for(int r = 0; r < regs::nregs; ++r)
-                {
-                    if(tregs[r] == noVal && sregs[r] == noVal) continue;
-
-                    BJIT_LOG(" %s src: %04x dst: %04x\n",
-                        regName(r), sregs[r], tregs[r]);
-                }
-            };
-
             bool done = false;
             while(!done)
             {
@@ -688,7 +677,13 @@ void Proc::allocRegs()
                 done = true;
 
                 // this is a bit too spammy to put into ra_debug
-                //debugRegfile();
+                if(0) for(int r = 0; r < regs::nregs; ++r)
+                {
+                    if(tregs[r] == noVal && sregs[r] == noVal) continue;
+
+                    BJIT_LOG(" %s src: %04x dst: %04x\n",
+                        regName(r), sregs[r], tregs[r]);
+                }
                 
                 // first try: free target moves only
                 for(int t = 0; t < regs::nregs; ++t)

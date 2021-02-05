@@ -24,8 +24,8 @@ LINKBIN := clang
 # Generic compilation flags, both C and C++
 CFLAGS := -Isrc -g
 CFLAGS += -Ofast -fomit-frame-pointer
-CFLAGS += -Wall -Werror -Wfloat-conversion -ferror-limit=5
-CFLAGS += -Wno-unused -Wno-unused-function
+CFLAGS += -Wall -Werror -Wfloat-conversion -Wno-unused-function
+CFLAGS += -ferror-limit=5
 
 # C++ specific flags
 CXXFLAGS := -std=c++11 -fno-exceptions

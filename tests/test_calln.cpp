@@ -40,8 +40,6 @@ int main()
         printf(" - Wrote out.bin\n");
     }
     
-    auto ptr = module.getPointer<int(int,int)>(0);
-
     assert(module.getPointer<int(int,int)>(1)(5, 2) == 3);
     assert(module.getPointer<int(int,int)>(2)(7, 3) == 4);
 
