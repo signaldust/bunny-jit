@@ -19,7 +19,7 @@ void Proc::allocRegs()
 
     std::vector<uint16_t>   codeOut;
 
-    Rename rename;
+    impl::Rename rename;
 
     for(auto b : live)
     {
@@ -596,7 +596,7 @@ void Proc::allocRegs()
             memcpy(sregs, blocks[b].regsOut, sizeof(sregs));
             memcpy(tregs, blocks[target].regsIn, sizeof(tregs));
 
-            Rename rename;  // for correcting target PHIs
+            impl::Rename rename;  // for correcting target PHIs
 
             if(ra_debug) BJIT_LOG("Args L%d (L%d)-> L%d\n", b, out, target);
 

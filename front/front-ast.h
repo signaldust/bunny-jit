@@ -131,12 +131,12 @@ namespace bjit
 
         virtual void typecheck(Parser & ps, Env & env) = 0;
         virtual void debug(int lvl = 0) = 0;
-        virtual unsigned codeGen(Proc & proc) = 0;
+        virtual Value codeGen(Proc & proc) = 0;
 
         // l-values should implement these
         virtual bool canAssign() { return false; }
-        virtual unsigned codeGenAssign(Proc & proc, unsigned v)
-        { assert(false); return 0; }
+        virtual Value codeGenAssign(Proc & proc, Value v)
+        { assert(false); return Value{noVal}; }
 
         void debugCommon()
         {
@@ -167,7 +167,7 @@ namespace bjit
             v->debug(lvl+2);
         }
 
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
             // we don't handle pointers yet
             assert(!type.nptr && !v->type.nptr);
@@ -228,7 +228,7 @@ namespace bjit
             debugCommon();
         }
 
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
             switch(token.type)
             {
@@ -239,7 +239,7 @@ namespace bjit
             case Token::Tfloat:
                 return proc.lcd(token.vFloat);
                 
-            default: assert(false); return 0;
+            default: assert(false); return Value{noVal};
             }
         }
     };
@@ -272,14 +272,14 @@ namespace bjit
             debugCommon();
         }
 
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
             return proc.env[envIndex];
         }
 
         virtual bool canAssign() { return true; }
 
-        virtual unsigned codeGenAssign(Proc & proc, unsigned v)
+        virtual Value codeGenAssign(Proc & proc, Value v)
         {
             return (proc.env[envIndex] = v);
         }
@@ -305,12 +305,12 @@ namespace bjit
             v->debug(lvl+2);
         }
 
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
             if(!type.nptr && type.kind == Type::F64)
                 proc.dret(v->codeGen(proc));
             else proc.iret(v->codeGen(proc));
-            return ~0u;
+            return Value{noVal};
         }
         
     };
@@ -347,11 +347,11 @@ namespace bjit
             printf(")");
         }
         
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
-            unsigned p = fn->codeGen(proc);
+            Value p = fn->codeGen(proc);
             for(auto & a : args) proc.env.push_back(a->codeGen(proc));
-            unsigned r = proc.icallp(p, args.size());
+            auto r = proc.icallp(p, args.size());
             proc.env.resize(proc.env.size() - args.size());
             return r;
         }
@@ -386,12 +386,12 @@ namespace bjit
             printf(")");
         }
         
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
             unsigned sz = proc.env.size();
             for(auto & a : body) a->codeGen(proc);
             proc.env.resize(sz);
-            return ~0U;
+            return Value{noVal};
         }
 
     };
@@ -444,15 +444,15 @@ namespace bjit
             printf(")");
         }
         
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
             // do this before label creation, so we get scope
             auto ec = proc.env.size();   // block-scope save
             auto cc = condition->codeGen(proc);
             
-            unsigned lThen = proc.newLabel();
-            unsigned lElse = proc.newLabel();
-            unsigned lDone = proc.newLabel();
+            auto lThen = proc.newLabel();
+            auto lElse = proc.newLabel();
+            auto lDone = proc.newLabel();
             
             proc.jz(cc, lElse, lThen);
             
@@ -469,7 +469,7 @@ namespace bjit
             proc.jmp(lDone);
             proc.emitLabel(lDone);
             proc.env.resize(ec);
-            return ~0u;
+            return Value{noVal};
         }
         
     };
@@ -510,18 +510,18 @@ namespace bjit
             printf(")");
         }
         
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
             auto ec = proc.env.size();
-            unsigned lTest = proc.newLabel();
+            auto lTest = proc.newLabel();
 
             proc.jmp(lTest);
             proc.emitLabel(lTest);
             
             auto cc = condition->codeGen(proc);
             
-            unsigned lBody = proc.newLabel();
-            unsigned lDone = proc.newLabel();
+            auto lBody = proc.newLabel();
+            auto lDone = proc.newLabel();
             proc.jz(cc, lDone, lBody);
 
             proc.emitLabel(lBody);
@@ -531,7 +531,7 @@ namespace bjit
             
             proc.emitLabel(lDone);
             proc.env.resize(ec);
-            return ~0u;
+            return Value{noVal};
         }
         
     };
@@ -567,7 +567,7 @@ namespace bjit
             printf(")");
         }
         
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
             proc.env.push_back(value->codeGen(proc));
             return proc.env.back();
@@ -646,14 +646,14 @@ namespace bjit
             printf(")");
         }
         
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
             switch(token.type)
             {
             case Token::TbitNot: return proc.inot(a->codeGen(proc));
             case Token::TlogNot:
                 {
-                    unsigned z = proc.lci(0);
+                    auto z = proc.lci(0);
                     return proc.ieq(a->codeGen(proc), z);
                 }
 
@@ -666,7 +666,7 @@ namespace bjit
                 
                 return proc.ineg(a->codeGen(proc));
                 
-            default: assert(false); return 0;
+            default: assert(false); return Value{noVal};
             }
         }
         
@@ -935,7 +935,7 @@ namespace bjit
             printf(")");
         }
         
-        virtual unsigned codeGen(Proc & proc)
+        virtual Value codeGen(Proc & proc)
         {
             assert(type.kind != Type::F32);
 
@@ -1044,7 +1044,7 @@ namespace bjit
                 if(a->type.kind == Type::F64) return proc.dge(va, vb);
                 else return proc.ige(va, vb);
 
-            default: assert(false); return 0;
+            default: assert(false); return Value{noVal};
             }
         }
         

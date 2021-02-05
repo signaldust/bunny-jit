@@ -25,275 +25,25 @@
 #  define BJIT_LOG(...)     fprintf(stderr, __VA_ARGS__)
 #endif
 
-#include "hash.h"
-#include "ir-ops.h"
-
-#include "arch-x64.h"   // FIXME: check for arch
+#include "bjit-impl.h"
 
 namespace bjit
 {
-
-#define BJIT_OP_ENUM(name,...) name
-    namespace ops { enum { BJIT_OPS(BJIT_OP_ENUM) }; };
-#undef BJIT_OP_ENUM
-
-    struct Op
-    {
-        // input operands
-        //
-        // NOTE: CSE only copies this union when it moves ops
-        //
-        // NOTE: packing is sensitive (also FIXME: rethink this?)
-        union
-        {
-            // 64-bit constants for load immediate
-            int64_t     i64;
-            uint64_t    u64;
-            double      f64;
-            
-            // imm + two values
-            struct {
-                union
-                {
-                    float       f32;
-                    
-                    uint32_t    imm32;
-                    uint32_t    phiIndex;
-                    
-                    struct  // used by arguments
-                    {
-                        uint16_t    indexType;
-                        uint16_t    indexTotal;
-                    };
-                };
-                // 16-bits is likely enough?
-                uint16_t    in[2];
-            };
-
-        };
-
-        // output data
-        // NOTE: packing is sensitive (also relative to above)
-        union
-        {
-            // NOTE: We let ssc alias on in[2] so that
-            // ops without output can have 3 inputs
-            //
-            // We use this for call arguments, possibly stores in the future
-            struct
-            {
-                uint16_t    scc;    // stack congruence class
-                uint16_t    nUse;   // number of users
-            };
-
-            // jumps need labels
-            uint16_t    label[2];
-        };
-
-        uint16_t    index;  // index in ops[] array (ie. backref)
-        uint16_t    block;  // block in which the op currently lives
-        
-        uint16_t    opcode;             // opcode, see ir-ops.h
-        uint8_t     reg = regs::none;   // output register
-
-        // Register type, needed for correct renames, etc..
-        //
-        // In the future, we could also use this to track single vs. double
-        // precision floats and packed vector types for spills and reloads.
-        //
-        enum Type
-        {
-            _none,  // no output
-            _ptr,   // pointer-sized integer (anything that fits GP regs)
-            _f32,   // single precision float
-            _f64    // double precision float
-        };
-
-        struct {
-            Type    type    : 4;    // see above, packed into flags
-            bool    spill   : 1;
-        } flags = {};
-
-
-        // regsMask returns a mask of registers that can hold this type
-        RegMask     regsMask();     // in arch-XX-ops.cpp
-
-        // regsIn, regsOut and regsLost return masks for the actual operation
-        RegMask     regsIn(int i);  // in arch-XX-ops.cpp
-        RegMask     regsOut();      // in arch-XX-ops.cpp
-        RegMask     regsLost();     // in arch-XX-ops.cpp
-
-        // rest are in ir-ops.cpp
-        const char* strOpcode() const;
-        
-        unsigned    nInputs()   const;
-        bool        hasOutput() const;
-
-        bool    canCSE()        const;
-        bool    canMove()       const;
-
-        bool    hasSideFX()     const;
-
-        bool    hasImm32()      const;
-        bool    hasI64()        const;
-        
-        bool    hasF32()        const;
-        bool    hasF64()        const;
-
-        void    makeNOP() { opcode = ops::nop; u64 = ~0ull; }
-    };
-
-    static const uint16_t   noVal = 0xffff;
-    static const uint16_t   noSCC = 0xffff;
-
-    // This stores the data CSE needs in our hash table.
-    // Only used by CSE, but defined here so that we can
-    // allocate the hash table just once.
-    struct OpCSE
-    {
-        // not included in hash
-        uint16_t index = noVal;
-        uint16_t block = noVal;
-    
-        // rest is hashed
-        union
-        {
-            struct {
-                uint32_t imm32 = 0;
-                uint16_t in[2] = { noVal, noVal };
-            };
-    
-            // for lci/lcf
-            int64_t     i64;
-        };
-        uint16_t opcode = noVal;
-    
-        OpCSE() {}
-        OpCSE(Op const & op) { set(op); }
-    
-        void set(Op const & op)
-        {
-            index = op.index;
-            block = op.block;
-            opcode = op.opcode;
-            if(op.hasI64() || op.hasF64())
-            {
-                i64 = op.i64;
-            }
-            else
-            {
-                in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
-                in[1] = op.nInputs() >= 2 ? op.in[1] : noVal;
-                imm32 = (op.hasImm32()||op.hasF32()) ? op.imm32 : 0;
-            }
-        }
-    
-        // NOTE: we need temporary to force the "noVals"
-        bool isEqual(Op const & op) const
-        { OpCSE tmp(op); return isEqual(tmp); }
-    
-        // NOTE: we need temporary to force the "noVals"
-        static uint64_t getHash(Op const & op)
-        { OpCSE tmp(op); return getHash(tmp); }
-        
-        bool isEqual(OpCSE const & op) const
-        { return i64 == op.i64 && opcode == op.opcode; }
-    
-        static uint64_t getHash(OpCSE const & op)
-        { return hash64(op.i64 + op.opcode); }
-    };
-
-    // Variable rename tracker
-    struct Rename
-    {
-        struct Map {
-            uint16_t src, dst;
-            Map(uint16_t s, uint16_t d) : src(s), dst(d) {}
-        };
-        std::vector<Map>    map;
-
-        void add(uint16_t s, uint16_t d) { map.emplace_back(s,d); }
-
-        Op & operator()(Op & op)
-        {
-            int n = op.nInputs();
-            if(!n) return op;
-            for(auto & r : map)
-            {
-                switch(n)
-                {
-                case 2: if(op.in[1] == r.src) op.in[1] = r.dst;
-                case 1: if(op.in[0] == r.src) op.in[0] = r.dst;
-                }
-            }
-            return op;
-        }
-    };
-    
-    // Use by Block to track actual phi-alternatives
-    struct Phi
-    {
-        struct Alt
-        {
-            uint16_t    val;    // source value
-            uint16_t    src;    // source block
-        };
-
-        std::vector<Alt>    alts;
-        uint16_t            phiop;
-
-        void add(uint16_t val, uint16_t block)
-        {
-            alts.emplace_back(Alt{val, block});
-        }
-    };
-
-    // One basic block
-    struct Block
-    {
-        std::vector<uint16_t>   code;
-        std::vector<Phi>        args;
-
-        std::vector<uint16_t>   livein;
-        std::vector<uint16_t>   liveout;
-        std::vector<uint16_t>   comeFrom;   // which blocks we come from?
-
-        // register state on input
-        uint16_t    regsIn[regs::nregs];
-
-        // register state on output (used for shuffling)
-        uint16_t    regsOut[regs::nregs];
-
-        // dominators
-        std::vector<uint16_t>   dom;
-        
-        uint16_t                idom;   // immediate dominator
-        uint16_t                pdom;  // immediate post-dominator
-
-        struct {
-            bool live       : 1;    // livescan uses this
-            bool regsDone   : 1;    // reg-alloc uses this
-            bool codeDone   : 1;    // backend uses this
-        } flags = {};
-
-        Block()
-        {
-            for(int i = 0; i < regs::nregs; ++i) regsIn[i] = regsOut[i] = noVal;
-        }
-    };
-
-    // used to communicate relocations from Proc to Module
-    struct NearReloc
-    {
-        uint32_t    codeOffset;     // where to add offset
-        uint32_t    procIndex;    // which offset to add
-    };
-
     struct too_many_ops {};
     struct internal_error {};
 
+    // These add a bit of type-safe to the interface only.
+    struct Value { uint16_t index; };
+    struct Label { uint16_t index; };
+
     struct Proc
     {
+        // These are used everywhere, so import them into Proc
+        typedef impl::Op        Op;
+        typedef impl::OpCSE     OpCSE;
+        typedef impl::Block     Block;
+        typedef impl::NearReloc NearReloc;
+        
         // allocBytes is the size of an optional block allocated from the stack
         // for function local data (eg. arrays, variables with address taken)
         // the SSA value 0 will always be the pointer to this block
@@ -306,8 +56,8 @@ namespace bjit
             // reserve space for maximum number of ops
             // NOTE: opt-ra and opt-fold assume we don't realloc
             ops.reserve(noVal);
-            currentBlock = newLabel();
-            emitLabel(currentBlock);
+            currentBlock = newLabel().index;
+            emitLabel(Label{currentBlock});
 
             // front-ends can use the invariant this is always 0
             alloc(allocBytes);
@@ -348,13 +98,13 @@ namespace bjit
             arch_emit(bytes);
         }
 
-        std::vector<unsigned>   env;
+        std::vector<Value>  env;
 
         // generate a label
-        unsigned newLabel()
+        Label newLabel()
         {
-            unsigned label = blocks.size();
-            BJIT_ASSERT(label < noVal);
+            BJIT_ASSERT(blocks.size() < noVal);
+            uint16_t label = blocks.size();
             
             blocks.resize(label + 1);
             
@@ -363,26 +113,26 @@ namespace bjit
             // generate phis
             for(int i = 0; i < env.size(); ++i)
             {
-                auto phi = addOp(ops::phi, ops[env[i]].flags.type, label);
+                auto phi = addOp(ops::phi, ops[env[i].index].flags.type, label);
                 blocks[label].args[i].phiop = phi;
                 ops[phi].phiIndex = i;
             }
             
-            return label;
+            return Label{label};
         }
 
-        void emitLabel(unsigned label)
+        void emitLabel(Label label)
         {
-            BJIT_ASSERT(label < blocks.size());
+            BJIT_ASSERT(label.index < blocks.size());
             // use live-flag to enforce "emit once"
-            BJIT_ASSERT(!blocks[label].flags.live);
-            blocks[label].flags.live = true;
-            currentBlock = label;
+            BJIT_ASSERT(!blocks[label.index].flags.live);
+            blocks[label.index].flags.live = true;
+            currentBlock = label.index;
 
-            env.resize(blocks[label].args.size());
+            env.resize(blocks[label.index].args.size());
             for(int i = 0; i < env.size(); ++i)
             {
-                env[i] = blocks[label].args[i].phiop;
+                env[i].index = blocks[label.index].args[i].phiop;
             }
         }
 
@@ -397,171 +147,176 @@ namespace bjit
         ///////////////////////////////
 
         // CONSTANTS
-        unsigned lci(int64_t imm)
+        Value lci(int64_t imm)
         {
-            unsigned i = addOp(ops::lci, Op::_ptr); ops[i].i64 = imm; return i;
+            auto i = addOp(ops::lci, Op::_ptr); ops[i].i64 = imm; return Value{i};
         }
 
-        unsigned lcu(uint64_t imm)  // unsigned alias to lci
+        Value lcu(uint64_t imm)  // unsigned alias to lci
         {
-            unsigned i = addOp(ops::lci, Op::_ptr); ops[i].u64 = imm; return i;
+            auto i = addOp(ops::lci, Op::_ptr); ops[i].u64 = imm; return Value{i};
         }
 
-        unsigned lcf(float imm)
+        Value lcf(float imm)
         {
-            unsigned i = addOp(ops::lcd, Op::_f32); ops[i].f32 = imm; return i;
+            auto i = addOp(ops::lcd, Op::_f32); ops[i].f32 = imm; return Value{i};
         }
         
-        unsigned lcd(double imm)
+        Value lcd(double imm)
         {
-            unsigned i = addOp(ops::lcd, Op::_f64); ops[i].f64 = imm; return i;
+            auto i = addOp(ops::lcd, Op::_f64); ops[i].f64 = imm; return Value{i};
         }
 
         // JUMPS:
-        void jmp(unsigned label)
+        void jmp(Label label)
         {
-            unsigned i = addOp(ops::jmp, Op::_none); ops[i].label[0] = label;
+            auto i = addOp(ops::jmp, Op::_none); ops[i].label[0] = label.index;
 
             // add phi source
-            BJIT_ASSERT(label < blocks.size());
-            BJIT_ASSERT(env.size() == blocks[label].args.size());
+            BJIT_ASSERT(label.index < blocks.size());
+            BJIT_ASSERT(env.size() == blocks[label.index].args.size());
             
-            auto & args = blocks[label].args;
+            auto & args = blocks[label.index].args;
             for(int a = 0; a < env.size(); ++a)
             {
-                BJIT_ASSERT(ops[args[a].phiop].flags.type == ops[env[a]].flags.type);
-                args[a].add(env[a], currentBlock);
+                BJIT_ASSERT(ops[args[a].phiop].flags.type
+                    == ops[env[a].index].flags.type);
+                args[a].add(env[a].index, currentBlock);
             }
         }
 
         // write this as wrapper so we don't need to duplicate code
-        void jnz(unsigned v, unsigned labelThen, unsigned labelElse)
+        void jnz(Value v, Label labelThen, Label labelElse)
         {
             jz(v, labelElse, labelThen);
         }
 
-        void jz(unsigned v, unsigned labelThen, unsigned labelElse)
+        void jz(Value v, Label labelThen, Label labelElse)
         {
-            unsigned i = addOp(ops::jz, Op::_none);
-            ops[i].in[0] = v;
-            ops[i].label[0] = labelThen;
-            ops[i].label[1] = labelElse;
+            auto i = addOp(ops::jz, Op::_none);
+            ops[i].in[0] = v.index;
+            ops[i].label[0] = labelThen.index;
+            ops[i].label[1] = labelElse.index;
             
             // add phi source
-            BJIT_ASSERT(labelThen < blocks.size());
-            BJIT_ASSERT(labelElse < blocks.size());
-            BJIT_ASSERT(env.size() == blocks[labelThen].args.size());
-            BJIT_ASSERT(env.size() == blocks[labelElse].args.size());
+            BJIT_ASSERT(labelThen.index < blocks.size());
+            BJIT_ASSERT(labelElse.index < blocks.size());
+            BJIT_ASSERT(env.size() == blocks[labelThen.index].args.size());
+            BJIT_ASSERT(env.size() == blocks[labelElse.index].args.size());
             
-            auto & aThen = blocks[labelThen].args;
-            auto & aElse = blocks[labelElse].args;
+            auto & aThen = blocks[labelThen.index].args;
+            auto & aElse = blocks[labelElse.index].args;
             for(int a = 0; a < env.size(); ++a)
             {
-                BJIT_ASSERT(ops[aThen[a].phiop].flags.type == ops[env[a]].flags.type);
-                BJIT_ASSERT(ops[aElse[a].phiop].flags.type == ops[env[a]].flags.type);
-                aThen[a].add(env[a], currentBlock);
-                aElse[a].add(env[a], currentBlock);
+                BJIT_ASSERT(ops[aThen[a].phiop].flags.type
+                    == ops[env[a].index].flags.type);
+                BJIT_ASSERT(ops[aElse[a].phiop].flags.type
+                    == ops[env[a].index].flags.type);
+                aThen[a].add(env[a].index, currentBlock);
+                aElse[a].add(env[a].index, currentBlock);
             }
         }
 
         // integer return
-        void iret(unsigned v)
-        { unsigned i = addOp(ops::iret, Op::_none); ops[i].in[0] = v; }
+        void iret(Value v)
+        { auto i = addOp(ops::iret, Op::_none); ops[i].in[0] = v.index; }
 
         // float return
-        void fret(unsigned v)
-        { unsigned i = addOp(ops::fret, Op::_none); ops[i].in[0] = v; }
+        void fret(Value v)
+        { auto i = addOp(ops::fret, Op::_none); ops[i].in[0] = v.index; }
         
         // float return
-        void dret(unsigned v)
-        { unsigned i = addOp(ops::dret, Op::_none); ops[i].in[0] = v; }
+        void dret(Value v)
+        { auto i = addOp(ops::dret, Op::_none); ops[i].in[0] = v.index; }
 
         // indirect call to a function that returns an integer
         // the last 'n' values from 'env' are passed as parameters
         //
         // NOTE: we expect the parameters left-to-right array order
         // such that env.back() is the last parameter
-        unsigned icallp(unsigned ptr, unsigned n)
+        Value icallp(Value ptr, unsigned n)
         {
             passArgs(n);
-            unsigned i = addOp(ops::icallp, Op::_ptr);
-            ops[i].in[0] = ptr;
-            return i;
+            auto i = addOp(ops::icallp, Op::_ptr);
+            ops[i].in[0] = ptr.index;
+            return Value{i};
         }
 
         // near call version
         // first argument is (immediate) index into module-table
-        unsigned icalln(unsigned index, unsigned n)
+        Value icalln(int index, unsigned n)
         {
             passArgs(n);
-            unsigned i = addOp(ops::icalln, Op::_ptr);
+            auto i = addOp(ops::icalln, Op::_ptr);
             ops[i].imm32 = index;
-            return i;
+            return Value{i};
         }
 
         // same as icallp but functions returning floats
-        unsigned fcallp(unsigned ptr, unsigned n)
+        Value fcallp(Value ptr, unsigned n)
         {
             passArgs(n);
-            unsigned i = addOp(ops::fcallp, Op::_f32);
-            ops[i].in[0] = ptr;
-            return i;
+            auto i = addOp(ops::fcallp, Op::_f32);
+            ops[i].in[0] = ptr.index;
+            return Value{i};
         }
 
         // near-call version
-        unsigned fcalln(unsigned index, unsigned n)
+        Value fcalln(int index, unsigned n)
         {
             passArgs(n);
-            unsigned i = addOp(ops::fcalln, Op::_f32);
+            auto i = addOp(ops::fcalln, Op::_f32);
             ops[i].imm32 = index;
-            return i;
+            return Value{i};
         }
         
         // same as icallp but functions returning doubles
-        unsigned dcallp(unsigned ptr, unsigned n)
+        Value dcallp(Value ptr, unsigned n)
         {
             passArgs(n);
-            unsigned i = addOp(ops::dcallp, Op::_f64);
-            ops[i].in[0] = ptr;
-            return i;
+            auto i = addOp(ops::dcallp, Op::_f64);
+            ops[i].in[0] = ptr.index;
+            return Value{i};
         }
 
         // near-call version
-        unsigned dcalln(unsigned index, unsigned n)
+        Value dcalln(int index, unsigned n)
         {
             passArgs(n);
-            unsigned i = addOp(ops::dcalln, Op::_f64);
+            auto i = addOp(ops::dcalln, Op::_f64);
             ops[i].imm32 = index;
-            return i;
+            return Value{i};
         }
 
         // same as icallp/fcallp but tail-call: does not return
-        void tcallp(unsigned ptr, unsigned n)
+        void tcallp(Value ptr, unsigned n)
         {
             passArgs(n);
-            unsigned i = addOp(ops::tcallp, Op::_none);
-            ops[i].in[0] = ptr;
+            auto i = addOp(ops::tcallp, Op::_none);
+            ops[i].in[0] = ptr.index;
         }
 
         // near-call version
         void tcalln(int index, unsigned n)
         {
             passArgs(n);
-            unsigned i = addOp(ops::tcalln, Op::_none);
+            auto i = addOp(ops::tcalln, Op::_none);
             ops[i].imm32 = index;
         }
         
         
 #define BJIT_OP1(x,t,t0) \
-    unsigned x(unsigned v0) { \
-        unsigned i = addOp(ops::x, Op::t); \
-        ops[i].in[0] = v0; BJIT_ASSERT(ops[v0].flags.type==Op::t0); return i; }
+    Value x(Value v0) { \
+        auto i = addOp(ops::x, Op::t); \
+        ops[i].in[0] = v0.index; BJIT_ASSERT(ops[v0.index].flags.type==Op::t0); \
+        return Value{i}; }
         
 #define BJIT_OP2(x,t,t0,t1) \
-    unsigned x(unsigned v0, unsigned v1) { \
-        unsigned i = addOp(ops::x, Op::t); \
-        ops[i].in[0] = v0; BJIT_ASSERT(ops[v0].flags.type==Op::t0); \
-        ops[i].in[1] = v1; BJIT_ASSERT(ops[v1].flags.type==Op::t1); return i; }
+    Value x(Value v0, Value v1) { \
+        auto i = addOp(ops::x, Op::t); \
+        ops[i].in[0] = v0.index; BJIT_ASSERT(ops[v0.index].flags.type==Op::t0); \
+        ops[i].in[1] = v1.index; BJIT_ASSERT(ops[v1.index].flags.type==Op::t1); \
+        return Value{i}; }
 
         BJIT_OP2(ilt,_ptr,_ptr,_ptr); BJIT_OP2(ige,_ptr,_ptr,_ptr);
         BJIT_OP2(igt,_ptr,_ptr,_ptr); BJIT_OP2(ile,_ptr,_ptr,_ptr);
@@ -609,17 +364,17 @@ namespace bjit
 
         // loads take pointer+offset
 #define BJIT_LOAD(x, t) \
-    unsigned x(unsigned v0, int32_t imm32) { \
-        unsigned i = addOp(ops::x, Op::t); \
-        ops[i].in[0] = v0; BJIT_ASSERT(ops[v0].flags.type == Op::_ptr); \
-        ops[i].imm32 = imm32; return i; }
+    Value x(Value v0, int32_t imm32) { \
+        auto i = addOp(ops::x, Op::t); \
+        ops[i].in[0] = v0.index; BJIT_ASSERT(ops[v0.index].flags.type == Op::_ptr); \
+        ops[i].imm32 = imm32; return Value{i}; }
 
         // stores take pointer+offset and value to store
 #define BJIT_STORE(x, t) \
-    void x(unsigned ptr, int32_t imm32, unsigned val) { \
-        unsigned i = addOp(ops::x, Op::_none); \
-        ops[i].in[0] = ptr; BJIT_ASSERT(ops[ptr].flags.type == Op::_ptr); \
-        ops[i].in[1] = val; BJIT_ASSERT(ops[val].flags.type == Op::t); \
+    void x(Value ptr, int32_t imm32, Value val) { \
+        auto i = addOp(ops::x, Op::_none); \
+        ops[i].in[0] = ptr.index; BJIT_ASSERT(ops[ptr.index].flags.type == Op::_ptr); \
+        ops[i].in[1] = val.index; BJIT_ASSERT(ops[val.index].flags.type == Op::t); \
         ops[i].imm32 = imm32; }
 
         BJIT_LOAD(li8, _ptr); BJIT_LOAD(li16, _ptr);
@@ -666,7 +421,7 @@ namespace bjit
         std::vector<Block>      blocks;
         std::vector<Op>         ops;
 
-        unsigned currentBlock;
+        uint16_t    currentBlock;
 
         void opt(bool unsafe = false)
         {
@@ -724,11 +479,11 @@ namespace bjit
             return b;
         }
         
-        unsigned newOp(uint16_t opcode, Op::Type type, uint16_t block)
+        uint16_t newOp(uint16_t opcode, Op::Type type, uint16_t block)
         {
             BJIT_ASSERT_T(ops.size() < noVal, too_many_ops);
             
-            unsigned i = ops.size();
+            uint16_t i = ops.size();
             
             ops.resize(i + 1);
             ops[i].opcode = opcode;
@@ -741,7 +496,7 @@ namespace bjit
             return i;
         }
         
-        unsigned addOp(uint16_t opcode, Op::Type type, uint16_t inBlock = noVal)
+        uint16_t addOp(uint16_t opcode, Op::Type type, uint16_t inBlock = noVal)
         {
             if(inBlock == noVal) inBlock = currentBlock;
             
@@ -757,7 +512,7 @@ namespace bjit
             nPassTotal   = 0;
             
             // We probably want right-to-left once we do stack?
-            for(int i = 0; i<n; ++i) passNextArg(env[env.size()-n+i]);
+            for(int i = 0; i<n; ++i) passNextArg(env[env.size()-n+i].index);
         }
 
         void passNextArg(unsigned val)
@@ -782,7 +537,7 @@ namespace bjit
         // integer and floating-point parameters to procedure
         //
         // FIXME: up to 4 until we have better calling convention support
-        unsigned iarg()
+        Value iarg()
         {
             BJIT_ASSERT(nArgsTotal < 4);    // the most that will work on Windows
             BJIT_ASSERT(!currentBlock); // must be block zero
@@ -795,10 +550,10 @@ namespace bjit
             auto i = addOp(ops::iarg, Op::_ptr);
             ops[i].indexType = nArgsInt++;
             ops[i].indexTotal = nArgsTotal++;
-            return i;
+            return Value{i};
         }
 
-        unsigned farg()
+        Value farg()
         {
             BJIT_ASSERT(nArgsTotal < 4);    // the most that will work on Windows
             BJIT_ASSERT(!currentBlock); // must be block zero
@@ -811,10 +566,10 @@ namespace bjit
             auto i = addOp(ops::farg, Op::_f32);
             ops[i].indexType = nArgsFloat++;
             ops[i].indexTotal = nArgsTotal++;
-            return i;
+            return Value{i};
         }
         
-        unsigned darg()
+        Value darg()
         {
             BJIT_ASSERT(nArgsTotal < 4);    // the most that will work on Windows
             BJIT_ASSERT(!currentBlock); // must be block zero
@@ -827,15 +582,15 @@ namespace bjit
             auto i = addOp(ops::darg, Op::_f64);
             ops[i].indexType = nArgsFloat++;
             ops[i].indexTotal = nArgsTotal++;
-            return i;
+            return {i};
         }
 
         // user-requested stack frame
-        unsigned alloc(unsigned size)
+        Value alloc(unsigned size)
         {
             auto i = addOp(ops::alloc, Op::_ptr);
             ops[i].imm32 = size;
-            return i;
+            return Value{i};
         }
 
         // opt-ra.cpp
@@ -1019,6 +774,8 @@ namespace bjit
         const std::vector<uint8_t> & getBytes() const { return bytes; }
         
     private:
+        typedef impl::NearReloc NearReloc;
+    
         struct PatchStub
         {
             unsigned    procIndex;
