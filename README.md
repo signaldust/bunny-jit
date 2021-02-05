@@ -314,9 +314,9 @@ versions of arithmetic operations
 
 `cd2i a` converts doubles to integers while `ci2d a` converts integers to doubles
 
-`bcf2i a` and `bci2f a` bit-cast float vs. int (ie. reinterpret) without conversion
+`bcf2i a` and `bci2f a` bit-cast (ie. reinterpret) float-to-int and int-to-float without conversion
 
-`bcd2i a` and `bci2d a` bit-cast double vs. int (ie. reinterpret) without conversion
+`bcd2i a` and `bci2d a` bit-cast (ie. reinterpret) double-to-int and int-to-double without conversion
 
 `i8 a`, `i16 a` and `i32 a` can be used to sign-extend the low 8/16/32 bits
 
