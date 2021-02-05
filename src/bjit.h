@@ -616,11 +616,11 @@ namespace bjit
 
         // stores take pointer+offset and value to store
 #define BJIT_STORE(x, t) \
-    unsigned x(unsigned ptr, int32_t imm32, unsigned val) { \
+    void x(unsigned ptr, int32_t imm32, unsigned val) { \
         unsigned i = addOp(ops::x, Op::_none); \
         ops[i].in[0] = ptr; BJIT_ASSERT(ops[ptr].flags.type == Op::_ptr); \
         ops[i].in[1] = val; BJIT_ASSERT(ops[val].flags.type == Op::t); \
-        ops[i].imm32 = imm32; return i; }
+        ops[i].imm32 = imm32; }
 
         BJIT_LOAD(li8, _ptr); BJIT_LOAD(li16, _ptr);
         BJIT_LOAD(li32, _ptr); BJIT_LOAD(li64, _ptr);
