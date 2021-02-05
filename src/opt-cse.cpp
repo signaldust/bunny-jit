@@ -131,9 +131,10 @@ bool Proc::opt_cse(bool unsafe)
     std::make_heap(pairs.begin(), pairs.end());
     std::sort_heap(pairs.begin(), pairs.end());
 
+    if(cse_debug)
     for(auto & p : pairs)
     {
-        if(cse_debug) BJIT_LOG("\nCSE pairs: %04x vs. %04x: ", p>>16, p&noVal);
+        BJIT_LOG("\nCSE pairs: %04x vs. %04x: ", p>>16, p&noVal);
     }
 
     // returns true if we made some progress
