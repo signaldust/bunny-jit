@@ -13,8 +13,8 @@ using namespace bjit;
 #define I1(x) (op.nInputs() >= 2 && ops[op.in[1]].opcode == x)
 
 // check for constants
-#define C0 (op.nInputs() >= 1 && (I0(ops::lci) || I0(ops::lcd)))
-#define C1 (op.nInputs() >= 2 && (I1(ops::lci) || I1(ops::lcd)))
+#define C0 (op.nInputs() >= 1 && (I0(ops::lci) || I0(ops::lcf) || I0(ops::lcd)))
+#define C1 (op.nInputs() >= 2 && (I1(ops::lci) || I0(ops::lcf) || I1(ops::lcd)))
 
 // fetch operands
 #define N0 ops[op.in[0]]
