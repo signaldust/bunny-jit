@@ -171,7 +171,6 @@ bool Proc::opt_fold(bool unsafe)
                     case ops::ultI: case ops::ugeI: case ops::ugtI: case ops::uleI:
                         {
                             bool negate = (op.opcode == ops::ieqI);
-                            auto ii = N0;
                             op.opcode = N0.opcode;
                             if(N0.nInputs() == 2) op.in[1] = N0.in[1];
                             if(N0.hasImm32()) op.imm32 = N0.imm32;
