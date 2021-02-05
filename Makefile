@@ -2,6 +2,17 @@
 # No default rules
 .SUFFIXES:
 
+# Generic compilation flags, both C and C++
+CFLAGS := -Isrc -g -ferror-limit=5
+CFLAGS += -Ofast -fomit-frame-pointer
+CFLAGS += -Wall -Werror -Wfloat-conversion -Wno-unused-function
+
+# C++ specific flags
+CXXFLAGS := -std=c++11 -fno-exceptions
+
+# if local.make exists, then include it for local configuration
+-include local.make
+
 BJIT_BINDIR ?= bin
 BJIT_BUILDDIR ?= build
 
@@ -14,24 +25,16 @@ TARGET := bjit
 # FIXME: Windows
 BINEXT :=
 
-# Generic compilation flags, both C and C++
-CFLAGS := -Isrc -g -ferror-limit=5
-CFLAGS += -Ofast -fomit-frame-pointer
-CFLAGS += -Wall -Werror -Wfloat-conversion -Wno-unused-function
-
-# C++ specific flags
-CXXFLAGS := -std=c++11 -fno-exceptions
-
 # Windows specific
 ifeq ($(OS),Windows_NT)
     LIBRARY := $(BJIT_BUILDDIR)/$(TARGET).lib
 
     MAKEDIR := win\mkdir-p.bat
-    LINKLIB := llvm-lib /out:$(LIBRARY)
+    BJIT_LINKLIB ?= llvm-lib /out:$(LIBRARY)
     CLEANALL := win\rm-rf.bat $(BJIT_BUILDDIR) && win\rm-rf.bat $(BJIT_BINDIR)
 
     # Link flags
-    LINKFLAGS := --rtlib=compiler-rt $(LIBRARY)
+    BJIT_LINKFLAGS ?= --rtlib=compiler-rt $(LIBRARY)
 
     CFLAGS += -D_CRT_SECURE_NO_WARNINGS
     
@@ -40,19 +43,15 @@ ifeq ($(OS),Windows_NT)
 else
     LIBRARY := $(BJIT_BUILDDIR)/$(TARGET).a
 
-    LINKFLAGS := $(LIBRARY) -lc++
+    BJIT_LINKFLAGS ?= $(LIBRARY) -lc++
 
     MAKEDIR := mkdir -p
-    MAKEDIRDEP :=
     CLEANALL := rm -rf $(BJIT_BUILDDIR) $(BJIT_BINDIR)
-    LINKLIB := libtool -static -o $(LIBRARY)
+    BJIT_LINKLIB ?= libtool -static -o $(LIBRARY)
 endif
 
 # this works with clang on Windows too
-LINKBIN := $(CC)
-
-# if local.make exists, then include it for local configuration
--include local.make
+BJIT_LINKBIN ?= $(CC)
 
 # Automatically figure out source files
 LIB_SOURCES := $(wildcard src/*.cpp)
@@ -72,7 +71,7 @@ define TestTarget
   $(patsubst %,$(BJIT_BUILDDIR)/%.o,$1)
 	@echo LINK $$@
 	@$(MAKEDIR) "$(BJIT_BINDIR)"
-	@$(LINKBIN) -o $$@ $(patsubst %,$(BJIT_BUILDDIR)/%.o,$1) $(LINKFLAGS)
+	@$(BJIT_LINKBIN) -o $$@ $(patsubst %,$(BJIT_BUILDDIR)/%.o,$1) $(BJIT_LINKFLAGS)
 endef
 
 TESTS_CPP := $(wildcard tests/*.cpp)
@@ -97,12 +96,12 @@ $(foreach i,$(TESTS_CPP),$(eval $(call TestTarget,$(i))))
 $(FRONTEND): $(FRONT_OBJECTS) $(LIBRARY)
 	@echo LINK $@
 	@$(MAKEDIR) "$(BJIT_BINDIR)"
-	@$(LINKBIN) -o $@ $(FRONT_OBJECTS) $(LINKFLAGS)
+	@$(BJIT_LINKBIN) -o $@ $(FRONT_OBJECTS) $(BJIT_LINKFLAGS)
 
 $(LIBRARY): $(LIB_OBJECTS)
 	@echo LIB $@
 	@$(MAKEDIR) "$(dir $@)"
-	@$(LINKLIB) $(LIB_OBJECTS)
+	@$(BJIT_LINKLIB) $(LIB_OBJECTS)
 
 $(BJIT_BUILDDIR)/%.c.o: %.c
 	@echo CC $<
