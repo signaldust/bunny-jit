@@ -2,6 +2,7 @@
 #include "bjit.h"
 
 using namespace bjit;
+using namespace bjit::impl;
 
 RegMask Op::regsMask()
 {

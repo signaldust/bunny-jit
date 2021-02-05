@@ -18,7 +18,7 @@ static const bool cse_debug = false;    // print decisions
 */
 bool Proc::opt_cse(bool unsafe)
 {
-    Rename rename;
+    impl::Rename rename;
 
     BJIT_LOG(" CSE");
 

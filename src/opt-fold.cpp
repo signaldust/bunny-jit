@@ -31,7 +31,7 @@ bool Proc::opt_fold(bool unsafe)
 
     BJIT_ASSERT(live.size());   // should have at least one DCE pass done
 
-    Rename rename;
+    impl::Rename rename;
 
     int iter = 0;
 
