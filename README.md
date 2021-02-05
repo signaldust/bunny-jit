@@ -240,11 +240,14 @@ exception, then you should assume that the throwing `Proc` (or `Module`) is no
 longer in consistent state.
 
 The compiler should never fail with valid data unless the IR size limit is exceeded
-(in this case we <code>throw&nbsp;bjit::too_many_ops</code> if compiled with exceptions;
-otherwise we `assert` as usual), so we do not provide error reporting
-other than the generic `BJIT_ASSERT` (lots of them). In practice, at this time it
-probably *will* `BJIT_ASSERT` on valid code in some cases; I'm working on test
-coverage, but please report a bug if you come across such cases.
+(the limit is 64k IR instructions; we <code>throw&nbsp;bjit::too_many_ops</code>
+if compiled with exceptions, otherwise we `assert` as usual; note that instructions
+removed by DCE and renames/reloads generated during register allocation count towards
+this limit, so it can also happen during `compile()`, but if you're seriously worried
+about this limit, then Bunny-JIT is probably not the best choice for your use-case),
+so we do not provide error reporting other than the generic `BJIT_ASSERT` (lots of them). 
+In practice, at this time it probably *will* `BJIT_ASSERT` on valid code in some cases;
+I'm working on test coverage, but please report a bug if you come across such cases.
 
 The type system is very primitive though and mostly exists for the purpose of
 tracking which registers we can use to store values. In particular, anything
