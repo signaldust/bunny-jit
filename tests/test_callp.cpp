@@ -2,6 +2,7 @@
 #include "bjit.h"
 
 #include <cstdint>
+#include <cinttypes>
 
 int isub2(int a, int b)
 {
@@ -26,7 +27,7 @@ int main()
 
     bjit::Module    module;
 
-    printf("isub2 %lu, fsub2 %p\n", (uintptr_t)isub2, fsub2);
+    printf("isub2 %" PRIuPTR ", fsub2 %p\n", (uintptr_t)isub2, fsub2);
 
     {
         bjit::Proc      proc(0, "ii");

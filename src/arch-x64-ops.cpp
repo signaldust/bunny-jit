@@ -242,11 +242,7 @@ RegMask Op::regsLost()
         case ops::dpass:
             {
                 RegMask used = 0;
-#ifdef _WIN32
-                for(int i = 0; i < in[2]; ++i)
-#else
                 for(int i = 0; i < in[1]; ++i)
-#endif
                 {
                     used |= regsIn(i);
                 }

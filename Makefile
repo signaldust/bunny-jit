@@ -14,13 +14,6 @@ TARGET := bjit
 # FIXME: Windows
 BINEXT :=
 
-LIBRARY := $(BJIT_BUILDDIR)/$(TARGET).a
-
-MAKEDIR := mkdir -p
-CLEANALL := rm -rf $(BJIT_BUILDDIR) $(BJIT_BINDIR)
-LINKLIB := libtool -static
-LINKBIN := clang
-
 # Generic compilation flags, both C and C++
 CFLAGS := -Isrc -g -ferror-limit=5
 CFLAGS += -Ofast -fomit-frame-pointer
@@ -29,8 +22,37 @@ CFLAGS += -Wall -Werror -Wfloat-conversion -Wno-unused-function
 # C++ specific flags
 CXXFLAGS := -std=c++11 -fno-exceptions
 
-# Link flags
-LINKFLAGS := $(LIBRARY) -lc++
+# Windows specific
+ifeq ($(OS),Windows_NT)
+    LIBRARY := $(BJIT_BUILDDIR)/tit.lib
+
+    MAKEDIR := win\mkdir-p.bat
+    LINKLIB := llvm-lib /out:$(LIBRARY)
+    CLEANALL := win\rm-rf.bat $(BJIT_BUILDDIR) && win\rm-rf.bat $(BJIT_BINDIR)
+
+    # Link flags
+    LINKFLAGS := --rtlib=compiler-rt $(LIBRARY)
+
+    CFLAGS += -D_CRT_SECURE_NO_WARNINGS
+    
+    BINEXT := .exe
+
+else
+    LIBRARY := $(BJIT_BUILDDIR)/$(TARGET).a
+
+    LINKFLAGS := $(LIBRARY) -lc++
+
+    MAKEDIR := mkdir -p
+    MAKEDIRDEP :=
+    CLEANALL := rm -rf $(BJIT_BUILDDIR) $(BJIT_BINDIR)
+    LINKLIB := libtool -static -o $(LIBRARY)
+endif
+
+# this works with clang on Windows too
+LINKBIN := $(CC)
+
+# if local.make exists, then include it for local configuration
+-include local.make
 
 # Automatically figure out source files
 LIB_SOURCES := $(wildcard src/*.cpp)
@@ -68,7 +90,7 @@ test: all
     
 clean:
 	@$(CLEANALL)
-	@echo "Removed '$(BJIT_BUILDDIR)' and '$(BJIT_BINDIR)'"
+	@echo Removed '$(BJIT_BUILDDIR)' and '$(BJIT_BINDIR)'
 
 $(foreach i,$(TESTS_CPP),$(eval $(call TestTarget,$(i))))
 
@@ -80,7 +102,7 @@ $(FRONTEND): $(FRONT_OBJECTS) $(LIBRARY)
 $(LIBRARY): $(LIB_OBJECTS)
 	@echo LIB $@
 	@$(MAKEDIR) "$(dir $@)"
-	@$(LINKLIB) -o $@ $(LIB_OBJECTS)
+	@$(LINKLIB) $(LIB_OBJECTS)
 
 $(BJIT_BUILDDIR)/%.c.o: %.c
 	@echo CC $<

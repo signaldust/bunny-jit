@@ -136,7 +136,7 @@ namespace bjit
         // l-values should implement these
         virtual bool canAssign() { return false; }
         virtual unsigned codeGenAssign(Proc & proc, unsigned v)
-        { assert(false); }
+        { assert(false); return 0; }
 
         void debugCommon()
         {
@@ -239,7 +239,7 @@ namespace bjit
             case Token::Tfloat:
                 return proc.lcd(token.vFloat);
                 
-            default: assert(false);
+            default: assert(false); return 0;
             }
         }
     };
@@ -666,7 +666,7 @@ namespace bjit
                 
                 return proc.ineg(a->codeGen(proc));
                 
-            default: assert(false);
+            default: assert(false); return 0;
             }
         }
         
@@ -1044,7 +1044,7 @@ namespace bjit
                 if(a->type.kind == Type::F64) return proc.dge(va, vb);
                 else return proc.ige(va, vb);
 
-            default: assert(false);
+            default: assert(false); return 0;
             }
         }
         

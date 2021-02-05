@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstdarg>
 #include <vector>
 #include <memory>
 #ifndef _WIN32

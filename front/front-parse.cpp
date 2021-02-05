@@ -71,7 +71,7 @@ static int getPrecede(Token const & t)
     case Token::Tfuncall: case Token::Treturn:
         return P_flow;
 
-    default: printf("TT: %d\n", t.type); assert(false);
+    default: printf("TT: %d\n", t.type); assert(false); return 0;
     }
 
 }
