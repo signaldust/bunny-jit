@@ -102,6 +102,8 @@ Ideally that's all, rest of this chapter is mostly just detail.
 We override `clang` for `CC` but if `BJIT_USE_CC` is defined, then this is used;
 use this if you don't want to use `clang` for some weird reason. If `BJIT_BUILDDIR`
 and/or `BJIT_BINDIR` are defined, these will be used instead of `build/` and `bin/`.
+If it fails to build because of `-Werror` then __please report it__ because I'd
+really like this to compile clean with all the popular compilers.
 
 There is also `make test` that will build everything and then run `run-tests.sh`
 to do some basic sanity checking (very limited for now).
