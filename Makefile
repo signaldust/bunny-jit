@@ -24,7 +24,7 @@ CXXFLAGS := -std=c++11 -fno-exceptions
 
 # Windows specific
 ifeq ($(OS),Windows_NT)
-    LIBRARY := $(BJIT_BUILDDIR)/tit.lib
+    LIBRARY := $(BJIT_BUILDDIR)/$(TARGET).lib
 
     MAKEDIR := win\mkdir-p.bat
     LINKLIB := llvm-lib /out:$(LIBRARY)
