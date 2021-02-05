@@ -22,10 +22,9 @@ LINKLIB := libtool -static
 LINKBIN := clang
 
 # Generic compilation flags, both C and C++
-CFLAGS := -Isrc -g
+CFLAGS := -Isrc -g -ferror-limit=5
 CFLAGS += -Ofast -fomit-frame-pointer
 CFLAGS += -Wall -Werror -Wfloat-conversion -Wno-unused-function
-CFLAGS += -ferror-limit=5
 
 # C++ specific flags
 CXXFLAGS := -std=c++11 -fno-exceptions
