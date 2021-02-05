@@ -235,16 +235,14 @@ To clarify `env` is *only* used by the compiler:
 
 Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
-in undefined behaviour (ie. invalid code or `assert`). The compiler should never
-fail with valid data unless bytecode size limit is exceeded (we
-<code>throw&nbsp;bjit::too_many_ops</code> if compiled with exceptions; otherwise we `assert`),
-so we do not provide error reporting other than `assert` (lots of them).
-In practice, at this time it probably *will* `assert` on valid code in some cases;
-I'm working on test coverage, but please report a bug if you come across such cases.
-
-This is a conscious design decision, as error checking should be done at higher
-levels. At some point in the future when the code can be considered "production
-quality" we will probably <code>throw&nbsp;bjit::internal_error</code> instead.
+in undefined behaviour (ie. invalid code or `BJIT_ASSERT`; the latter will either
+call `assert` or `throw bjit::internal_error` depending on whether compiled with
+exceptions). The compiler should never fail with valid data unless bytecode size
+limit is exceeded (in this case we <code>throw&nbsp;bjit::too_many_ops</code> if
+compiled with exceptions; otherwise we `assert`), so we do not provide error reporting
+other than the generic `BJIT_ASSERT` (lots of them). In practice, at this time it
+probably *will* `BJIT_ASSERT` on valid code in some cases; I'm working on test
+coverage, but please report a bug if you come across such cases.
 
 The type system is very primitive though and mostly exists for the purpose of
 tracking which registers we can use to store values. In particular, anything
