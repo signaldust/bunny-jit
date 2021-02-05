@@ -41,13 +41,13 @@ int main()
     fwrite(codeOut.data(), 1, codeOut.size(), f);
     fclose(f);
     printf(" - Wrote out.bin\n");
-    assert(module.load());
+    BJIT_ASSERT(module.load());
 
     auto x = 16;
     auto y = fib(x);
     printf("C-fib: %d\n", y);
 
-    assert(y == module.getPointer<int(int)>(0)(x));
+    BJIT_ASSERT(y == module.getPointer<int(int)>(0)(x));
 
     return 0;
 }

@@ -47,17 +47,17 @@ int main()
     
     printf(" - Wrote out.bin\n");
 
-    assert(module.load());
+    BJIT_ASSERT(module.load());
 
     uint64_t v = 0xfedcba9876543210ull;
 
-    assert(module.getPointer<uint64_t(uint64_t)>(0)(v) == 0x10);
-    assert(module.getPointer<uint64_t(uint64_t)>(1)(v) == 0x3210);
-    assert(module.getPointer<uint64_t(uint64_t)>(2)(v) == 0x76543210);
+    BJIT_ASSERT(module.getPointer<uint64_t(uint64_t)>(0)(v) == 0x10);
+    BJIT_ASSERT(module.getPointer<uint64_t(uint64_t)>(1)(v) == 0x3210);
+    BJIT_ASSERT(module.getPointer<uint64_t(uint64_t)>(2)(v) == 0x76543210);
 
-    assert(module.getPointer<uint64_t(uint64_t)>(3)(0x2ff) == ~0ull);
-    assert(module.getPointer<uint64_t(uint64_t)>(4)(0x2ffff) == ~0ull);
-    assert(module.getPointer<uint64_t(uint64_t)>(5)(0x2ffffffff) == ~0ull);
+    BJIT_ASSERT(module.getPointer<uint64_t(uint64_t)>(3)(0x2ff) == ~0ull);
+    BJIT_ASSERT(module.getPointer<uint64_t(uint64_t)>(4)(0x2ffff) == ~0ull);
+    BJIT_ASSERT(module.getPointer<uint64_t(uint64_t)>(5)(0x2ffffffff) == ~0ull);
     
     return 0;
 }

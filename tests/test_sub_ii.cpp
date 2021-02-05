@@ -11,13 +11,13 @@ int main()
 
     int i = module.compile(proc);
 
-    assert(module.load());
+    BJIT_ASSERT(module.load());
 
     auto ptr = module.getPointer<int(int,int)>(i);
 
     printf(" 5 - 2 = %d\n", ptr(5, 2));
 
-    assert(ptr(5,2) == 3);
+    BJIT_ASSERT(ptr(5,2) == 3);
 
     return 0;
 }
