@@ -200,6 +200,30 @@ returned by `Module::compile()` to get a pointer to your function (with `T`
 being the type of the function; we don't check this, we just typecast for you).
 See one of the tests (eg. `tests/test_add_ii.cpp`) for an example.
 
+Instructions expect their parameter types to be correct. Passing floating-point
+values to instructions that expect integer values or vice versa will result
+in undefined behaviour (ie. invalid code or `BJIT_ASSERT`; the latter will either
+call `assert` or <code>throw&nbsp;bjit::internal_error</code> depending on whether
+compiled with exceptions). Exceptions should not leak memory, but if you catch an
+exception, then you should assume that the throwing `Proc` (or `Module`) is no
+longer in consistent state.
+
+The compiler should never fail with valid data unless the IR size limit is exceeded.
+The limit is 64k IR instructions; we <code>throw&nbsp;bjit::too_many_ops</code>
+if compiled with exceptions, otherwise we `assert` as usual; note that instructions
+removed by DCE and renames/reloads generated during register allocation count towards
+this limit, so it can also happen during `compile()`, but if you're seriously worried
+about this limit, then Bunny-JIT is probably not the best choice for your use-case.
+As we do not expect to fail when used correctly, we do not provide other error
+reporting beyond generic `BJIT_ASSERT` (if you trap these in debugger though,
+the failure conditions should typically give a reasonable hint as to what went wrong).
+In practice, at this time it probably *will* `BJIT_ASSERT` on valid code in some cases;
+I'm working on test coverage, but please report a bug if you come across such cases.
+
+The type system is very primitive though and mostly exists for the purpose of
+tracking which registers we can use to store values. In particular, anything
+stored in general purpose registers is called `_ptr` (or simply integers).
+
 ### Env?
 
 `Proc` has a public `std::vector` member `env` which stores the "environment".
@@ -230,30 +254,6 @@ To clarify `env` is *only* used by the compiler:
  - when a [call](#calling-functions) is emitted: the arguments are taken from `env`
 
 ### Instruction set?
-
-Instructions expect their parameter types to be correct. Passing floating-point
-values to instructions that expect integer values or vice versa will result
-in undefined behaviour (ie. invalid code or `BJIT_ASSERT`; the latter will either
-call `assert` or <code>throw&nbsp;bjit::internal_error</code> depending on whether
-compiled with exceptions). Exceptions should not leak memory, but if you catch an
-exception, then you should assume that the throwing `Proc` (or `Module`) is no
-longer in consistent state.
-
-The compiler should never fail with valid data unless the IR size limit is exceeded.
-The limit is 64k IR instructions; we <code>throw&nbsp;bjit::too_many_ops</code>
-if compiled with exceptions, otherwise we `assert` as usual; note that instructions
-removed by DCE and renames/reloads generated during register allocation count towards
-this limit, so it can also happen during `compile()`, but if you're seriously worried
-about this limit, then Bunny-JIT is probably not the best choice for your use-case.
-As we do not expect to fail when used correctly, we do not provide other error
-reporting beyond generic `BJIT_ASSERT` (if you trap these in debugger though,
-the failure conditions should typically give a reasonable hint as to what went wrong).
-In practice, at this time it probably *will* `BJIT_ASSERT` on valid code in some cases;
-I'm working on test coverage, but please report a bug if you come across such cases.
-
-The type system is very primitive though and mostly exists for the purpose of
-tracking which registers we can use to store values. In particular, anything
-stored in general purpose registers is called `_ptr` (or simply integers).
 
 Instructions starting `i` are for integers, `u` are unsigned variants when
 there is a distinction, `f` is single-precision float and `d` is double-precision
