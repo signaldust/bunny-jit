@@ -105,6 +105,10 @@ and/or `BJIT_BINDIR` are defined, these will be used instead of `build/` and `bi
 If it fails to build because of `-Werror` then <ins>please report it</ins> because I'd
 really like this to compile clean with all the popular compilers.
 
+By default the `Makefile` is set to compile with `-fno-exceptions` (and `BJIT_ASSERT`
+will simply call `assert`) but if you enable exceptions then `BJIT_ASSERT` will
+<code>throw&nbsp;bjit::internal_error</code> on failures instead.
+
 There is also `make test` that will build everything and then run `run-tests.sh`
 to do some basic sanity checking (very limited for now).
 
@@ -236,10 +240,12 @@ To clarify `env` is *only* used by the compiler:
 Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
 in undefined behaviour (ie. invalid code or `BJIT_ASSERT`; the latter will either
-call `assert` or `throw bjit::internal_error` depending on whether compiled with
-exceptions). The compiler should never fail with valid data unless bytecode size
-limit is exceeded (in this case we <code>throw&nbsp;bjit::too_many_ops</code> if
-compiled with exceptions; otherwise we `assert`), so we do not provide error reporting
+call `assert` or <code>throw&nbsp;bjit::internal_error</code> depending on whether
+compiled with exceptions).
+
+The compiler should never fail with valid data unless the IR size limit is exceeded
+(in this case we <code>throw&nbsp;bjit::too_many_ops</code> if compiled with exceptions;
+otherwise we `assert` as usual), so we do not provide error reporting
 other than the generic `BJIT_ASSERT` (lots of them). In practice, at this time it
 probably *will* `BJIT_ASSERT` on valid code in some cases; I'm working on test
 coverage, but please report a bug if you come across such cases.
