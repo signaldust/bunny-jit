@@ -109,7 +109,8 @@ will simply call `assert`) but if you enable exceptions then `BJIT_ASSERT` will
 <code>throw&nbsp;bjit::internal_error</code> on failures instead.
 
 There is also `make test` that will build everything and then run `run-tests.sh`
-to do some basic sanity checking (very limited for now).
+to do some basic sanity checking (very limited for now). This won't quite work on
+Windows though (it should build tests, but we don't have a `run-tests.bat` yet).
 
 Any source files in `src/` are compiled and collected to `build/bjit.a` and each
 `tests/<name>.cpp` is compiled into a separate `bin/<name>` for testing purposes.
