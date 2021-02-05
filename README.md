@@ -241,7 +241,9 @@ Instructions expect their parameter types to be correct. Passing floating-point
 values to instructions that expect integer values or vice versa will result
 in undefined behaviour (ie. invalid code or `BJIT_ASSERT`; the latter will either
 call `assert` or <code>throw&nbsp;bjit::internal_error</code> depending on whether
-compiled with exceptions).
+compiled with exceptions). Exceptions should not leak memory, but if you catch an
+exception, then you should assume that the throwing `Proc` (or `Module`) is no
+longer in consistent state.
 
 The compiler should never fail with valid data unless the IR size limit is exceeded
 (in this case we <code>throw&nbsp;bjit::too_many_ops</code> if compiled with exceptions;
