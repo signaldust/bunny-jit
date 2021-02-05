@@ -39,6 +39,8 @@ currently. See [below](#optimizations).</i>
 
 Bunny-JIT comes with some sort of simple front-end language, but this is intended
 more for testing (and I guess example) than as a serious programming language.
+I suggest looking at the tests (eg. `tests/test_fib.cpp`) for examples of how to
+use the programming API.
 
 The test-driver `bin/bjit` parses this simple language from `stdin` and compiles
 it into native code, which is written to `out.bin` for disassembly purposes
