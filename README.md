@@ -6,10 +6,14 @@ Unix environment (and `libtool`), but the code should work on Windows as well (s
 compile everything from `src/`; let me know if it needs some tweaking, I'll test it
 myself eventually).
 
-This is work in relatively early progress. It sort of works, but some things like
-[function calls](#calling-functions) are not done robustly yet and there are likely serious bugs hiding.
-The code tries to cross-check it's own invariants, but this is sadly not bullet-proof.
-Check back in a week or two and it's probably a lot more robust.
+This is work in somewhat early progress. It should mostly, but some things like
+[function calls](#calling-functions) are not very robust yet.
+
+I feel like it's getting to the point, where it's probably worthwhile to experiment
+with, but please expect to find (and preferably report) some bugs as the
+test-coverage is still somewhat limited. The code tries to cross-check it's own
+invariants, but this is sadly not bullet-proof and some bugs (eg. issues with
+native binary encoding) won't be found this way.
 
 **Please don't use it for production yet.**
 
@@ -19,7 +23,7 @@ Features:
   * uses low-level portable instruction set that models common architectures
   * supports integers, single- and double-floats (probably SIMD at some point)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
-  * performs roughly<sup>2</sup> DCE, GCSE+LICM (PRE?), CF/CP and register allocation (as of now)
+  * performs roughly<sup>2</sup> DCE, GCSE+LICM (PRE?), CF/CP (SCCP?) and register allocation (as of now)
   * assembles to native x64 binary code with simple module system that supports [hot-patching](#patching-calls)
   * uses `std::vector` to manage memory, keeps `valgrind` happy, tries to be cache efficient
 
