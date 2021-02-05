@@ -337,6 +337,12 @@ and the support is currently not particularly robust as it relies on register
 allocator not accidentally overwriting parameters. This "should not happen"(tm), but
 there is no real sanity-checking done for this, yet.
 
+<i>Why up to 4? Because this is as many as we can pass in registers on Windows
+ and although this could be relaxed on Unix, I want to keep the feature-set identical
+ across platforms. If your code works on one platform, it shouldn't suddenly fail
+ on another. The limitation is probably always stay for tail-calls, but we'll
+ hopefully will be supporting more parameters for regular calls in the future.</i>
+
 There are essentially two types of calls: near-calls and indirect calls.
 
 Indirect ("pointer") calls can be done with `icallp`, `fcallp` and `dcallp` which take
