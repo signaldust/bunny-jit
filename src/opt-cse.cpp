@@ -19,7 +19,6 @@ static const bool cse_debug = false;    // print decisions
 bool Proc::opt_cse(bool unsafe)
 {
     Rename rename;
-    bool progress = false;
 
     BJIT_LOG(" CSE");
 
@@ -132,46 +131,23 @@ bool Proc::opt_cse(bool unsafe)
     std::make_heap(pairs.begin(), pairs.end());
     std::sort_heap(pairs.begin(), pairs.end());
 
-    // expand all other possible candidate pairs
-    int j = 0, limit = pairs.size();
-    for(int i = 1; i < limit; ++i)
-    {
-        // if representative pair is different, flush
-        if((pairs[j]&~noVal) != (pairs[i]&~noVal))
-        {
-            for(int p = j; p < i; ++p)
-            {
-                for(int q = p+1; q < i; ++q)
-                {
-                    pairs.push_back((pairs[p]&noVal) + ((pairs[q]&noVal)<<16));
-                }
-            }
-
-            j = i;
-        }
-    }
-    // last set from j to limit
-    for(int p = j; p < limit; ++p)
-    {
-        for(int q = p+1; q < limit; ++q)
-        {
-            pairs.push_back((pairs[p]&noVal) + ((pairs[q]&noVal)<<16));
-        }
-    }
-
+    if(cse_debug)
     for(auto & p : pairs)
     {
-        auto & op0 = ops[p>>16];
-        auto & op1 = ops[p & noVal];
+        BJIT_LOG("\nCSE pairs: %04x vs. %04x: ", p>>16, p&noVal);
+    }
 
+    // returns true if we made some progress
+    auto csePair = [&](Op & op0, Op & op1) -> bool
+    {
         // did we already eliminate one of these
-        if(op0.opcode == ops::nop) continue;
-        if(op1.opcode == ops::nop) continue;
+        if(op0.opcode == ops::nop) return false;
+        if(op1.opcode == ops::nop) return false;
 
         auto b0 = op0.block;
         auto b1 = op1.block;
         
-        if(cse_debug) BJIT_LOG("CSE: %04x vs. %04x: ", p >> 16, p & noVal);
+        if(cse_debug) BJIT_LOG("\nCSE: %04x vs. %04x: ", op0.index, op1.index);
 
         // closest common dominator
         int ccd = 0;
@@ -206,7 +182,7 @@ bool Proc::opt_cse(bool unsafe)
             if(bad) break;
         }
 
-        if(bad) { if(cse_debug) BJIT_LOG("BAD\n"); }
+        if(bad) { if(cse_debug) BJIT_LOG("BAD"); return false; }
         else if(b0 == b1)
         {
             // same block case, figure out which one is earlier
@@ -218,44 +194,45 @@ bool Proc::opt_cse(bool unsafe)
                 if(c == op0.index)
                 {
                     if(cse_debug)
-                        BJIT_LOG("GOOD: %04x first in block\n", op0.index);
+                        BJIT_LOG("GOOD: %04x first in block", op0.index);
                     rename.add(op1.index, op0.index);
                     op1.makeNOP();
-                    progress = found = true;
+                    found = true;
                     break;
                 }
 
                 if(c == op1.index)
                 {
                     if(cse_debug) 
-                        BJIT_LOG("GOOD: %04x first in block\n", op1.index);
+                        BJIT_LOG("GOOD: %04x first in block", op1.index);
                     rename.add(op0.index, op1.index);
                     op0.makeNOP();
-                    progress = found = true;
+                    found = true;
                     break;
                 }
             }
             BJIT_ASSERT(found);
+            return true;
         }
         else if(ccd == b1)
         {
-            if(cse_debug) BJIT_LOG("GOOD: %04x in ccd\n", op1.index);
+            if(cse_debug) BJIT_LOG("GOOD: %04x in ccd", op1.index);
             rename.add(op0.index, op1.index);
             op0.makeNOP();
 
-            progress = true;
+            return true;
         }
         else if(ccd == b0)
         {
-            if(cse_debug) BJIT_LOG("GOOD: %04x in ccd\n", op0.index);
+            if(cse_debug) BJIT_LOG("GOOD: %04x in ccd", op0.index);
             rename.add(op1.index, op0.index);
             op1.makeNOP();
             
-            progress = true;
+            return true;
         }
         else
         {
-            if(cse_debug) BJIT_LOG("GOOD: move to CCD:%d\n", ccd);
+            if(cse_debug) BJIT_LOG("GOOD: move to CCD:%d", ccd);
         
             // NOTE: We do a lazy clear of the original position
             // in the rename pass below when block doesn't match.
@@ -291,12 +268,59 @@ bool Proc::opt_cse(bool unsafe)
             rename.add(op1.index, op0.index);
             op1.makeNOP();
             
-            progress = true;
+            return true;
         }
-    }
+        
+        BJIT_ASSERT(false); // not reached
+    };
 
-    // don't need renames if we found nothing
-    if(!progress) return false;
+    
+    bool progress = true, anyProgress = false;
+    while(progress)
+    {
+        progress = false;
+        // try all possible candidate pairs
+        int j = 0, limit = pairs.size();
+        for(int i = 0; i < limit; ++i)
+        {
+            if(csePair(ops[pairs[i]>>16], ops[pairs[i]&noVal]))
+            {
+                progress = true;
+            }
+            
+            // if representative op is different, flush
+            if((pairs[j]&~noVal) != (pairs[i]&~noVal))
+            {
+                for(int p = j; p < i; ++p)
+                {
+                    for(int q = p+1; q < i; ++q)
+                    {
+                        if(csePair(ops[pairs[p]&noVal], ops[pairs[q]&noVal]))
+                        {
+                            progress = true;
+                        }
+                    }
+                }
+    
+                j = i;
+            }
+        }
+        // last set from j to limit
+        for(int p = j; p < limit; ++p)
+        {
+            for(int q = p+1; q < limit; ++q)
+            {
+                if(csePair(ops[pairs[p]&noVal], ops[pairs[q]&noVal]))
+                {
+                    progress = true;
+                }
+            }
+        }
+    
+        // don't need renames if we found nothing
+        if(!progress) break;
+        anyProgress = true;
+    }
 
     // rename pass
     for(auto b : live)
@@ -338,5 +362,5 @@ bool Proc::opt_cse(bool unsafe)
         }
     }
 
-    return progress;
+    return anyProgress;
 }
