@@ -193,8 +193,6 @@ A module can be loaded and unloaded multiple times. Additional procedures can be
 compiled at any time, but they will not be loaded until the `Module` is either
 reloaded or module is hot-patched with `Module::patch()` (see `bjit.h` for details).
 
-*(NOTE: Module loading is untested on Windows.)*.
-
 When a `Module` is loaded call `Module::getPointer<T>()` with an index
 returned by `Module::compile()` to get a pointer to your function (with `T`
 being the type of the function; we don't check this, we just typecast for you).
