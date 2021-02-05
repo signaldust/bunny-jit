@@ -2,8 +2,8 @@
 
 This is a tiny optimising SSA-based JIT backend, currently targeting x64, but
 designed to be (somewhat) portable. The [`Makefile`](#how-to-build) expects
-either Unix environment (and `libtool`) or Windows with `clang` in path, but
-there is no real build magic (just compile everything in `src/` really).
+either Unix environment (and `libtool`) or Windows with `clang` (and `llvm-lib`)
+in path, but there is no real build magic (just compile everything in `src/` really).
 
 This is work in somewhat early progress. It should mostly work, but some things like
 [function calls](#calling-functions) are not very robust yet.
