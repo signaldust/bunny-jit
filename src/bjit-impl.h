@@ -78,9 +78,6 @@ namespace bjit
     
             // Register type, needed for correct renames, etc..
             //
-            // In the future, we could also use this to track single vs. double
-            // precision floats and packed vector types for spills and reloads.
-            //
             enum Type
             {
                 _none,  // no output
