@@ -32,6 +32,9 @@ void Proc::sanity()
 
             if(op.opcode == ops::phi)
             {
+                BJIT_ASSERT(blocks[b].args[op.phiIndex].alts.size()
+                    == blocks[b].comeFrom.size());
+            
                 int phiSourcesFound = 0;
                 for(auto & s : blocks[b].args[op.phiIndex].alts)
                 {
