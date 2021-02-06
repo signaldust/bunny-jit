@@ -32,9 +32,10 @@ void bjit::Proc::debugOp(uint16_t iop) const
     bool nopRename = false;
     if(op.opcode == ops::rename && op.reg == ops[op.in[0]].reg)
         nopRename = true;
-    BJIT_LOG("%04x %6s %8s", iop,
+    BJIT_LOG("%04x %6s %8s %c", iop,
         op.hasOutput() ? regName(op.reg) : "",
-        nopRename ? " - " : op.strOpcode());
+        nopRename ? " - " : op.strOpcode(),
+        op.flags.no_opt ? '*' : ' ');
 
     switch(op.flags.type)
     {
@@ -143,7 +144,7 @@ void bjit::Proc::debug() const
                 }
             }
             BJIT_LOG("\n");
-            BJIT_LOG("; SLOT  VALUE    REG       OP USE TYPE  ARGS\n");
+            BJIT_LOG("; SLOT  VALUE    REG       OP   USE TYPE  ARGS\n");
             for(auto & iop : blocks[b].code) { debugOp(iop); }
             //if(0)
             if(raDone)
