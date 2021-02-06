@@ -89,6 +89,7 @@ namespace bjit
             struct {
                 Type    type    : 4;    // see above, packed into flags
                 bool    spill   : 1;
+                bool    no_opt  : 1;    // don't unroll or hoist further
             } flags = {};
     
     
@@ -245,7 +246,7 @@ namespace bjit
             uint16_t                pdom;  // immediate post-dominator
     
             struct {
-                bool live       : 1;    // livescan uses this
+                bool live       : 1;    // used/reset by DCE, RA
                 bool regsDone   : 1;    // reg-alloc uses this
                 bool codeDone   : 1;    // backend uses this
             } flags = {};

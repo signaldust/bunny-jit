@@ -69,10 +69,8 @@ void Proc::opt_dce(bool unsafe)
                         if(ops[i].opcode < ops::jmp && target == ops[i].label[k^1]
                         && ops[blocks[target].code[0]].opcode == ops::phi)
                         {
-                            // never collapse a loop to a single block
-                            bool bad = (target == b);
+                            bool bad = false;
                             auto vs = noVal, vt = noVal;
-                            if(bad) break;
                             
                             for(auto & a : blocks[target].args)
                             {

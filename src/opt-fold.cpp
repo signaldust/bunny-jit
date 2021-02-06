@@ -75,6 +75,14 @@ bool Proc::opt_fold(bool unsafe)
                     }
                 }
 
+                // catch phi-rewriting problems early
+                BJIT_ASSERT(op.nInputs() < 1
+                || ops[op.in[0]].opcode != op.opcode
+                || N0.index != op.index);
+                BJIT_ASSERT(op.nInputs() < 2
+                || ops[op.in[1]].opcode != op.opcode
+                || N1.index != op.index);
+
                 // for associative operations and comparisons where neither
                 // operand is constant, sort operands to improve CSE
                 if(!C0 && !C1)
