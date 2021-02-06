@@ -298,11 +298,11 @@ exceptions might not happen where expected)
 `inot a`, `iand a b`, `ior a b` and `ixor a b` perform bitwise logical operations
 
 `ishr a b` and `ushr a b` are signed and unsigned right-shift while 
-left-shift (signed or unsigned) is `ishl a b` and we specify that the number
-of bits to shift is modulo the bitsize of integers (eg. 64 on x64 which does
-this natively, but it's easy enough to mask on hardware that might not; I'm
-willing to reconsider, but I feel like the only other sensible choice would be
-to rule it as *undefined behaviour* which I'm trying to avoid)
+left-shift (signed or unsigned) is `ishl a b` and we currently specify that the
+number of bits to shift is modulo the bitsize of integers (eg. x64 does this
+natively, but I don't think ARM does; it can still be implemented efficiently
+by masking, but note that this is subject to change and we might rule it as
+*undefined behaviour* at least for the "unsafe" `levelOpt=2`)
 
 `fadd a b`, `fsub a b`, `fmul a b`, `fdiv a b` and `fneg a` are single-float
 versions of arithmetic operations
