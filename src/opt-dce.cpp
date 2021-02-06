@@ -71,6 +71,7 @@ void Proc::opt_dce(bool unsafe)
                         {
                             bool bad = false;
                             auto vs = noVal, vt = noVal;
+                            
                             for(auto & a : blocks[target].args)
                             {
                                 for(auto & s : a.alts)

@@ -5,7 +5,7 @@ using namespace bjit;
 
 bool Proc::opt_sink(bool unsafe)
 {
-    livescan(); // need live-in information
+    livescan();
 
     // livescan doesn't find phi-inputs, we need them here
     for(auto b : live)
@@ -29,8 +29,8 @@ bool Proc::opt_sink(bool unsafe)
     bool progress = false;
     for(auto b : live)
     {
-        // find local-only uses
-        findUsesBlock(b, true);
+        // find localq uses
+        findUsesBlock(b, false);
 
         auto & jmp = ops[blocks[b].code.back()];
 
@@ -138,6 +138,7 @@ bool Proc::opt_sink(bool unsafe)
                 //debugOp(tmp0.back());
                 tcode[i] = tmp0.back(); tmp0.pop_back();
                 ops[tcode[i]].block = tBlock;
+                ops[tcode[i]].flags.no_opt = true;  // don't hoist further
             }
         }
         
@@ -174,6 +175,7 @@ bool Proc::opt_sink(bool unsafe)
                 
                 tcode[i] = tmp1.back(); tmp1.pop_back();
                 ops[tcode[i]].block = tBlock;
+                ops[tcode[i]].flags.no_opt = true;  // don't hoist further
             }
         }
     }

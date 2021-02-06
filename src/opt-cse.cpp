@@ -47,7 +47,9 @@ bool Proc::opt_cse(bool unsafe)
             // always try to hoist first?
             // walk up the idom chain
             auto mblock = b;
-            while(mblock)
+
+            // try to find a better block, but don't if we just sunk this
+            if(!op.flags.no_opt) while(mblock)
             {
                 bool done = false;
                 for(int k = 0; k < op.nInputs(); ++k)
@@ -197,6 +199,7 @@ bool Proc::opt_cse(bool unsafe)
                         BJIT_LOG("GOOD: %04x first in block", op0.index);
                     rename.add(op1.index, op0.index);
                     op1.makeNOP();
+                    op0.flags.no_opt = false;   // can optimize again
                     found = true;
                     break;
                 }
@@ -207,6 +210,7 @@ bool Proc::opt_cse(bool unsafe)
                         BJIT_LOG("GOOD: %04x first in block", op1.index);
                     rename.add(op0.index, op1.index);
                     op0.makeNOP();
+                    op1.flags.no_opt = false;   // can optimize again
                     found = true;
                     break;
                 }
@@ -219,6 +223,7 @@ bool Proc::opt_cse(bool unsafe)
             if(cse_debug) BJIT_LOG("GOOD: %04x in ccd", op1.index);
             rename.add(op0.index, op1.index);
             op0.makeNOP();
+            op1.flags.no_opt = false;   // can optimize again
 
             return true;
         }
@@ -227,6 +232,7 @@ bool Proc::opt_cse(bool unsafe)
             if(cse_debug) BJIT_LOG("GOOD: %04x in ccd", op0.index);
             rename.add(op1.index, op0.index);
             op1.makeNOP();
+            op0.flags.no_opt = false;   // can optimize again
             
             return true;
         }
@@ -267,6 +273,7 @@ bool Proc::opt_cse(bool unsafe)
 
             rename.add(op1.index, op0.index);
             op1.makeNOP();
+            op0.flags.no_opt = false;   // can optimize again
             
             return true;
         }

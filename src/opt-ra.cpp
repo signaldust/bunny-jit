@@ -986,6 +986,7 @@ void Proc::findSCC()
             // unless it's a loop-thru PHI which we fix below
             bool useAfterDefine = (ops[in].scc != noSCC
             || (ops[in].opcode == ops::phi && ops[in].block == bi));
+            if(!useAfterDefine) BJIT_LOG("\nNo SCC for %04x in L%d\n", in, bi);
             BJIT_ASSERT(useAfterDefine);
             // this is just a sanity check
             BJIT_ASSERT(ops[in].scc < sccUsed.size());
