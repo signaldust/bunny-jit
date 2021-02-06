@@ -436,9 +436,10 @@ namespace bjit
                 opt_dce(unsafe);
                 
             } while(opt_fold(unsafe)    // opt_fold first, needs nUse
-                || opt_jump()           // opt_jump does livescan
                 || opt_cse(unsafe)      // opt_cse doesn't need nUse
-                || opt_sink(unsafe));   // opt_sink needs livescan
+                || opt_sink(unsafe)     // opt_sink needs livescan
+                || opt_jump()           // opt_jump does livescan
+                );
         }
 
         // used to break critical edges, returns the new block

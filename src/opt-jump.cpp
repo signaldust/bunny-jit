@@ -14,8 +14,8 @@ bool Proc::opt_jump()
 {
     bool progress = false;
     
-    livescan(); // need this to add phis to targets
-    debug();
+    //livescan(); // need this to add phis to targets (opt_sink does)
+    //debug();
 
     impl::Rename    renameCopy;
     impl::Rename    renameJump;
