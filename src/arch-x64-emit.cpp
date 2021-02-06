@@ -104,7 +104,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     unsigned    frameOffset = ((ops[0].imm32+0xf)&~0xf);;
 
     // need 8 mod 16 - add slots, emit "prelude" if necessary
-    nPush = 1 ^ ((nPush + nSlots) & 1);
+    nPush += nSlots;
+    if(!(nPush & 1)) nPush += 1;
     // add user-requested frame on top
     int frameBytes = 8*nPush + frameOffset;
     if(frameBytes) { _SUBri(regs::rsp, frameBytes); }

@@ -139,6 +139,8 @@ namespace bjit
         //
         // NOTE: We treat all xmm registers as volatile when calling functions.
         // The backend uses separate logic for callee_saved when we are callee.
+        //
+        // NOTE: This list MUST include any registers used for arguments.
         static const RegMask caller_saved
             =(1ull<<rax)
 #ifndef _WIN32
