@@ -19,6 +19,8 @@ bool Proc::opt_jump()
     //livescan(); // need this to add phis to targets (opt_sink does)
     //debug();
 
+    BJIT_LOG(" JUMP");
+
     impl::Rename    renameCopy;
     impl::Rename    renameJump;
 
