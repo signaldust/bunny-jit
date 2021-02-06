@@ -72,6 +72,8 @@ void Proc::opt_dce(bool unsafe)
                             // never collapse a loop to a single block
                             bool bad = (target == b);
                             auto vs = noVal, vt = noVal;
+                            if(bad) break;
+                            
                             for(auto & a : blocks[target].args)
                             {
                                 for(auto & s : a.alts)
