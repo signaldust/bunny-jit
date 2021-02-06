@@ -239,8 +239,6 @@ bool Proc::opt_jump()
         break;
     }
 
-    debug();
-
     // force DCE to rebuild everything
     if(progress) live.clear();
 
