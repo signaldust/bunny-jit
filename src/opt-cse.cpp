@@ -49,6 +49,8 @@ bool Proc::opt_cse(bool unsafe)
             auto mblock = b;
 
             // try to find a better block, but don't if we just sunk this
+            // if this is not sunken and we hoist it into a branching block
+            // then next SINK pass will break a critical edge for us
             if(!op.flags.no_opt) while(mblock)
             {
                 bool done = false;
@@ -65,15 +67,6 @@ bool Proc::opt_cse(bool unsafe)
                 if(blocks[idom].pdom != mblock) break;
                     
                 mblock = blocks[mblock].idom;
-            }
-
-            // if target branches, then just give up, for now
-            // we don't want to hoist stuff back into loops
-            //
-            // we should add loop headers elsewhere
-            if(ops[blocks[mblock].code.back()].opcode < ops::jmp)
-            {
-                mblock = b;
             }
 
             // if mblock is the current block, then we can't move
