@@ -15,7 +15,7 @@ int main()
         fwrite(codeOut.data(), 1, codeOut.size(), f);
         fclose(f);
         
-        printf(" - Wrote out.bin\n");
+        BJIT_LOG(" - Wrote out.bin\n");
         return 0;
     }
     else

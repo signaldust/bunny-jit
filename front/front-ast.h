@@ -51,28 +51,28 @@ namespace bjit
 
         void debug()
         {
-            if(nptr == 1) printf("%d*", nptr);
+            if(nptr == 1) BJIT_LOG("%d*", nptr);
             
             switch(kind)
             {
-            case ERROR: printf("error"); break;
-            case AUTO: printf("auto"); break;
-            case VOID: printf("void"); break;
+            case ERROR: BJIT_LOG("error"); break;
+            case AUTO: BJIT_LOG("auto"); break;
+            case VOID: BJIT_LOG("void"); break;
             
-            case I8: printf("i8"); break;
-            case I16: printf("i16"); break;
-            case I32: printf("i32"); break;
-            case I64: printf("i64"); break;
+            case I8: BJIT_LOG("i8"); break;
+            case I16: BJIT_LOG("i16"); break;
+            case I32: BJIT_LOG("i32"); break;
+            case I64: BJIT_LOG("i64"); break;
             
-            case U8: printf("u8"); break;
-            case U16: printf("u16"); break;
-            case U32: printf("u32"); break;
-            case U64: printf("u64"); break;
+            case U8: BJIT_LOG("u8"); break;
+            case U16: BJIT_LOG("u16"); break;
+            case U32: BJIT_LOG("u32"); break;
+            case U64: BJIT_LOG("u64"); break;
 
-            case F32: printf("f32"); break;
-            case F64: printf("f64"); break;
+            case F32: BJIT_LOG("f32"); break;
+            case F64: BJIT_LOG("f64"); break;
 
-            default: printf("struct-%d", kind - STRUCT); break;
+            default: BJIT_LOG("struct-%d", kind - STRUCT); break;
             }
         }
 
@@ -140,7 +140,7 @@ namespace bjit
 
         void debugCommon()
         {
-            printf("@%d:%d : ", token.posLine, token.posChar);
+            BJIT_LOG("@%d:%d : ", token.posLine, token.posChar);
             type.debug();
         }
     };
@@ -162,7 +162,7 @@ namespace bjit
 
         void debug(int lvl)
         {
-            printf("\n%*s(typecast ", lvl, "");
+            BJIT_LOG("\n%*s(typecast ", lvl, "");
             debugCommon();
             v->debug(lvl+2);
         }
@@ -217,10 +217,10 @@ namespace bjit
             switch(token.type)
             {
             case Token::Tint:
-                printf("\n%*si:%" PRId64 " ", lvl, "", token.vInt); break;
+                BJIT_LOG("\n%*si:%" PRId64 " ", lvl, "", token.vInt); break;
             case Token::Tuint:
-                printf("\n%*su:%" PRIu64 " ", lvl, "", token.vInt); break;
-            case Token::Tfloat: printf("\n%*sf:%#g ", lvl, "", token.vFloat); break;
+                BJIT_LOG("\n%*su:%" PRIu64 " ", lvl, "", token.vInt); break;
+            case Token::Tfloat: BJIT_LOG("\n%*sf:%#g ", lvl, "", token.vFloat); break;
 
             default: assert(false);
             }
@@ -267,7 +267,7 @@ namespace bjit
         
         void debug(int lvl)
         {
-            printf("\n%*ssym:%p:%s/%d ", lvl, "",
+            BJIT_LOG("\n%*ssym:%p:%s/%d ", lvl, "",
                 token.symbol, token.symbol->string.data(), envIndex);
             debugCommon();
         }
@@ -300,7 +300,7 @@ namespace bjit
 
         void debug(int lvl)
         {
-            printf("\n%*s(return ", lvl, "");
+            BJIT_LOG("\n%*s(return ", lvl, "");
             debugCommon();
             v->debug(lvl+2);
         }
@@ -340,11 +340,11 @@ namespace bjit
 
         void debug(int lvl)
         {
-            printf("\n%*s(call ", lvl, "");
+            BJIT_LOG("\n%*s(call ", lvl, "");
             fn->debug(lvl+2);
             // indent arguments by two levels
             for(auto & a : args) a->debug(lvl+4);
-            printf(")");
+            BJIT_LOG(")");
         }
         
         virtual Value codeGen(Proc & proc)
@@ -381,9 +381,9 @@ namespace bjit
         
         void debug(int lvl)
         {
-            printf("\n%*s(block ", lvl, "");
+            BJIT_LOG("\n%*s(block ", lvl, "");
             for(auto & a : body) a->debug(lvl+2);
-            printf(")");
+            BJIT_LOG(")");
         }
         
         virtual Value codeGen(Proc & proc)
@@ -436,12 +436,12 @@ namespace bjit
 
         void debug(int lvl)
         {
-            printf("\n%*s(if ", lvl, "");
+            BJIT_LOG("\n%*s(if ", lvl, "");
             debugCommon();
             condition->debug(lvl+4);    // two level indent
             sThen->debug(lvl+2);
             if(sElse) sElse->debug(lvl+2);
-            printf(")");
+            BJIT_LOG(")");
         }
         
         virtual Value codeGen(Proc & proc)
@@ -503,11 +503,11 @@ namespace bjit
 
         void debug(int lvl)
         {
-            printf("\n%*s(while ", lvl, "");
+            BJIT_LOG("\n%*s(while ", lvl, "");
             debugCommon();
             condition->debug(lvl+4);    // two level indent
             body->debug(lvl+2);
-            printf(")");
+            BJIT_LOG(")");
         }
         
         virtual Value codeGen(Proc & proc)
@@ -560,11 +560,11 @@ namespace bjit
 
         void debug(int lvl)
         {
-            printf("\n%*s(def:%p:%s/%d ", lvl, "",
+            BJIT_LOG("\n%*s(def:%p:%s/%d ", lvl, "",
                 token.symbol, token.symbol->string.data(), envIndex);
             debugCommon();
             value->debug(lvl+2);
-            printf(")");
+            BJIT_LOG(")");
         }
         
         virtual Value codeGen(Proc & proc)
@@ -640,10 +640,10 @@ namespace bjit
             default: assert(false);
             }
 
-            printf("\n%*s(%s ", lvl, "", s);
+            BJIT_LOG("\n%*s(%s ", lvl, "", s);
             debugCommon();
             a->debug(lvl+2);
-            printf(")");
+            BJIT_LOG(")");
         }
         
         virtual Value codeGen(Proc & proc)
@@ -928,11 +928,11 @@ namespace bjit
             default: assert(false);
             }
             
-            printf("\n%*s(%s ", lvl, "", s);
+            BJIT_LOG("\n%*s(%s ", lvl, "", s);
             debugCommon();
             a->debug(lvl+2);
             b->debug(lvl+2);
-            printf(")");
+            BJIT_LOG(")");
         }
         
         virtual Value codeGen(Proc & proc)

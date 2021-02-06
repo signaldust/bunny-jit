@@ -71,7 +71,7 @@ static int getPrecede(Token const & t)
     case Token::Tfuncall: case Token::Treturn:
         return P_flow;
 
-    default: printf("TT: %d\n", t.type); assert(false); return 0;
+    default: BJIT_LOG("TT: %d\n", t.type); assert(false); return 0;
     }
 
 }
@@ -140,7 +140,7 @@ static void fragment(Parser & ps, Token const & t)
     case Token::TwhileBody: ps.frags.emplace_back(new EWhile(t, ps.frags)); break;
     case Token::ToBlock: ps.frags.emplace_back(new EBlock(t, ps.frags)); break;
 
-    default: printf("TT: %d\n", t.type); assert(false);
+    default: BJIT_LOG("TT: %d\n", t.type); assert(false);
     }
     
 }
@@ -203,7 +203,7 @@ void bjit::parse(std::vector<uint8_t> & codeOut)
     auto & ast = ps.frags.back();
     ast->typecheck(ps, env);
     ast->debug(0);
-    printf("\n");
+    BJIT_LOG("\n");
 
     if(ps.nErrors) return;
 
@@ -213,7 +213,7 @@ void bjit::parse(std::vector<uint8_t> & codeOut)
     p.iret(p.lci(0));
     p.debug();
 
-    printf("-- Compiling:\n");
+    BJIT_LOG("-- Compiling:\n");
     p.compile(codeOut, 1);
 }
 
