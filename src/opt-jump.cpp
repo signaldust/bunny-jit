@@ -34,7 +34,7 @@ bool Proc::opt_jump()
         if(blocks[jmp.label[0]].comeFrom.size() == 1)
         {
             if(jump_debug)
-                BJIT_LOG("\nJump B%d->B%d is the only source", b, jmp.label[0]);
+                BJIT_LOG("\nJump L%d->L%d is the only source", b, jmp.label[0]);
             continue;
         }
 
@@ -43,32 +43,45 @@ bool Proc::opt_jump()
         || blocks[jmp.label[0]].dom[blocks[b].dom.size()-1] != b)
         {
             if(jump_debug)
-                BJIT_LOG("\nJump B%d->B%d is not from dominator", b, jmp.label[0]);
+                BJIT_LOG("\nJump L%d->L%d is not from dominator", b, jmp.label[0]);
             continue;
         }
 
-        if(jump_debug) BJIT_LOG("\nJump B%d->B%d is loop entry", b, jmp.label[0]);
+        if(jump_debug) BJIT_LOG("\nJump L%d->L%d is loop entry", b, jmp.label[0]);
 
         // Make a carbon-copy of the target block
         uint16_t nb = blocks.size();
         blocks.resize(blocks.size() + 1);
-        if(jump_debug) BJIT_LOG("\nCopying B%d to B%d", jmp.label[0], nb);
+        if(jump_debug) BJIT_LOG("\nCopying L%d to L%d\n", jmp.label[0], nb);
 
-        auto & head = blocks[jmp.label[0]];
-
+        auto & jccHead = ops[blocks[jmp.label[0]].code.back()];
+        
         // sanity check, we can't handle this yet
-        if((ops[head.code.back()].opcode <= ops::jmp
-            && blocks[ops[head.code.back()].label[0]].comeFrom.size() > 1)
-        || (ops[head.code.back()].opcode < ops::jmp
-            && blocks[ops[head.code.back()].label[1]].comeFrom.size() > 1))
+        if((jccHead.opcode <= ops::jmp
+            && blocks[jccHead.label[0]].comeFrom.size() > 1))
         {
-            if(jump_debug) BJIT_LOG(" - complicated, bailing out\n");
-            blocks.pop_back();
-            continue;
+            if(jump_debug)
+                BJIT_LOG(" - Breaking critical edge L%d -> L%d: ",
+                    jmp.label[0], jccHead.label[0]);
+                    
+            jccHead.label[0] = breakEdge(jmp.label[0], jccHead.label[0]);
+                
+            if(jump_debug) BJIT_LOG(" L%d\n", jccHead.label[0]);
+                
+        }
+        if(jccHead.opcode < ops::jmp
+            && blocks[jccHead.label[1]].comeFrom.size() > 1)
+        {
+            if(jump_debug)
+                BJIT_LOG(" - Breaking critical edge L%d -> L%d: ",
+                    jmp.label[0], jccHead.label[1]);
+                    
+            jccHead.label[1] = breakEdge(jmp.label[0], jccHead.label[1]);
+                
+            if(jump_debug) BJIT_LOG(" L%d\n", jccHead.label[1]);
         }
 
-        if(jump_debug) BJIT_LOG(" - simple\n");
-        
+        auto & head = blocks[jmp.label[0]];
         auto & copy = blocks[nb];
         copy.flags.live = true;
             
@@ -193,38 +206,32 @@ bool Proc::opt_jump()
                 || blocks[rb].dom[fixBlock.dom.size()-1] != jcc.label[k])
                 {
                     if(jump_debug)
-                        BJIT_LOG("Block B%d is not in branch B%d\n", rb, jcc.label[k]);
+                        BJIT_LOG("Block L%d is not in branch L%d\n", rb, jcc.label[k]);
                     continue;
                 }
 
                 if(jump_debug)
-                    BJIT_LOG("Renaming B%d in B%d branch\n", rb, jcc.label[k]);
+                    BJIT_LOG("Renaming L%d in L%d branch\n", rb, jcc.label[k]);
 
                 for(auto & rop : blocks[rb].code)
                 {
                     renameJump(ops[rop]);
+                }
 
-                    // if this is direct target, that's all
-                    if(rb == jcc.label[k]) continue;
+                auto & rjmp = ops[blocks[rb].code.back()];
+                if(rjmp.opcode > ops::jmp) continue;   // return or tail-call
+                
+                for(int x = 0; x < 2; ++x)
+                {
+                    if(x && rjmp.opcode == ops::jmp) break;
 
-                    // otherwise rename phis too
-                    if(ops[rop].opcode == ops::phi)
+                    for(auto & a : blocks[rjmp.label[x]].args)
+                    for(auto & s : a.alts)
+                    for(auto & r : renameJump.map)
                     {
-                        for(auto & s : blocks[rb].args[ops[rop].phiIndex].alts)
-                        for(auto & r : renameJump.map)
-                        {
-                            if(s.val == r.src) s.val = r.dst;
-                        }
+                        if(s.val == r.src) s.val = r.dst;
                     }
                 }
-            }
-
-            // fixup looping phis
-            for(auto & a : head.args)
-            for(auto & s : a.alts)
-            for(auto & r : renameJump.map)
-            {
-                if(s.val == r.src) s.val = r.dst;
             }
         }
 
@@ -240,7 +247,11 @@ bool Proc::opt_jump()
     }
 
     // force DCE to rebuild everything
-    if(progress) live.clear();
+    if(progress)
+    {
+        if(jump_debug) debug();
+        live.clear();
+    }
 
     return progress;
 }
