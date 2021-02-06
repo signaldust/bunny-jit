@@ -10,6 +10,8 @@ using namespace bjit;
 
 */
 
+static const bool jump_debug = false;
+
 bool Proc::opt_jump()
 {
     bool progress = false;
@@ -31,7 +33,8 @@ bool Proc::opt_jump()
         BJIT_ASSERT(blocks[jmp.label[0]].comeFrom.size());
         if(blocks[jmp.label[0]].comeFrom.size() == 1)
         {
-            BJIT_LOG("\nJump B%d->B%d is the only source", b, jmp.label[0]);
+            if(jump_debug)
+                BJIT_LOG("\nJump B%d->B%d is the only source", b, jmp.label[0]);
             continue;
         }
 
@@ -39,16 +42,17 @@ bool Proc::opt_jump()
         if(blocks[jmp.label[0]].dom.size() <= blocks[b].dom.size()
         || blocks[jmp.label[0]].dom[blocks[b].dom.size()-1] != b)
         {
-            BJIT_LOG("\nJump B%d->B%d is not from dominator", b, jmp.label[0]);
+            if(jump_debug)
+                BJIT_LOG("\nJump B%d->B%d is not from dominator", b, jmp.label[0]);
             continue;
         }
 
-        BJIT_LOG("\nJump B%d->B%d is loop entry", b, jmp.label[0]);
+        if(jump_debug) BJIT_LOG("\nJump B%d->B%d is loop entry", b, jmp.label[0]);
 
         // Make a carbon-copy of the target block
         uint16_t nb = blocks.size();
         blocks.resize(blocks.size() + 1);
-        BJIT_LOG("\nCopying B%d to B%d", jmp.label[0], nb);
+        if(jump_debug) BJIT_LOG("\nCopying B%d to B%d", jmp.label[0], nb);
 
         auto & head = blocks[jmp.label[0]];
 
@@ -58,12 +62,12 @@ bool Proc::opt_jump()
         || (ops[head.code.back()].opcode < ops::jmp
             && blocks[ops[head.code.back()].label[1]].comeFrom.size() > 1))
         {
-            BJIT_LOG(" - complicated, bailing out\n");
+            if(jump_debug) BJIT_LOG(" - complicated, bailing out\n");
             blocks.pop_back();
             continue;
         }
 
-        BJIT_LOG(" - simple\n");
+        if(jump_debug) BJIT_LOG(" - simple\n");
         
         auto & copy = blocks[nb];
         copy.flags.live = true;
@@ -108,7 +112,7 @@ bool Proc::opt_jump()
             renameCopy.add(opi.index, opc.index);
         }
 
-        BJIT_LOG("Copied %d ops.\n", (int) copy.code.size());
+        if(jump_debug) BJIT_LOG("Copied %d ops.\n", (int) copy.code.size());
 
         BJIT_ASSERT(copy.code.size());
 
@@ -133,12 +137,12 @@ bool Proc::opt_jump()
 
             if(!nPhi)
             {
-                BJIT_LOG("Don't need any phi.\n");
+                if(jump_debug) BJIT_LOG("Don't need any phi.\n");
                 continue; // no phi, no fixup
             }
             else
             {
-                BJIT_LOG("Need %d phi.\n", nPhi);
+                if(jump_debug) BJIT_LOG("Need %d phi.\n", nPhi);
             }
 
             // make some space in the target
@@ -177,8 +181,8 @@ bool Proc::opt_jump()
             }
 
             BJIT_ASSERT(iPhi == nPhi);
-            
-            for(auto & r : renameJump.map)
+
+            if(jump_debug) for(auto & r : renameJump.map)
             {
                 BJIT_LOG(" %04x -> %04x\n", r.src, r.dst);
             }
@@ -188,11 +192,13 @@ bool Proc::opt_jump()
                 if(blocks[rb].dom.size() < fixBlock.dom.size()
                 || blocks[rb].dom[fixBlock.dom.size()-1] != jcc.label[k])
                 {
-                    BJIT_LOG("Block B%d is not in branch B%d\n", rb, jcc.label[k]);
+                    if(jump_debug)
+                        BJIT_LOG("Block B%d is not in branch B%d\n", rb, jcc.label[k]);
                     continue;
                 }
 
-                BJIT_LOG("Renaming B%d in B%d branch\n", rb, jcc.label[k]);
+                if(jump_debug)
+                    BJIT_LOG("Renaming B%d in B%d branch\n", rb, jcc.label[k]);
 
                 for(auto & rop : blocks[rb].code)
                 {
