@@ -249,6 +249,10 @@ void Proc::allocRegs()
                     if(regstate[r] != noVal)
                     {
                         RegMask smask = ops[regstate[r]].regsMask();
+
+                        // findBest should return current if no better
+                        // but play safe and explicitly disallow lost regs
+                        smask &=~ op.regsLost();
                             
                         // if we're moving 2nd operand to make room for
                         // the first then also take that mask into account
