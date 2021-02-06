@@ -35,7 +35,7 @@ void Proc::allocRegs()
         
         // work out the actual use-counts
         findUsesBlock(b, false);
-
+        
         // mark anything used by any phi
         for(auto & a : blocks[b].args)
         {
@@ -69,6 +69,17 @@ void Proc::allocRegs()
             }
         }
 
+        // rename live-in - move uses
+        for(auto & i : blocks[b].livein)
+        for(auto & r : rename.map)
+        {
+            if(i == r.src)
+            {
+                i = r.dst;
+                ops[r.dst].nUse += ops[r.src].nUse;
+            }
+        }
+        
         if(ops[blocks[b].code.back()].opcode <= ops::jmp)
         for(int k = 0; k < 2; ++k)
         {
@@ -187,23 +198,6 @@ void Proc::allocRegs()
             return regs::nregs;
         };
         
-        
-        for(int i = 0; i < regs::nregs; ++i)
-        {
-            if(regstate[i] == noVal) continue;
-            if(!ops[regstate[i]].nUse)
-            {
-                if((ops[regstate[i]].opcode == ops::rename
-                    || ops[regstate[i]].opcode == ops::reload)
-                && (ops[ops[regstate[i]].in[0]].nUse))
-                {
-                    ops[regstate[i]].nUse = ops[ops[regstate[i]].in[0]].nUse;
-                    rename.add(ops[regstate[i]].in[0], regstate[i]);
-                }
-                else blocks[b].regsIn[i] = regstate[i] = noVal;
-            }
-        }
-
         RegMask keepIn = 0;
         
         for(int c = 0; c < blocks[b].code.size(); ++c)
@@ -479,6 +473,9 @@ void Proc::allocRegs()
                 {
                     if(regstate[i] != noVal)
                     {
+                        if(ra_debug)
+                            BJIT_LOG("passing %04x in %s to %d\n",
+                                regstate[i], regName(i), op.label[0]);
                         blocks[op.label[0]].regsIn[i] = regstate[i];
                     }
                 }
@@ -489,6 +486,9 @@ void Proc::allocRegs()
                 {
                     if(regstate[i] != noVal)
                     {
+                        if(ra_debug)
+                            BJIT_LOG("passing %04x in %s to %d\n",
+                                    regstate[i], regName(i), op.label[1]);
                         blocks[op.label[1]].regsIn[i] = regstate[i];
                     }
                 }
@@ -556,11 +556,24 @@ void Proc::allocRegs()
         {
             if(!(keepIn&(1ull<<i)))
             {
+                if(ra_debug && blocks[b].regsIn[i] != noVal)
+                    BJIT_LOG("drop %04x in %s - not needed?\n",
+                            blocks[b].regsIn[i], regName(i));
                 blocks[b].regsIn[i] = noVal;
             }
             else
             {
-                //BJIT_LOG("keep %04x in %s\n", blocks[b].regsIn[i], regName(i));
+                if(blocks[b].regsIn[i] != noVal
+                && ops[blocks[b].regsIn[i]].block == b)
+                {
+                    // this happens with phis
+                    if(ra_debug)
+                        BJIT_LOG("drop %04x in %s - def in block\n",
+                            blocks[b].regsIn[i], regName(i));
+                    blocks[b].regsIn[i] = noVal;
+                }
+                else if(ra_debug)
+                    BJIT_LOG("keep %04x in %s\n", blocks[b].regsIn[i], regName(i));
             }
         }
     }
@@ -953,6 +966,7 @@ void Proc::allocRegs()
     raDone = true;
 
     BJIT_LOG(" DONE\n");
+    if(ra_debug) debug();
 
     // this won't work unless we fixed it :)
     if(fix_sanity) sanity();
@@ -964,6 +978,7 @@ void Proc::findSCC()
 
     BJIT_ASSERT(!raDone);
     BJIT_LOG(" RA:SCC");
+    //debug();
 
     std::vector<bool>   sccUsed;
 
