@@ -356,6 +356,8 @@ bool Proc::opt_jump()
         }
     }
 
+    // we really need this here because it cleans up
+    // any stale phis, so DCE doesn't get confused
     rebuild_cfg();
     
     return progress;

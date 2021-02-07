@@ -46,6 +46,8 @@ void Proc::rebuild_cfg()
 
 void Proc::rebuild_dom()
 {
+    rebuild_cfg();
+    
     // find dominator algorithm
     //
     // start with every node dominating itself
