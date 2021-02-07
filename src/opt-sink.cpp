@@ -3,6 +3,8 @@
 
 using namespace bjit;
 
+static const bool sink_debug = false;
+
 bool Proc::opt_sink(bool unsafe)
 {
     livescan();
@@ -19,8 +21,6 @@ bool Proc::opt_sink(bool unsafe)
 
     BJIT_LOG(" SINK");
 
-    //debug();
-
     // collect moved ops into tmp (in reverse)
     // so that we can merge them all together
     std::vector<uint16_t>   tmp0, tmp1;
@@ -29,19 +29,30 @@ bool Proc::opt_sink(bool unsafe)
     bool progress = false;
     for(auto b : live)
     {
-        // find localq uses
-        findUsesBlock(b, false);
+        // find local uses
+        findUsesBlock(b, false, true);
 
         auto & jmp = ops[blocks[b].code.back()];
 
+        if(sink_debug) BJIT_LOG("\nSink in L%d?", b);
+
         // is this a return block?
-        if(jmp.opcode > ops::jmp) continue;
+        if(jmp.opcode > ops::jmp)
+        {
+            if(sink_debug) BJIT_LOG("\nL%d is exit block", b);
+            continue;
+        }
 
         // is this a straight jmp?
         if(jmp.opcode == ops::jmp)
         {
             // if we don't dominate the block, then bail out
-            if(blocks[jmp.label[0]].idom != b) continue;
+            if(blocks[jmp.label[0]].idom != b)
+            {
+                if(sink_debug)
+                    BJIT_LOG("\nL%d doesn't dominate L%d", b, jmp.label[0]);
+                continue;
+            }
         }
 
         tmp0.clear();
@@ -55,7 +66,12 @@ bool Proc::opt_sink(bool unsafe)
             // is this something we're allowed to move?
             // does it have local uses?
             if(!op.canCSE() || op.nUse
-            || (!unsafe && op.hasSideFX())) continue;
+            || (!unsafe && op.hasSideFX()))
+            {
+                if(sink_debug)
+                    BJIT_LOG("\n %04x not eligible in L%d", op.index, b);
+                continue;
+            }
 
             // it must be live-out in at least one block
             bool live0 = false, live1 = false;
@@ -74,35 +90,57 @@ bool Proc::opt_sink(bool unsafe)
                 live1 = true;
                 continue;
             }
+            else if(live0 && !tmp0.size())
+            {
+                if(sink_debug)
+                    BJIT_LOG("\n Check jump before sinking %04x in L%d", op.index, b);
+            
+                // should we rewrite the CFG first?
+                if(opt_jump(b)) return true;
+                if(sink_debug) BJIT_LOG("\nNo jump opt..");
+            }
+            if(sink_debug) BJIT_LOG("\nLive (%s, %s)...",
+                live0 ? "yes" : "no", live1 ? "yes" : "no");
 
             // don't move if live (or dead) in both branches
             if(live0 == live1) continue;
-
+            
+            if(sink_debug) BJIT_LOG("\nTry to sink...");
+            
             // do not move into blocks that merge paths
             // this prevents us from sinking loop invariants
             // back into the loop, which would be silly
             if(blocks[jmp.label[live0?0:1]].comeFrom.size() > 1)
             {
                 // if the edge is not critical, don't sink at all
-                if(jmp.opcode == ops::jmp) continue;
+                // NOTE: we check this here (not at the top) because jump-opt
+                // which we want to try only after finding sinkable op
+                if(jmp.opcode == ops::jmp)
+                {
+                    if(sink_debug) BJIT_LOG("\nMerging path not critical...");
+                    break;  // no point scanning the rest
+                }
 
                 // otherwise break the edge
                 jmp.label[live0?0:1] = breakEdge(b, jmp.label[live0?0:1]);
+                if(sink_debug) BJIT_LOG(" L%d", jmp.label[live0?0:1]);
             }
+            
+            if(sink_debug) BJIT_LOG("\nSinking...");
 
             // pick the block where this is live
             (live0 ? tmp0 : tmp1).push_back(op.index);
             blocks[b].code[c] = noVal;  // dead at original site
-
+            
             // see if we should be moving inputs too?
             for(int k = 0; k < op.nInputs(); ++k)
             {
                 // if this was last use, for something in this block
-                // then mark it as livein for the block where we moved
+                // then mark it as livein for the block where we moved to
                 if(ops[op.in[k]].block == b && !--ops[op.in[k]].nUse)
                 {
-                    (live0 ? blocks[jmp.label[0]] : blocks[jmp.label[1]])
-                        .livein.push_back(op.in[k]);
+                    if(sink_debug) BJIT_LOG("\nLast use for %04x", op.in[k]);
+                    blocks[jmp.label[live0?0:1]].livein.push_back(op.in[k]);
                 }
             }
         }

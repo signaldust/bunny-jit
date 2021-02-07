@@ -214,7 +214,7 @@ void bjit::parse(std::vector<uint8_t> & codeOut)
     p.debug();
 
     BJIT_LOG("-- Compiling:\n");
-    p.compile(codeOut, 1);
+    p.compile(codeOut, 2);
 }
 
 // helper to figure out what to do with statements
