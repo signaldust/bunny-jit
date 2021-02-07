@@ -605,6 +605,11 @@ will detect loops that can be solved analytically and fold those into constants?
 
 Either way, hopefully this gives you an idea of what to expect.
 
+Update: The current version might give you a slightly uglier output due to
+loop inversion that isn't profitable in this particular case. I'll look into
+making it conditional on profitability at some point. The critical path inside
+the loop should still be the same though.
+
 ## SSA?
 
 The backend keeps the code in SSA form from the beginning to the end. We rely
@@ -716,12 +721,13 @@ value, we work up the dominator tree and check that there is an inverse path
 in the post-dominator tree. We don't need to worry about blocks other than
 dominators, because branches in such blocks must also merge.
 
-As it turns out, if a "natural loop" has a header (ie. the edge that
-enters the loop is not critical), then this gives us loop invariant code motion
-without even having to find the loops (well, at least with loop inversion, but
-we'll force this in the future; it doesn't really require finding loops either).
-We don't add missing headers yet, but we probably soon will (it's just a matter
-of breaking critical edges).
+As it turns out, if a "natural loop" has a pre-header (ie. there is only
+one edge that enters the loop), then this gives us loop invariant code motion
+without even having to find the loops. After initially writing this, I've
+also added loop-inversion so that we can avoid computing the invariants
+if the loop is never entered (not sure if this is always profitable, but
+it should be worth it for nested loops and shouldn't hurt much otherwise;
+could try to make this conditional on actually having loop invariants).
 
 We make one exception to the branch rule: when merging two operations, if
 the closest common dominator (but not other dominators of either instruction
