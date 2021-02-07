@@ -295,44 +295,6 @@ void Proc::opt_dce(bool unsafe)
     // if we made no progress, then don't bother rebuild other info
     if(live.size() == hadLiveSize && iters == 1) { return; }
 
-    // rebuild comeFrom, should delay this until iteration done
-    for(int b = live.size();b--;) blocks[live[b]].comeFrom.clear();
-    for(int b = live.size();b--;)
-    {
-        // if this fails, we're probably missing return
-        BJIT_ASSERT(blocks[live[b]].code.size());
-        auto & op = ops[blocks[live[b]].code.back()];
-        if(op.opcode < ops::jmp)
-        {
-            blocks[op.label[1]].comeFrom.push_back(live[b]);
-        }
-        if(op.opcode <= ops::jmp)
-        {
-            blocks[op.label[0]].comeFrom.push_back(live[b]);
-        }
-    }
-
-    // cleanup dead phi alternatives
-    for(auto & b : live)
-    for(auto & a : blocks[b].args)
-    {
-        int j = 0;
-        for(int i = 0; i < a.alts.size(); ++i)
-        {
-            bool keep = false;
-            for(auto s : blocks[b].comeFrom)
-            {
-                if(a.alts[i].src != s) continue;
-                keep = true;
-                break;
-            }
-            if(!keep) continue;
-            if(i != j) a.alts[j] = a.alts[i];
-            ++j;
-        }
-        if(j != a.alts.size()) { a.alts.resize(j); progress = true; }
-    }
-
     // rebuild dominators when control flow changes
     opt_dom();
 }

@@ -12,116 +12,50 @@ using namespace bjit;
 
 static const bool jump_debug = false;
 
-bool Proc::opt_jump(uint16_t b)
+// This optimizes simple back edges (jump, target dominates)
+// by duplicating the contents of the block and building new phis.
+bool Proc::opt_jump_be(uint16_t b)
 {
-    //debug();
-
     auto & jmp = ops[blocks[b].code.back()];
+
+    // is this simple jump?
+    if(jmp.opcode != ops::jmp) return false;
+
+    auto target = jmp.label[0];
+
+    // does the target dominate?
+    if(blocks[b].dom.size() <= blocks[target].dom.size()
+    || blocks[b].dom[blocks[target].dom.size()-1] != target) return false;
+
+    // does the target end in a branch?
+    auto & jcc = ops[blocks[target].code.back()];
+    if(jcc.opcode >= ops::jmp) return false;
+
+    // does target dominate the branches?
+    if(blocks[jcc.label[0]].idom != target
+    || blocks[jcc.label[1]].idom != target) return false;
+
+    // get live info once we know we're going to break stuff
+    livescan();
+
+    BJIT_LOG(" JUMP:%d", b);
+
+    // break edges if target has phis (valid or not)
+    if(ops[blocks[jcc.label[0]].code[0]].opcode == ops::phi)
+    {
+        jcc.label[0] = breakEdge(target, jcc.label[0]);
+    }
+    if(ops[blocks[jcc.label[1]].code[0]].opcode == ops::phi)
+    {
+        jcc.label[1] = breakEdge(target, jcc.label[1]);
+    }
     
-    // simple jumps only for now, each loop only once
-    if(jmp.opcode != ops::jmp || jmp.flags.no_opt) return false;
-
-    // only if target has multiple incoming edges
-    BJIT_ASSERT(blocks[jmp.label[0]].comeFrom.size());
-    if(blocks[jmp.label[0]].comeFrom.size() == 1)
-    {
-        if(jump_debug)
-            BJIT_LOG("\nJump L%d->L%d is the only source", b, jmp.label[0]);
-        return false;
-    }
-
-    // only if this block dominates the target
-    if(blocks[jmp.label[0]].dom.size() <= blocks[b].dom.size()
-    || blocks[jmp.label[0]].dom[blocks[b].dom.size()-1] != b)
-    {
-        if(jump_debug)
-            BJIT_LOG("\nJump L%d->L%d is not from dominator", b, jmp.label[0]);
-        return false;
-    }
-
-    if(jump_debug) BJIT_LOG("\nJump L%d->L%d is loop entry", b, jmp.label[0]);
-
-    auto & jccHead = ops[blocks[jmp.label[0]].code.back()];
-
-    // sanity check, we can't handle and these are probably not profitable
-    // revisit this at some point to handle at least multiple exits
-    if((jccHead.opcode <= ops::jmp
-        && blocks[jccHead.label[0]].comeFrom.size() > 1))
-    {
-        bool safe = false;
-        if(jccHead.label[0] == jmp.label[0]
-        && blocks[jccHead.label[0]].comeFrom.size() == 2)
-        {
-            // this situation we can handle
-            safe = true;
-        }
-        else if(jccHead.label[0] == blocks[jmp.label[0]].pdom)
-        {
-            // target is post-dom and doesn't have any live-in
-            // from the loop head, then it should be safe to break
-            for(auto in : blocks[jccHead.label[0]].livein)
-            {
-                if(ops[in].block == jmp.label[0])
-                {
-                    safe = false;
-                    break;
-                }
-            }
-            if(jump_debug) BJIT_LOG("\nSimple multiple exit.");
-        }
-
-        if(safe)
-        {
-            jccHead.label[0] = breakEdge(jmp.label[0], jccHead.label[0]);
-        }
-        else
-        {
-            if(jump_debug) BJIT_LOG("\nLoop looks complicated.");
-            return false;
-        }
-    }
-    if(jccHead.opcode < ops::jmp
-        && blocks[jccHead.label[1]].comeFrom.size() > 1)
-    {
-        bool safe = false;
-        if(jccHead.label[1] == jmp.label[0]
-        && blocks[jccHead.label[1]].comeFrom.size() == 2)
-        {
-            // this situation we can handle
-            safe = true;
-        }
-        else if(jccHead.label[1] == blocks[jmp.label[0]].pdom)
-        {
-            // target is post-dom and doesn't have any live-in
-            // from the loop head, then it should be safe to break
-            for(auto in : blocks[jccHead.label[1]].livein)
-            {
-                if(ops[in].block == jmp.label[0])
-                {
-                    safe = false;
-                    break;
-                }
-            }
-            if(jump_debug) BJIT_LOG("\nSimple multiple exit.");
-        }
-
-        if(safe)
-        {
-            jccHead.label[1] = breakEdge(jmp.label[0], jccHead.label[1]);
-        }
-        else
-        {
-            if(jump_debug) BJIT_LOG("\nLoop looks complicated.");
-            return false;
-        }
-    }
-
     // Make a carbon-copy of the target block
     uint16_t nb = blocks.size();
     blocks.resize(blocks.size() + 1);
-    if(jump_debug) BJIT_LOG("\nCopying L%d to L%d\n", jmp.label[0], nb);
+    if(jump_debug) BJIT_LOG("\n Jump L%d -> L%d (was: L%d)\n", b, nb, target);
 
-    auto & head = blocks[jmp.label[0]];
+    auto & head = blocks[target];
     auto & copy = blocks[nb];
     copy.flags.live = true;
         
@@ -167,13 +101,11 @@ bool Proc::opt_jump(uint16_t b)
 
         renameCopy.add(opi.index, opc.index);
     }
-
     if(jump_debug) BJIT_LOG("Copied %d ops.\n", (int) copy.code.size());
 
     BJIT_ASSERT(copy.code.size());
 
     // next, we need to fix-up target blocks
-    auto & jcc = ops[copy.code.back()];
     for(int k = 0; k < 2; ++k)
     {
         // simple jump, only one block to fix
@@ -188,7 +120,7 @@ bool Proc::opt_jump(uint16_t b)
         for(auto & in : fixBlock.livein)
         {
             // does this come from original head?
-            if(ops[in].block == jmp.label[0]) ++nPhi;
+            if(ops[in].block == target) ++nPhi;
         }
 
         if(!nPhi)
@@ -209,7 +141,7 @@ bool Proc::opt_jump(uint16_t b)
         for(auto & in : fixBlock.livein)
         {
             // does this come from original head?
-            if(ops[in].block != jmp.label[0]) continue;
+            if(ops[in].block != target) continue;
 
             fixBlock.code[iPhi]
                 = newOp(ops::phi, ops[in].flags.type, jcc.label[k]);
@@ -227,7 +159,7 @@ bool Proc::opt_jump(uint16_t b)
             {
                 if(r.src != in) continue;
 
-                fixBlock.args.back().add(r.src, jmp.label[0]);
+                fixBlock.args.back().add(r.src, target);
                 fixBlock.args.back().add(r.dst, nb);
 
                 break;
@@ -277,18 +209,13 @@ bool Proc::opt_jump(uint16_t b)
             }
         }
     }
-
-    // set original jump to the copied blockq
+    
     jmp.label[0] = nb;
 
-    BJIT_LOG(" JUMP:%d", b);
+    live.push_back(nb);
+    opt_dom();
     
-    if(jump_debug)
-    {
-        live.push_back(nb);
-        debug();
-    }
+    if(jump_debug) debug();
     
-    live.clear();
     return true;
 }
