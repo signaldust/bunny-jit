@@ -36,8 +36,9 @@ namespace bjit
                     union
                     {
                         float       f32;
-                        
-                        uint32_t    imm32;
+
+                        // this must be signed!
+                        int32_t     imm32;
                         uint32_t    phiIndex;
                         
                         struct  // used by arguments

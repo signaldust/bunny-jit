@@ -231,7 +231,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 #endif
                 // RIP-relative call
                 a64.emit(0xE8);
-                nearReloc.emplace_back(NearReloc{(uint32_t)out.size(), i.imm32});
+                nearReloc.emplace_back(
+                    NearReloc{(uint32_t)out.size(), (uint32_t) i.imm32});
                 a64.emit32(-4-out.size());
 #ifdef _WIN32
                 // "home locations" for registers
@@ -304,7 +305,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::jineI:
             case ops::jieqI:
                 // compare
-                _CMPri(ops[i.in[0]].reg, i.imm32);
+                _CMPri(ops[i.in[0]].reg, (int32_t) i.imm32);
                 // then jump
                 a64.emit(0x0F);
                 a64.emit(0x80 | _CC(i.opcode+ops::jilt-ops::jiltI));
@@ -405,7 +406,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 // xor destination
                 _XORrr(i.reg, i.reg);
                 // compare
-                _CMPri(ops[i.in[0]].reg, i.imm32);
+                _CMPri(ops[i.in[0]].reg, (int32_t) i.imm32);
                 // then emit SETcc
                 a64._RR(3, 3, REG(i.reg), 0x0F,
                     0x90 | _CC(i.opcode + ops::jilt - ops::ilt));
@@ -447,7 +448,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
             case ops::iretI:
                 if(!i.imm32) _XORrr(regs::rax, regs::rax);
-                else _MOVri(regs::rax, i.imm32);
+                else _MOVri(regs::rax, (int32_t) i.imm32);
                 // fall through
             case ops::iret:
             case ops::fret:
@@ -509,7 +510,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 }
                 // near jump
                 a64.emit(0xE9);
-                nearReloc.emplace_back(NearReloc{(uint32_t)out.size(), i.imm32});
+                nearReloc.emplace_back(
+                    NearReloc{(uint32_t)out.size(), (uint32_t) i.imm32});
                 a64.emit32(-4-out.size());
                 break;
 
@@ -532,7 +534,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 // use LEA for different input/output registers
                 if(i.reg == ops[i.in[0]].reg)
                 {
-                    _ADDri(i.reg, i.imm32);
+                    _ADDri(i.reg, (int32_t) i.imm32);
                 }
                 else _LEAri(i.reg, ops[i.in[0]].reg, i.imm32);
                 break;
@@ -558,7 +560,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                     if(i.imm32 == 0x80000000)
                     {
                         if(!sameReg) _MOVrr(i.reg, ops[i.in[0]].reg);
-                        _SUBri(i.reg, i.imm32);
+                        _SUBri(i.reg, (int32_t) i.imm32);
                     }
                     else if(!sameReg)
                     {
@@ -568,7 +570,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                     {
                         _DEC(i.reg);
                     }
-                    else _SUBri(i.reg, i.imm32);
+                    else _SUBri(i.reg, (int32_t) i.imm32);
                 }
                 break;
             
@@ -653,7 +655,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
             case ops::iandI:
                 if(i.reg != ops[i.in[0]].reg) _MOVrr(i.reg, ops[i.in[0]].reg);
-                _ADDri(i.reg, i.imm32);
+                _ANDri(i.reg, (int32_t) i.imm32);
                 break;
 
             case ops::ior:
@@ -673,7 +675,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
             case ops::iorI:
                 if(i.reg != ops[i.in[0]].reg) _MOVrr(i.reg, ops[i.in[0]].reg);
-                _ORri(i.reg, i.imm32);
+                _ORri(i.reg, (int32_t) i.imm32);
                 break;
 
             case ops::ixor:
@@ -693,7 +695,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
             case ops::ixorI:
                 if(i.reg != ops[i.in[0]].reg) _MOVrr(i.reg, ops[i.in[0]].reg);
-                _XORri(i.reg, i.imm32);
+                _XORri(i.reg, (int32_t) i.imm32);
                 break;
 
             case ops::ishl:
