@@ -7,7 +7,7 @@ static const bool sink_debug = false;
 
 bool Proc::opt_sink(bool unsafe)
 {
-    livescan();
+    rebuild_livein();
 
     // livescan doesn't find phi-inputs, we need them here
     for(auto b : live)
@@ -27,8 +27,9 @@ bool Proc::opt_sink(bool unsafe)
 
     // one pass should be enough 'cos DFS
     bool progress = false;
-    for(auto b : live)
+    for(int li = 0, liveSz = live.size(); li < liveSz; ++li)
     {
+        auto b = live[li];
         // find local uses
         findUsesBlock(b, false, true);
 

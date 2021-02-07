@@ -19,7 +19,11 @@ bool Proc::opt_jump_be(uint16_t b)
     auto & jmp = ops[blocks[b].code.back()];
 
     // is this simple jump?
-    if(jmp.opcode != ops::jmp) return false;
+    if(jmp.opcode != ops::jmp)
+    {
+        if(jump_debug) BJIT_LOG(" JUMP:%d not jump (%s)\n", b, jmp.strOpcode());
+        return false;
+    }
 
     auto target = jmp.label[0];
 
@@ -33,11 +37,19 @@ bool Proc::opt_jump_be(uint16_t b)
 
     // does the target end in a branch?
     auto & jcc = ops[blocks[target].code.back()];
-    if(jcc.opcode >= ops::jmp) return false;
+    if(jcc.opcode >= ops::jmp)
+    {
+        if(jump_debug) BJIT_LOG(" JUMP:%d not branch\n", b);
+        return false;
+    }
 
     // does target dominate the branches?
     if(blocks[jcc.label[0]].idom != target
-    || blocks[jcc.label[1]].idom != target) return false;
+    || blocks[jcc.label[1]].idom != target)
+    {
+        if(jump_debug) BJIT_LOG(" JUMP:%d branches not dominated\n", b);
+        return false;
+    }
 
     // does one of the branches dominate us?
     // if not, then this is potentially complicated
@@ -56,15 +68,15 @@ bool Proc::opt_jump_be(uint16_t b)
 
     if(!haveDom)
     {
-        if(jump_debug) BJIT_LOG(" JUMP:%d (%d:%d,%d) no dom",
+        if(jump_debug) BJIT_LOG(" LOOP:%d (%d:%d,%d) no dom",
             b, target, jcc.label[0], jcc.label[1]);
         return false;
     }
-    
+
     if(jump_debug)
-        BJIT_LOG(" JUMP:%d (%d:%d,%d)", b, target, jcc.label[0], jcc.label[1]);
+        BJIT_LOG(" LOOP:%d (%d:%d,%d)", b, target, jcc.label[0], jcc.label[1]);
     else
-        BJIT_LOG(" JUMP:%d", b);
+        BJIT_LOG(" LOOP:%d", b);
 
     // break edges if target has phis (valid or not)
     if(ops[blocks[jcc.label[0]].code[0]].opcode == ops::phi)
@@ -240,23 +252,22 @@ bool Proc::opt_jump_be(uint16_t b)
             }
         }
     }
-    
-    opt_dom();
-    
-    if(jump_debug) debug();
-    
+
+    if(jump_debug) { debug(); }
+
     return true;
 }
 
 bool Proc::opt_jump()
 {
-    livescan();
+    rebuild_livein();   // don't need this if after sink
 
     if(jump_debug) debug();
     
     bool progress = false;
-    for(auto b : live)
+    for(int li = 0, liveSz = live.size(); li < liveSz; ++li)
     {
+        auto b = live[li];
         if(blocks[b].code.back() == noVal) continue;
 
         auto & op = ops[blocks[b].code.back()];
@@ -293,8 +304,47 @@ bool Proc::opt_jump()
                 }
             }
 
+            BJIT_LOG(" JUMP");
             progress = true;
             continue;
+        }
+
+        if(op.flags.no_opt)
+        {
+            continue;
+        }
+
+        // handle degenerate loops too?
+        if(op.opcode < ops::jmp && op.label[0] == b)
+        {
+            op.label[0] = breakEdge(b, b);
+            op.flags.no_opt = true;
+            progress = true;
+
+            rebuild_livein();
+
+            if(jump_debug) BJIT_LOG(" TRY %d\n", op.label[0]);
+
+            if(opt_jump_be(op.label[0]))
+            {
+                break;
+            }
+        }
+        
+        if(op.opcode < ops::jmp && op.label[1] == b)
+        {
+            op.label[1] = breakEdge(b, b);
+            op.flags.no_opt = true;
+            progress = true;
+            
+            rebuild_livein();
+            
+            if(jump_debug) BJIT_LOG(" TRY %d\n", op.label[1]);
+            
+            if(opt_jump_be(op.label[1]))
+            {
+                break;
+            }
         }
 
         // if we didn't do a trivial pull, try opt_jump
@@ -302,9 +352,11 @@ bool Proc::opt_jump()
         if(op.opcode == ops::jmp && opt_jump_be(b))
         {
             progress = true;
-            break;  // in case we cause live to realloc
+            break;
         }
     }
+
+    rebuild_cfg();
     
     return progress;
 }

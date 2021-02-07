@@ -3,11 +3,8 @@
 
 using namespace bjit;
 
-void Proc::opt_dom()
+void Proc::rebuild_cfg()
 {
-    // always do this cleanup before recomputing dominators
-    // this way we don't necessarily need to do DCE first
-
     // rebuild comeFrom, should delay this until iteration done
     for(int b = live.size();b--;) blocks[live[b]].comeFrom.clear();
     for(int b = live.size();b--;)
@@ -45,7 +42,10 @@ void Proc::opt_dom()
         }
         if(j != a.alts.size()) a.alts.resize(j);
     }
+}
 
+void Proc::rebuild_dom()
+{
     // find dominator algorithm
     //
     // start with every node dominating itself
