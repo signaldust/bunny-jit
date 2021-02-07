@@ -75,50 +75,6 @@ bool Proc::opt_fold(bool unsafe)
                     }
                 }
 
-                // if this is a pointless jump then pull the contents
-                if(op.opcode == ops::jmp
-                && blocks[op.label[0]].comeFrom.size() == 1
-                && ops[blocks[op.label[0]].code[0]].opcode != ops::phi)
-                {
-                    blocks[b].code.pop_back();
-                    for(auto & tc : blocks[op.label[0]].code)
-                    {
-                        blocks[b].code.push_back(tc);
-                        ops[tc].block = b;
-                        tc = noVal;
-                    }
-
-                    auto & jmp = ops[blocks[b].code.back()];
-                    // rewrite phi-sources
-                    if(jmp.opcode <= ops::jmp)
-                    {
-                        for(auto & a : blocks[jmp.label[0]].args)
-                        for(auto & s : a.alts)
-                        {
-                            if(s.src == op.label[0]) s.src = b;
-                        }
-                    }
-                    if(jmp.opcode < ops::jmp)
-                    {
-                        for(auto & a : blocks[jmp.label[1]].args)
-                        for(auto & s : a.alts)
-                        {
-                            if(s.src == op.label[0]) s.src = b;
-                        }
-                    }
-
-                    progress = true;
-                    break;
-                }
-
-                // if we didn't do a trivial pull, try opt_jump
-                // but only once per fold, we need to update live info
-                if(op.opcode == ops::jmp && opt_jump_be(b))
-                {
-                    progress = true;
-                    break;
-                }
-
                 // catch phi-rewriting problems early
                 BJIT_ASSERT(op.nInputs() < 1
                 || ops[op.in[0]].opcode != op.opcode
