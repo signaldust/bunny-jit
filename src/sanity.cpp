@@ -14,7 +14,7 @@ void Proc::sanity()
 {
     BJIT_ASSERT(live.size());    // must have one pass DCE
 
-    livescan();
+    rebuild_livein();
     opt_dce();  // do another round to get use counts?
     debug();
     

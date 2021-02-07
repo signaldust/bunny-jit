@@ -5,7 +5,6 @@ using namespace bjit;
 
 void Proc::opt_dce(bool unsafe)
 {
-    auto hadLiveSize = live.size();
     bool progress = true;
     //debug();
 
@@ -288,15 +287,11 @@ void Proc::opt_dce(bool unsafe)
             if(b.code.size() != j) { b.code.resize(j); progress = true; }
             liveOps += j;
         }
+
+        rebuild_cfg();
     }
     
     BJIT_LOG("\n DCE:%d", iters);
-    
-    // if we made no progress, then don't bother rebuild other info
-    if(live.size() == hadLiveSize && iters == 1) { return; }
-
-    // rebuild dominators when control flow changes
-    opt_dom();
 }
 
 void Proc::findUsesBlock(int b, bool inOnly, bool localOnly)
@@ -342,7 +337,7 @@ void Proc::findUsesBlock(int b, bool inOnly, bool localOnly)
     }
 }
 
-void Proc::livescan()
+void Proc::rebuild_livein()
 {
     opt_dce(false);
     BJIT_ASSERT(live.size());

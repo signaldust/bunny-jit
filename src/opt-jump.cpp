@@ -241,18 +241,14 @@ bool Proc::opt_jump_be(uint16_t b)
         }
     }
 
-    opt_dom();  // must always redo doms explicitly
-    
     if(jump_debug) { debug(); }
 
-    live.clear();   // force rebuild by DCE
-    
     return true;
 }
 
 bool Proc::opt_jump()
 {
-    livescan();   // don't need this if after sink
+    rebuild_livein();   // don't need this if after sink
 
     if(jump_debug) debug();
     
@@ -308,6 +304,8 @@ bool Proc::opt_jump()
             break;
         }
     }
+    
+    rebuild_cfg();
     
     return progress;
 }

@@ -13,7 +13,9 @@ static const bool fix_sanity = true;    // whether to fix sanity for shuffles
 void Proc::allocRegs()
 {
     findSCC();
-    livescan();
+    rebuild_cfg();
+    rebuild_dom();
+    rebuild_livein();
 
     BJIT_LOG(" RA:BB");
 
@@ -977,6 +979,8 @@ void Proc::allocRegs()
 
     raDone = true;
 
+    opt_dce();
+
     BJIT_LOG(" DONE\n");
     if(ra_debug) debug();
 
@@ -986,7 +990,7 @@ void Proc::allocRegs()
 
 void Proc::findSCC()
 {
-    livescan(); // need live-in registers
+    rebuild_livein(); // need live-in registers
 
     BJIT_ASSERT(!raDone);
     BJIT_LOG(" RA:SCC");

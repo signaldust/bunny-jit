@@ -18,6 +18,8 @@ static const bool cse_debug = false;    // print decisions
 */
 bool Proc::opt_cse(bool unsafe)
 {
+    rebuild_dom();
+    
     impl::Rename rename;
 
     BJIT_LOG(" CSE");

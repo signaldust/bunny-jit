@@ -620,11 +620,12 @@ namespace bjit
         void opt_dce(bool unsafe = false);
 
         // opt-dom.cpp - used by opt-dce()
-        void opt_dom();
+        void rebuild_cfg();
+        void rebuild_dom();
 
         // opt-dce.cpp
         // compute live-in variables, set all nUse = 0
-        void livescan();
+        void rebuild_livein();
 
         // initializes nUse, used by livescan() and allocRegs()
         // if inOnly then only live-in variables will have nUse != 0

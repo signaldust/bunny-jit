@@ -7,7 +7,7 @@ static const bool sink_debug = false;
 
 bool Proc::opt_sink(bool unsafe)
 {
-    livescan();
+    rebuild_livein();
 
     // livescan doesn't find phi-inputs, we need them here
     for(auto b : live)
