@@ -605,10 +605,7 @@ will detect loops that can be solved analytically and fold those into constants?
 
 Either way, hopefully this gives you an idea of what to expect.
 
-Update: The current version might give you a slightly uglier output due to
-loop inversion that isn't profitable in this particular case. I'll look into
-making it conditional on profitability at some point. The critical path inside
-the loop should still be the same though.
+Update: Recent regressions with loop-optimizations should be fixed for this example.
 
 ## SSA?
 
