@@ -255,8 +255,9 @@ bool Proc::opt_jump()
     if(jump_debug) debug();
     
     bool progress = false;
-    for(auto b : live)
+    for(int li = 0, liveSz = live.size(); li < liveSz; ++li)
     {
+        auto b = live[li];
         if(blocks[b].code.back() == noVal) continue;
 
         auto & op = ops[blocks[b].code.back()];
@@ -302,7 +303,7 @@ bool Proc::opt_jump()
         if(op.opcode == ops::jmp && opt_jump_be(b))
         {
             progress = true;
-            break;  // in case we cause live to realloc
+            continue;
         }
     }
     

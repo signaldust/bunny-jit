@@ -1098,8 +1098,9 @@ void Proc::findSCC()
     }
 
     // second pass, break critical edges
-    for(auto b : live)
+    for(int li = 0, liveSz = live.size(); li < liveSz; ++li)
     {
+        auto b = live[li];
         auto c = blocks[b].code.back();
         
         if(ops[c].opcode < ops::jmp)
