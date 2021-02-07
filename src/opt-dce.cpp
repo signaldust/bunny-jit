@@ -22,7 +22,7 @@ void Proc::opt_dce(bool unsafe)
             {
                 if(i == noVal) continue;
                 // NOTE: nUse aliases on labels
-                if(ops[i].opcode > ops::jmp) ops[i].nUse = 0;
+                if(ops[i].hasOutput()) ops[i].nUse = 0;
             }
         }
     
@@ -75,8 +75,16 @@ void Proc::opt_dce(bool unsafe)
                             {
                                 for(auto & s : a.alts)
                                 {
-                                    if(s.src == ops[i].block) vs = s.val;
-                                    if(s.src == ops[i].label[k]) vt = s.val;
+                                    if(s.src == ops[i].block)
+                                    {
+                                        if(vs != noVal) BJIT_ASSERT(vs == s.val);
+                                        vs = s.val;
+                                    }
+                                    if(s.src == ops[i].label[k])
+                                    {
+                                        if(vt != noVal) BJIT_ASSERT(vt == s.val);
+                                        vt = s.val;
+                                    }
                                 }
     
                                 // if these don't match, then threading is not safe
@@ -288,7 +296,6 @@ void Proc::opt_dce(bool unsafe)
             liveOps += j;
         }
 
-        rebuild_cfg();
     }
     
     BJIT_LOG("\n DCE:%d", iters);
@@ -339,7 +346,9 @@ void Proc::findUsesBlock(int b, bool inOnly, bool localOnly)
 
 void Proc::rebuild_livein()
 {
+    // cleanup stale phis
     rebuild_cfg();
+    
     BJIT_ASSERT(live.size());
     
     for(auto & op : ops)
@@ -378,6 +387,9 @@ void Proc::rebuild_livein()
             if(blocks[live[b]].livein.size() != sz) progress = true;
         }
     }
+
+    if(blocks[0].livein.size()) debug();
+    BJIT_ASSERT(!blocks[0].livein.size());
 
     BJIT_LOG(" Live:%d", iter);
 }
