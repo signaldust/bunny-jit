@@ -991,7 +991,7 @@ void Proc::allocRegs()
             && ops[c].scc == noSCC)
             {
                 if(ra_debug) BJIT_LOG("Rename is useless:");
-                debugOp(c);
+                if(ra_debug) debugOp(c);
                 rename.add(c, ops[c].in[0]);
                 c = noVal;
                 continue;
