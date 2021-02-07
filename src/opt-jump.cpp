@@ -56,15 +56,15 @@ bool Proc::opt_jump_be(uint16_t b)
 
     if(!haveDom)
     {
-        if(jump_debug) BJIT_LOG(" JUMP:%d (%d:%d,%d) no dom",
+        if(jump_debug) BJIT_LOG(" LOOP:%d (%d:%d,%d) no dom",
             b, target, jcc.label[0], jcc.label[1]);
         return false;
     }
     
     if(jump_debug)
-        BJIT_LOG(" JUMP:%d (%d:%d,%d)", b, target, jcc.label[0], jcc.label[1]);
+        BJIT_LOG(" LOOP:%d (%d:%d,%d)", b, target, jcc.label[0], jcc.label[1]);
     else
-        BJIT_LOG(" JUMP:%d", b);
+        BJIT_LOG(" LOOP:%d", b);
 
     // break edges if target has phis (valid or not)
     if(ops[blocks[jcc.label[0]].code[0]].opcode == ops::phi)
@@ -241,16 +241,16 @@ bool Proc::opt_jump_be(uint16_t b)
         }
     }
     
-    opt_dom();
-    
-    if(jump_debug) debug();
+    if(jump_debug) { opt_dom(); debug(); }
+
+    live.clear();   // force rebuild by DCE
     
     return true;
 }
 
 bool Proc::opt_jump()
 {
-    livescan();
+    //livescan();   // don't need this if after sink
 
     if(jump_debug) debug();
     
@@ -293,7 +293,7 @@ bool Proc::opt_jump()
                 }
             }
 
-            progress = true;
+            BJIT_LOG(" JUMP");
             continue;
         }
 
