@@ -34,7 +34,7 @@ void Proc::allocRegs()
         }
         
         // work out the actual use-counts
-        findUsesBlock(b, false);
+        findUsesBlock(b, false, false);
         
         // mark anything used by any phi
         for(auto & a : blocks[b].args)
@@ -185,17 +185,25 @@ void Proc::allocRegs()
             // FIXME: check live-out set?
 
             // assume the rest are equally bad
+            // unless we can find a constant
+            int anyValid = regs::nregs;
             for(int r = 0; r < regs::nregs; ++r)
             {
                 if((1ull<<r) & mask)
                 {
-                    if(ra_debug) BJIT_LOG("any random: %s\n", regName(r));
-                    return r;
+                    anyValid = r;
+                    if(!ops[regstate[r]].nInputs())
+                    {
+                        if(ra_debug)
+                            BJIT_LOG("drop %04x in %s (constant)\n",
+                                regstate[r], regName(r));
+                        return r;
+                    }
                 }
             }
 
-            BJIT_ASSERT(false);
-            return regs::nregs;
+            BJIT_ASSERT(anyValid != regs::none);
+            return anyValid;
         };
         
         RegMask keepIn = 0;
@@ -1005,7 +1013,11 @@ void Proc::findSCC()
             // unless it's a loop-thru PHI which we fix below
             bool useAfterDefine = (ops[in].scc != noSCC
             || (ops[in].opcode == ops::phi && ops[in].block == bi));
-            if(!useAfterDefine) BJIT_LOG("\nNo SCC for %04x in L%d\n", in, bi);
+            if(!useAfterDefine)
+            {
+                BJIT_LOG("\nNo SCC for %04x in L%d\n", in, bi);
+                debug();
+            }
             BJIT_ASSERT(useAfterDefine);
             // this is just a sanity check
             BJIT_ASSERT(ops[in].scc < sccUsed.size());

@@ -62,16 +62,15 @@ bool Proc::opt_cse(bool unsafe)
                 }
                 if(done) break;
 
-                // sanity check post-dominators
-                auto idom = blocks[mblock].idom;
-                if(blocks[idom].pdom != mblock) break;
-                    
                 mblock = blocks[mblock].idom;
             }
 
             // if mblock is the current block, then we can't move
             if(mblock != b)
             {
+                if(cse_debug)
+                    BJIT_LOG("\nhoisting %04x: %d -> %d", op.index, b, mblock);
+                    
                 bc = noVal;
                 op.block = mblock;
 
@@ -101,7 +100,9 @@ bool Proc::opt_cse(bool unsafe)
                     std::swap(blocks[mblock].code[k],
                         blocks[mblock].code[k+1]);
                 }
-            }
+            } else if(cse_debug)
+                BJIT_LOG("\ncan't move %04x from %d", op.index, b);
+                 
 
             // now check if we have another op in the table?
             // 

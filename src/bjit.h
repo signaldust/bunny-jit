@@ -438,7 +438,6 @@ namespace bjit
             } while(opt_fold(unsafe)    // opt_fold first, needs nUse
                 || opt_cse(unsafe)      // opt_cse doesn't need nUse
                 || opt_sink(unsafe)     // opt_sink does livescan
-                || opt_jump()           // opt_jump needs livescan
                 );
         }
 
@@ -606,8 +605,8 @@ namespace bjit
         // opt-fold.cpp
         bool opt_fold(bool unsafe);
 
-        // opt-jump.cpp
-        bool opt_jump();
+        // opt-jump.cpp - only called by sink
+        bool opt_jump(uint16_t b);
 
         // opt-cse.cpp
         bool opt_cse(bool unsafe);
@@ -627,7 +626,7 @@ namespace bjit
 
         // initializes nUse, used by livescan() and allocRegs()
         // if inOnly then only live-in variables will have nUse != 0
-        void findUsesBlock(int b, bool inOnly);
+        void findUsesBlock(int b, bool inOnly, bool localOnly);
 
         // arch-XX-emit.cpp
         void arch_emit(std::vector<uint8_t> & bytes);

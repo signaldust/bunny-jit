@@ -337,7 +337,7 @@ void Proc::opt_dce(bool unsafe)
     opt_dom();
 }
 
-void Proc::findUsesBlock(int b, bool inOnly)
+void Proc::findUsesBlock(int b, bool inOnly, bool localOnly)
 {
     // compute which ops are used by this block
     // this must be done in reverse
@@ -345,7 +345,7 @@ void Proc::findUsesBlock(int b, bool inOnly)
     {
         auto & op = ops[blocks[b].code[c]];
 
-        if(op.opcode <= ops::jmp)
+        if(!localOnly && op.opcode <= ops::jmp)
         for(int k = 0; k < 2; ++k)
         {
             if(k && op.opcode == ops::jmp) break;
@@ -405,7 +405,7 @@ void Proc::livescan()
         {
             auto sz = blocks[live[b]].livein.size();
 
-            findUsesBlock(live[b], true);
+            findUsesBlock(live[b], true, false);
             blocks[live[b]].livein.clear();
     
             for(int i = 0; i < ops.size(); ++i)
