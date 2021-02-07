@@ -19,7 +19,11 @@ bool Proc::opt_jump_be(uint16_t b)
     auto & jmp = ops[blocks[b].code.back()];
 
     // is this simple jump?
-    if(jmp.opcode != ops::jmp) return false;
+    if(jmp.opcode != ops::jmp)
+    {
+        if(jump_debug) BJIT_LOG(" JUMP:%d not jump (%s)\n", b, jmp.strOpcode());
+        return false;
+    }
 
     auto target = jmp.label[0];
 
@@ -33,11 +37,19 @@ bool Proc::opt_jump_be(uint16_t b)
 
     // does the target end in a branch?
     auto & jcc = ops[blocks[target].code.back()];
-    if(jcc.opcode >= ops::jmp) return false;
+    if(jcc.opcode >= ops::jmp)
+    {
+        if(jump_debug) BJIT_LOG(" JUMP:%d not branch\n", b);
+        return false;
+    }
 
     // does target dominate the branches?
     if(blocks[jcc.label[0]].idom != target
-    || blocks[jcc.label[1]].idom != target) return false;
+    || blocks[jcc.label[1]].idom != target)
+    {
+        if(jump_debug) BJIT_LOG(" JUMP:%d branches not dominated\n", b);
+        return false;
+    }
 
     // does one of the branches dominate us?
     // if not, then this is potentially complicated
@@ -293,7 +305,46 @@ bool Proc::opt_jump()
             }
 
             BJIT_LOG(" JUMP");
+            progress = true;
             continue;
+        }
+
+        if(op.flags.no_opt)
+        {
+            continue;
+        }
+
+        // handle degenerate loops too?
+        if(op.opcode < ops::jmp && op.label[0] == b)
+        {
+            op.label[0] = breakEdge(b, b);
+            op.flags.no_opt = true;
+            progress = true;
+
+            rebuild_livein();
+
+            if(jump_debug) BJIT_LOG(" TRY %d\n", op.label[0]);
+
+            if(opt_jump_be(op.label[0]))
+            {
+                break;
+            }
+        }
+        
+        if(op.opcode < ops::jmp && op.label[1] == b)
+        {
+            op.label[1] = breakEdge(b, b);
+            op.flags.no_opt = true;
+            progress = true;
+            
+            rebuild_livein();
+            
+            if(jump_debug) BJIT_LOG(" TRY %d\n", op.label[1]);
+            
+            if(opt_jump_be(op.label[1]))
+            {
+                break;
+            }
         }
 
         // if we didn't do a trivial pull, try opt_jump
@@ -304,7 +355,7 @@ bool Proc::opt_jump()
             break;
         }
     }
-    
+
     rebuild_cfg();
     
     return progress;

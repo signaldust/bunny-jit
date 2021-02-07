@@ -12,8 +12,12 @@ static const bool fix_sanity = true;    // whether to fix sanity for shuffles
 
 void Proc::allocRegs()
 {
+    // explicitly do one DCE so non-optimized builds work
+    opt_dce();
     findSCC();
-    rebuild_cfg();
+
+    // we also need a legit DCE here (shuffle-block phi-fixups broken?)
+    opt_dce();
     rebuild_dom();
     rebuild_livein();
 

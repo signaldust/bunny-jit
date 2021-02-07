@@ -339,7 +339,7 @@ void Proc::findUsesBlock(int b, bool inOnly, bool localOnly)
 
 void Proc::rebuild_livein()
 {
-    opt_dce(false);
+    rebuild_cfg();
     BJIT_ASSERT(live.size());
     
     for(auto & op : ops)
