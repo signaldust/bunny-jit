@@ -44,13 +44,35 @@ bool Proc::opt_jump(uint16_t b)
     auto & jccHead = ops[blocks[jmp.label[0]].code.back()];
 
     // sanity check, we can't handle and these are probably not profitable
+    // revisit this at some point to handle at least multiple exits
     if((jccHead.opcode <= ops::jmp
         && blocks[jccHead.label[0]].comeFrom.size() > 1))
     {
-        if(jccHead.label[0] == jmp.label[0])
+        bool safe = false;
+        if(jccHead.label[0] == jmp.label[0]
+        && blocks[jccHead.label[0]].comeFrom.size() == 2)
         {
             // this situation we can handle
-            jccHead.label[0] = breakEdge(jmp.label[0], jmp.label[0]);
+            safe = true;
+        }
+        else if(jccHead.label[0] == blocks[jmp.label[0]].pdom)
+        {
+            // target is post-dom and doesn't have any live-in
+            // from the loop head, then it should be safe to break
+            for(auto in : blocks[jccHead.label[0]].livein)
+            {
+                if(ops[in].block == jmp.label[0])
+                {
+                    safe = false;
+                    break;
+                }
+            }
+            if(jump_debug) BJIT_LOG("\nSimple multiple exit.");
+        }
+
+        if(safe)
+        {
+            jccHead.label[0] = breakEdge(jmp.label[0], jccHead.label[0]);
         }
         else
         {
@@ -61,10 +83,31 @@ bool Proc::opt_jump(uint16_t b)
     if(jccHead.opcode < ops::jmp
         && blocks[jccHead.label[1]].comeFrom.size() > 1)
     {
-        if(jccHead.label[1] == jmp.label[0])
+        bool safe = false;
+        if(jccHead.label[1] == jmp.label[0]
+        && blocks[jccHead.label[1]].comeFrom.size() == 2)
         {
             // this situation we can handle
-            jccHead.label[1] = breakEdge(jmp.label[0], jmp.label[0]);
+            safe = true;
+        }
+        else if(jccHead.label[1] == blocks[jmp.label[0]].pdom)
+        {
+            // target is post-dom and doesn't have any live-in
+            // from the loop head, then it should be safe to break
+            for(auto in : blocks[jccHead.label[1]].livein)
+            {
+                if(ops[in].block == jmp.label[0])
+                {
+                    safe = false;
+                    break;
+                }
+            }
+            if(jump_debug) BJIT_LOG("\nSimple multiple exit.");
+        }
+
+        if(safe)
+        {
+            jccHead.label[1] = breakEdge(jmp.label[0], jccHead.label[1]);
         }
         else
         {

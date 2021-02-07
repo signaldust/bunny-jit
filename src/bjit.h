@@ -445,8 +445,8 @@ namespace bjit
         // tries to fix most info, but not necessarily all
         uint16_t breakEdge(uint16_t from, uint16_t to)
         {
-            BJIT_LOG(" BCE[%d,%d]", from, to);
             uint16_t b = blocks.size();
+            BJIT_LOG(" BCE[%d:%d:%d]", from, b, to);
             blocks.resize(blocks.size() + 1);
 
             blocks[b].comeFrom.push_back(from);
