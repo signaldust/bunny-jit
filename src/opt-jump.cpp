@@ -60,7 +60,7 @@ bool Proc::opt_jump_be(uint16_t b)
             b, target, jcc.label[0], jcc.label[1]);
         return false;
     }
-    
+
     if(jump_debug)
         BJIT_LOG(" LOOP:%d (%d:%d,%d)", b, target, jcc.label[0], jcc.label[1]);
     else
@@ -240,8 +240,10 @@ bool Proc::opt_jump_be(uint16_t b)
             }
         }
     }
+
+    opt_dom();  // must always redo doms explicitly
     
-    if(jump_debug) { opt_dom(); debug(); }
+    if(jump_debug) { debug(); }
 
     live.clear();   // force rebuild by DCE
     
@@ -250,7 +252,7 @@ bool Proc::opt_jump_be(uint16_t b)
 
 bool Proc::opt_jump()
 {
-    //livescan();   // don't need this if after sink
+    livescan();   // don't need this if after sink
 
     if(jump_debug) debug();
     
@@ -303,7 +305,7 @@ bool Proc::opt_jump()
         if(op.opcode == ops::jmp && opt_jump_be(b))
         {
             progress = true;
-            continue;
+            break;
         }
     }
     
