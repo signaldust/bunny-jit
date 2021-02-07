@@ -977,10 +977,47 @@ void Proc::allocRegs()
 
     for(auto & op : ops) if(op.hasOutput()) op.scc = slots[op.scc];
 
-    raDone = true;
+    if(ra_debug) BJIT_LOG("\n");
+    rename.map.clear();
+    // do a cleanup pass to get rid of renames that just hurt assembler
+    for(auto b : live)
+    {
+        for(auto c : blocks[b].code)
+        {
+            rename(ops[c]);
+
+            if(ops[c].opcode == ops::rename
+            && ops[c].reg == ops[ops[c].in[0]].reg
+            && ops[c].scc == noSCC)
+            {
+                if(ra_debug) BJIT_LOG("Rename is useless:");
+                debugOp(c);
+                rename.add(c, ops[c].in[0]);
+                c = noVal;
+                continue;
+            }
+
+            if(ops[c].opcode <= ops::jmp)
+            for(auto & a : blocks[ops[c].label[0]].args)
+            for(auto & s : a.alts)
+            for(auto & r : rename.map)
+            {
+                if(s.val == r.src && s.src == b) s.val = r.dst;
+            }
+            
+            if(ops[c].opcode < ops::jmp)
+            for(auto & a : blocks[ops[c].label[0]].args)
+            for(auto & s : a.alts)
+            for(auto & r : rename.map)
+            {
+                if(s.val == r.src && s.src == b) s.val = r.dst;
+            }
+        }
+    }
 
     opt_dce();
 
+    raDone = true;
     BJIT_LOG(" DONE\n");
     if(ra_debug) debug();
 
