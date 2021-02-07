@@ -58,7 +58,12 @@ bool Proc::opt_jump_be(uint16_t b)
     auto & head = blocks[target];
     auto & copy = blocks[nb];
     copy.flags.live = true;
-        
+    copy.dom = blocks[b].dom;
+    copy.dom.push_back(nb);
+    live.push_back(nb);
+
+    jmp.label[0] = nb;
+    
     // we copy all the phis too
     copy.args.resize(head.args.size());
 
@@ -204,15 +209,12 @@ bool Proc::opt_jump_be(uint16_t b)
                 for(auto & s : a.alts)
                 for(auto & r : renameJump.map)
                 {
-                    if(s.val == r.src) s.val = r.dst;
+                    if(s.src == rb && s.val == r.src) s.val = r.dst;
                 }
             }
         }
     }
     
-    jmp.label[0] = nb;
-
-    live.push_back(nb);
     opt_dom();
     
     if(jump_debug) debug();
