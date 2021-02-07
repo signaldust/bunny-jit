@@ -44,6 +44,7 @@ bool Proc::opt_jump(uint16_t b)
     auto & jccHead = ops[blocks[jmp.label[0]].code.back()];
 
     // sanity check, we can't handle and these are probably not profitable
+    // revisit this at some point to handle at least multiple exits
     if((jccHead.opcode <= ops::jmp
         && blocks[jccHead.label[0]].comeFrom.size() > 1))
     {
