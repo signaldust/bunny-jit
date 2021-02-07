@@ -64,8 +64,8 @@ bool Proc::opt_sink(bool unsafe)
             auto op = ops[blocks[b].code[c]];
 
             // is this something we're allowed to move?
-            // does it have local uses?
-            if(!op.canCSE() || op.nUse
+            // does it have local uses? is it constant (no point sinking)?
+            if(!op.canCSE() || op.nUse || !op.nInputs()
             || (!unsafe && op.hasSideFX()))
             {
                 if(sink_debug)
