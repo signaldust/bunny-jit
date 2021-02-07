@@ -143,7 +143,8 @@ bool Proc::opt_cse(bool unsafe)
         auto b0 = op0.block;
         auto b1 = op1.block;
         
-        if(cse_debug) BJIT_LOG("\nCSE: %04x vs. %04x: ", op0.index, op1.index);
+        if(cse_debug) BJIT_LOG("\nCSE: %04x (in %d) vs. %04x (in %d): ",
+            op0.index, op0.block, op1.index, op1.block);
 
         // closest common dominator
         int ccd = 0;
@@ -152,9 +153,11 @@ bool Proc::opt_cse(bool unsafe)
             
         for(int i = 0; i < iMax; ++i)
         {
-            if(blocks[b0].dom[i] == blocks[b1].dom[i]) ccd = i;
+            if(blocks[b0].dom[i] == blocks[b1].dom[i]) ccd = blocks[b0].dom[i];
             else break;
         }
+
+        if(cse_debug) BJIT_LOG(" CCD:%d ", ccd);
 
         // we need to sanity check phis and post-doms
         bool bad = false;

@@ -409,7 +409,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 _CMPri(ops[i.in[0]].reg, (int32_t) i.imm32);
                 // then emit SETcc
                 a64._RR(3, 3, REG(i.reg), 0x0F,
-                    0x90 | _CC(i.opcode + ops::jilt - ops::ilt));
+                    0x90 | _CC(i.opcode + ops::jilt - ops::iltI));
                 break;
 
             case ops::dlt:

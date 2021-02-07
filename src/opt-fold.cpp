@@ -111,6 +111,14 @@ bool Proc::opt_fold(bool unsafe)
                     break;
                 }
 
+                // if we didn't do a trivial pull, try opt_jump
+                // but only once per fold, we need to update live info
+                if(op.opcode == ops::jmp && opt_jump_be(b))
+                {
+                    progress = true;
+                    break;
+                }
+
                 // catch phi-rewriting problems early
                 BJIT_ASSERT(op.nInputs() < 1
                 || ops[op.in[0]].opcode != op.opcode

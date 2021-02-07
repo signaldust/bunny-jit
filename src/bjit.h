@@ -605,8 +605,8 @@ namespace bjit
         // opt-fold.cpp
         bool opt_fold(bool unsafe);
 
-        // opt-jump.cpp - only called by sink
-        bool opt_jump(uint16_t b);
+        // opt-jump.cpp - called by fold
+        bool opt_jump_be(uint16_t b);
 
         // opt-cse.cpp
         bool opt_cse(bool unsafe);

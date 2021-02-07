@@ -90,15 +90,7 @@ bool Proc::opt_sink(bool unsafe)
                 live1 = true;
                 continue;
             }
-            else if(live0 && !tmp0.size())
-            {
-                if(sink_debug)
-                    BJIT_LOG("\n Check jump before sinking %04x in L%d", op.index, b);
             
-                // should we rewrite the CFG first?
-                if(opt_jump(b)) return true;
-                if(sink_debug) BJIT_LOG("\nNo jump opt..");
-            }
             if(sink_debug) BJIT_LOG("\nLive (%s, %s)...",
                 live0 ? "yes" : "no", live1 ? "yes" : "no");
 
