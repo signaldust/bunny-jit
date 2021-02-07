@@ -60,6 +60,8 @@ void Proc::opt_dce(bool unsafe)
                     {
                         auto target = ops[blocks[ops[i].label[k]].code[0]].label[0];
 
+                        if(target == b) break;
+
                         // don't thread conditional jumps into blocks with phis
                         // if the target block is already our other label
                         // and the two blocks pass different values to any phi
@@ -345,7 +347,7 @@ void Proc::findUsesBlock(int b, bool inOnly, bool localOnly)
 void Proc::livescan()
 {
     opt_dce(false);
-    BJIT_ASSERT(live.size());   // at least one DCE required
+    BJIT_ASSERT(live.size());
     
     for(auto & op : ops)
     {

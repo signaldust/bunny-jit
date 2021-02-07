@@ -438,6 +438,7 @@ namespace bjit
             } while(opt_fold(unsafe)    // opt_fold first, needs nUse
                 || opt_cse(unsafe)      // opt_cse doesn't need nUse
                 || opt_sink(unsafe)     // opt_sink does livescan
+                || opt_jump()
                 );
         }
 
@@ -605,8 +606,9 @@ namespace bjit
         // opt-fold.cpp
         bool opt_fold(bool unsafe);
 
-        // opt-jump.cpp - called by fold
+        // opt-jump.cpp
         bool opt_jump_be(uint16_t b);
+        bool opt_jump();
 
         // opt-cse.cpp
         bool opt_cse(bool unsafe);

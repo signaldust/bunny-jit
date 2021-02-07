@@ -25,7 +25,11 @@ bool Proc::opt_jump_be(uint16_t b)
 
     // does the target dominate?
     if(blocks[b].dom.size() <= blocks[target].dom.size()
-    || blocks[b].dom[blocks[target].dom.size()-1] != target) return false;
+    || blocks[b].dom[blocks[target].dom.size()-1] != target)
+    {
+        if(jump_debug) BJIT_LOG(" JUMP:%d target doesn't dominate\n", b);
+        return false;
+    }
 
     // does the target end in a branch?
     auto & jcc = ops[blocks[target].code.back()];
@@ -35,10 +39,32 @@ bool Proc::opt_jump_be(uint16_t b)
     if(blocks[jcc.label[0]].idom != target
     || blocks[jcc.label[1]].idom != target) return false;
 
-    // get live info once we know we're going to break stuff
-    livescan();
+    // does one of the branches dominate us?
+    // if not, then this is potentially complicated
+    bool haveDom = (jcc.label[0] == b || jcc.label[1] == b);
+    if(!haveDom && blocks[b].dom.size() > blocks[jcc.label[0]].dom.size()
+    && blocks[b].dom[blocks[jcc.label[0]].dom.size()-1] == jcc.label[0])
+    {
+        haveDom = true;
+    }
+    
+    if(!haveDom && blocks[b].dom.size() > blocks[jcc.label[1]].dom.size()
+    && blocks[b].dom[blocks[jcc.label[1]].dom.size()-1] == jcc.label[1])
+    {
+        haveDom = true;
+    }
 
-    BJIT_LOG(" JUMP:%d", b);
+    if(!haveDom)
+    {
+        if(jump_debug) BJIT_LOG(" JUMP:%d (%d:%d,%d) no dom",
+            b, target, jcc.label[0], jcc.label[1]);
+        return false;
+    }
+    
+    if(jump_debug)
+        BJIT_LOG(" JUMP:%d (%d:%d,%d)", b, target, jcc.label[0], jcc.label[1]);
+    else
+        BJIT_LOG(" JUMP:%d", b);
 
     // break edges if target has phis (valid or not)
     if(ops[blocks[jcc.label[0]].code[0]].opcode == ops::phi)
@@ -63,7 +89,7 @@ bool Proc::opt_jump_be(uint16_t b)
     live.push_back(nb);
 
     jmp.label[0] = nb;
-    
+
     // we copy all the phis too
     copy.args.resize(head.args.size());
 
@@ -220,4 +246,65 @@ bool Proc::opt_jump_be(uint16_t b)
     if(jump_debug) debug();
     
     return true;
+}
+
+bool Proc::opt_jump()
+{
+    livescan();
+
+    if(jump_debug) debug();
+    
+    bool progress = false;
+    for(auto b : live)
+    {
+        if(blocks[b].code.back() == noVal) continue;
+
+        auto & op = ops[blocks[b].code.back()];
+    
+        // if this is a pointless jump then pull the contents
+        if(op.opcode == ops::jmp
+        && blocks[op.label[0]].comeFrom.size() == 1
+        && ops[blocks[op.label[0]].code[0]].opcode != ops::phi)
+        {
+            blocks[b].code.pop_back();
+            for(auto & tc : blocks[op.label[0]].code)
+            {
+                blocks[b].code.push_back(tc);
+                ops[tc].block = b;
+                tc = noVal;
+            }
+
+            auto & jmp = ops[blocks[b].code.back()];
+            // rewrite phi-sources
+            if(jmp.opcode <= ops::jmp)
+            {
+                for(auto & a : blocks[jmp.label[0]].args)
+                for(auto & s : a.alts)
+                {
+                    if(s.src == op.label[0]) s.src = b;
+                }
+            }
+            if(jmp.opcode < ops::jmp)
+            {
+                for(auto & a : blocks[jmp.label[1]].args)
+                for(auto & s : a.alts)
+                {
+                    if(s.src == op.label[0]) s.src = b;
+                }
+            }
+
+            progress = true;
+            continue;
+        }
+
+        // if we didn't do a trivial pull, try opt_jump
+        // but only once per fold, we need to update live info
+        if(op.opcode == ops::jmp && opt_jump_be(b))
+        {
+            progress = true;
+            break;  // in case we cause live to realloc
+        }
+    }
+    
+    return progress;
 }
