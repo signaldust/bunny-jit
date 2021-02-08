@@ -678,81 +678,78 @@ At the beginning of this page I said above I find traditional compiler optimizat
 a bit confusing to relate to, because they talk about things like versions of
 variables and safety. In SSA, there is exactly one version of a value and values
 are referentially transparent: as long as the value is defined in some dominator
-block the value is safe.
+block the value is safe. But here's what we do:
 
-We treat redundant `phi`s as "dead code" so the DCE pass serves a dual purpose:
-it also performs "dataflow analysis" when it figures out which `phi`s it should
-get rid of. A `phi` is considered "dead" if there is only one actual value 
-reachable (ie. alternatives are the same or simple `phi` cycles).
-We also find dominators for CSE-purposes.
+The DCE pass (`opt_dce`) serves a couple of purposes: first, it finds all the
+actual live-blocks by doing a depth-first search from the entry. Any block that
+isn't reached will be ignored. It also counts the number of uses for each value
+and throw away anything (without side-effects) with a use-count of zero (and then
+all values that now have a use-count of zero and so on). It also performs simple
+jump threading and replaces `phi` uses with actual values if all alternatives are
+either the same or simple loop-back to the `phi` itself. This essentially gives us
+a simple form of data-flow analysis. 
 
-The Fold pass can fold constants. It doesn't explicitly "propagate" anything,
-but because the only way to know anything (is a constant?) about source operands
-is to look at the original value, we get "propagation" for free. Fold can also
-resolve constant jumps, which then potentially allows DCE to remove more `phi`s
-which then might allow Fold to treat more values as constants.
+Invariants: DCE builds the list of `live` blocks, so it must run as the very first
+thing even for non-optimizing builds. It does not rely on any other analysis.
+It does not break register allocation (ie. we actually do a final DCE pass after
+we've computed all shuffles; if this breaks the code, it's a bug in `opt_ra`).
 
-I don't think we quite manage full "sparse conditional constant propagation"
-because we don't deal with any fancy lattice stuff and we don't try to track
-where we've been (other than by static liveliness). If there is a loop where a
-path must be taken in order for the same path to be taken, then we can't figure
-this out. I suppose this could be fixed, but it doesn't seem like a priority.
-On the other hand, if the path doesn't actually change the condition (ie. any
-phis are pass-thru) then we can certainly get rid of it.
+DCE (and other optimizations) also calls `rebuild_cfg` rebuilds "come from"
+information and cleans up `phi` alternatives where the incoming edge no longer
+exists. Invariants: `rebuild_cfg` assumes `live` contains all live blocks.
 
-Fold can also deal with identical instructions: if the operation code and the
-operand values match and the instruction doesn't have side effects, then it will
-compute the same value. If two instructions have the same operands, then they
-must (necessarily) have at least one common dominator where both of the values are
-defined. So we can use a hashtable to match and then find this common dominator,
-move one of the operations there and rename the other. We pick the closest
-common dominator. CSE seems simple?
+The `opt_fold` pass only does simple constant-folding/strength-reduction and
+does not rely on anything other than `live` containing all live blocks. When it
+simplifies an operation into a `nop` it leaves it in-place for DCE to clean up.
 
-Why not also move any single instruction the same way? In theory, in code without
-side-effects (or loads, which we treat as side-effects) we could turn all
-conditional branches into pure shuffles this way and part of me wants to explore
-the possibility, with conditional moves to eliminate the branches completely.
+Invariants: Folding does not use any properties of CFG. It only relies on the
+SSA invariant that definitions always dominate uses.
 
-However, in order to not increase computation on paths that never compute the
-value, we work up the dominator tree and check that there is an inverse path
-in the post-dominator tree. We don't need to worry about blocks other than
-dominators, because branches in such blocks must also merge.
+The `opt_cse` pass does two things: it first tries to hoist operations up the
+dominator chain to the earliest block where all inputs are available, unless
+the operation is marked with `flags.no_opt` (eg. we already sunk the op where
+it's needed; FIXME: we might want to make hoisting a bit more intelligent and
+allow it to break critical edges directly).
 
-As it turns out, if a "natural loop" has a pre-header (ie. there is only
-one edge that enters the loop), then this gives us loop invariant code motion
-without even having to find the loops. After initially writing this, I've
-also added loop-inversion so that we can avoid computing the invariants
-if the loop is never entered (not sure if this is always profitable, but
-it should be worth it for nested loops and shouldn't hurt much otherwise;
-could try to make this conditional on actually having loop invariants).
+Then `opt_cse` tries to globally combine all pairs of identical ops and
+place the combined op at the closest common dominator (one always exists), but
+only if it can reach the CCD by following a two-way dominator/post-dominator
+chain (ie. don't cross branches that don't also merge; this is ignored for the
+CCD itself, because if we come from two different branches, then both branches
+compute the same value and combining just results in smaller code).
 
-We make one exception to the branch rule: when merging two operations, if
-the closest common dominator (but not other dominators of either instruction
-along the path) contains a branch, we don't care: we just found an instruction
-that is computed separately on both sides of the branch, like in my silly
-division-by-zero bytecode dump above. In that example case, it then makes
-the `phi`s redundant, which means the two conditional block are empty, which
-means the jumps can be threaded and the thing collapses into it's final form.
-In the case where one operation post-dominates the other, this would seem to
-result in PRE, but I don't know; it's really just a special case. We don't
-handle the case where one branch computes an operation on a value that is
-operand to a phi that is later used to compute the same operation, so I guess
-we don't get quite full PRE yet. This could be fixed, I guess.
+Invariants: CSE rebuilds/uses dominators, but doesn't currently change CFG.
 
-Sometimes it happens that further folding can make an instruction redundant
-on one path, but not the other. To deal with this, we do a further pass to
-move such instructions down the path where they are useful. This basically
-the reverse of loop-invariant code-motion, where we move values out of loops
-when they are only needed after the loop exits.
+Because `opt_cse` needs dominator information (for both hosting and actual CSE)
+to avoid moving operations in the wrong places, it calls `rebuild_dom` which
+finds the immediate dominators `.idom` and immediate post-dominators `.pdom`
+for each block and then builds a per-block sorted list of all dominators `.dom`
+to allow for easier dominance checks and CCD searches.
 
-This is really all we currently do, but because we only worry about graph
-theory rather than variables, we get a fairly powerful set of optimisations
-essentially for free (well, some CPU is spent, but this isn't a stage0 JIT
-and you can skip optimization if you prefer low quality code compiled faster).
-The only tricky part of the code-motion is to make sure it finds a fixed-point.
+Invariants: `rebuild_dom` calls `rebuild_cfg` so it rebuilds both.
 
-On the other hand Bunny-JIT does not perform any sort of aliasing analysis
-for memory. It probably never will, because this is such a huge can of worms.
-Bunny-JIT will not be an efficient compiler for high-level object-oriented
-languages. I don't care, it's really not the focus. I will reconsider if I
-can come up with an elegant enough algorithm.
+The `opt_sink` pass does the opposite of hoisting and tries to move ops down
+branches where they are actually needed. For this it needs live-in information
+from `rebuild_livein` and because it can break critical edges if necessary it will
+invalidate the CFG and dominator information.
+
+The `opt_jump` pass optimizes jumps. Currently it only optimizes jumps back to
+dominators (loop back edges; `opt_jump_be`) by making a copy of the block and
+adding new `phi`s for all live-in values (globally) that originated from the
+(supposedly) loop header. It relies on both `livein` and dominators and it will
+invalidate both. It rebuilds CFG but not dominators.
+
+The `opt_scc` pass computes [SCCs](#scc) and the `opt_ra` pass performs
+register allocation. There are only done once at the end of the compilation
+and they are always done, even for non-optimized builds. After RA the code
+is ready to be assembled. Note that code is still valid SSA.
+
+Currently Bunny-JIT does not perform any sort of memory optimization.
+It probably never try to do sophisticated analyse aliasing, because this is
+such a huge can of worms, but I'm looking to maybe optimize some of the simple
+cases (eg. identical loads with no stores between them) in the future.
+
+Bunny-JIT is currently very inefficient compiler for high-level object-oriented
+languages that rely heavily on following the same pointer-chains over and over
+again and it will probably always be very inefficient for languages that rely
+heavily on mutating objects in memory. I don't really care, it's not my focus.
