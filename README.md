@@ -702,6 +702,12 @@ The `opt_fold` pass only does simple constant-folding/strength-reduction and
 does not rely on anything other than `live` containing all live blocks. When it
 simplifies an operation into a `nop` it leaves it in-place for DCE to clean up.
 
+Because `opt_fold` also simplifies conditional jumps into non-conditional jumps
+and because `opt_dce` simplies unnecessary `phi` loops this gives us much of
+`SCCP` although we can't handle the cases where a branch must be taken for the
+branch condition to ever choose that branch. I'm not entirely convinced this
+would really be worth the trouble.
+
 Invariants: Folding does not use any properties of CFG. It only relies on the
 SSA invariant that definitions always dominate uses.
 
@@ -717,6 +723,14 @@ only if it can reach the CCD by following a two-way dominator/post-dominator
 chain (ie. don't cross branches that don't also merge; this is ignored for the
 CCD itself, because if we come from two different branches, then both branches
 compute the same value and combining just results in smaller code).
+
+Because of how we compute the validity of CSE, we can also combine operations
+where one operation post-dominates another and because we move the operation
+to a common path, this effectively gives us a form of PRE. However, we don't
+handle the case where one of the operands of the post-dominating op is a `phi`
+with the other op's operand being a `phi` alternative, so we can't hanlde all
+the possible cases. This could probably be fixed (hoist the post-dominating
+op into the other branch), but I don't see it as high priority.
 
 Invariants: CSE rebuilds/uses dominators, but doesn't currently change CFG.
 
