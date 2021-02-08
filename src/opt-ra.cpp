@@ -1153,15 +1153,7 @@ void Proc::findSCC()
         {
             if(blocks[ops[c].label[k]].comeFrom.size() < 2) continue;
 
-            auto shuffle = breakEdge(b, ops[c].label[k]);
-            
-            for(auto & a : blocks[ops[c].label[k]].args)
-            for(auto & s : a.alts)
-            {
-                if(s.src == b) s.src = shuffle;
-            }
-
-            ops[c].label[k] = shuffle;
+            ops[c].label[k] = breakEdge(b, ops[c].label[k]);
         }
     }
 

@@ -454,6 +454,12 @@ namespace bjit
             auto & jmp = ops[addOp(ops::jmp, Op::_none, b)];
             jmp.label[0] = to;
 
+            // if original jump is no-opt then also mark
+            // the new jump as no_opt so we don't try to
+            // reoptimize loops when sink breaks an edge
+            if(ops[blocks[from].code.back()].flags.no_opt)
+                jmp.flags.no_opt = true;
+
             // fix live-in for edge block
             blocks[b].livein = blocks[to].livein;
 
@@ -480,7 +486,15 @@ namespace bjit
 
             // for target phis
             for(auto & a : blocks[to].args)
-            for(auto & s : a.alts) if(s.src == from) s.src = b;
+            for(auto & s : a.alts)
+            {
+                if(s.src == from)
+                {
+                    s.src = b;
+                    // value must be live-in :)
+                    blocks[b].livein.push_back(s.val);
+                }
+            }
 
             return b;
         }
