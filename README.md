@@ -60,6 +60,7 @@ be a total overkill. Why add a gigabyte of dependencies, if you can get most of 
 high-value stuff with less than 10k lines of sparse C++? We're actually not even close
 to 10k lines yet (currently around 6k for the library itself, excluding blanks
 and comments, but including all the debug logs that are not compiled in by default).
+
 Our goal is not necessarily to produce the best possible code (you should probably 
 use LLVM for that), but rather to produce something that is good enough to make dynamic
 code-generation worth the trouble, while simple to use (both in terms of API and in
