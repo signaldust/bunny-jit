@@ -285,10 +285,7 @@ bool Proc::opt_jump_be(uint16_t b)
                             rb, rjmp.label[x], ops[a.phiop].index);
                         debug();
                     }
-                    // FIXME: this is expected to fail when two paths merge
-                    // and the phis only have loop-head and it's duplicate
-                    // as the sources, but I want to repro this first to make
-                    // sure that when we try to fix it, we actually fix it
+                    // we should not hit this case anymore
                     BJIT_ASSERT(found);
                 }
                 
@@ -304,6 +301,7 @@ bool Proc::opt_jump_be(uint16_t b)
 
 bool Proc::opt_jump()
 {
+    //rebuild_dom();    // don't need this if after CSE
     rebuild_livein();   // don't need this if after sink
 
     if(jump_debug) debug();
