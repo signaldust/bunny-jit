@@ -59,7 +59,8 @@ on the fly (eg. for performance reasons), but including something like LLVM woul
 be a total overkill. Why add a gigabyte of dependencies, if you can get most of the
 high-value stuff with less than 10k lines of sparse C++? We're actually not even close
 to 10k lines yet (currently around 6k for the library itself, excluding blanks
-and comments, but including all the debug logs that are not compiled in by default).
+and comments, but including all the debug logs that are not compiled in by default;
+when enabled for debugging, the compiler can mostly explain what it did and why).
 
 Our goal is not necessarily to produce the best possible code (you should probably 
 use LLVM for that), but rather to produce something that is good enough to make dynamic
