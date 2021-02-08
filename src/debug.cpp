@@ -143,8 +143,7 @@ void bjit::Proc::debug() const
                     }
                 }
             }
-            BJIT_LOG("\n");
-            BJIT_LOG("; SLOT  VALUE    REG       OP   USE TYPE  ARGS\n");
+            BJIT_LOG("\n; SLOT  VALUE    REG       OP   USE TYPE  ARGS\n");
             for(auto & iop : blocks[b].code) { debugOp(iop); }
             //if(0)
             if(raDone)
