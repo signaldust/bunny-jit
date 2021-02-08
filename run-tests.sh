@@ -15,8 +15,8 @@ bin/test_callp
 bin/test_calln
 
 bin/test_fib
-
 bin/test_call_stub
+bin/test_loop   # this tries to confuse opt_jump_be
 
 cat << END | bin/bjit
     x := 0/0; y := x/1u;
