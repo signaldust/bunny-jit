@@ -59,9 +59,12 @@ on the fly (eg. for performance reasons), but including something like LLVM woul
 be a total overkill. Why add a gigabyte of dependencies, if you can get most of the
 high-value stuff with less than 10k lines of sparse C++? We're actually not even close
 to 10k lines yet (currently around 6k for the library itself, excluding blanks
-and comments). Our goal is not necessarily to produce the best possible code (you should
-probably use LLVM), but rather to produce something that is good enough to make dynamic
-code-generation worth the trouble.
+and comments, but including all the debug logs that are not compiled in by default).
+Our goal is not necessarily to produce the best possible code (you should probably 
+use LLVM for that), but rather to produce something that is good enough to make dynamic
+code-generation worth the trouble, while simple to use (both in terms of API and in
+terms of including into a project; I'm even considering an STB-style "single-file"
+version once the whole thing can be considered somewhat stable).
 
 It is primarily intended for generating run-time specialized code, especially where
 this can give significant performance advantages, so we're willing to spend some
