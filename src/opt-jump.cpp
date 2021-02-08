@@ -10,7 +10,7 @@ using namespace bjit;
 
 */
 
-static const bool jump_debug = false;
+static const bool jump_debug = true;
 
 // This optimizes simple back edges: target block dominates and branches.
 // Break critical edges if any. Copy target block into a new block.
@@ -75,6 +75,9 @@ bool Proc::opt_jump_be(uint16_t b)
     copy.flags.live = true;
     copy.dom = blocks[b].dom;
     copy.dom.push_back(nb);
+    copy.idom = b;
+    copy.pdom = blocks[b].pdom; // shouldn't REALLY need pdoms, but fix anyway
+    blocks[b].pdom = nb;
     live.push_back(nb);
 
     jmp.label[0] = nb;
@@ -223,28 +226,56 @@ bool Proc::opt_jump_be(uint16_t b)
                 renameCopy(ops[rop]);
             }
 
+            // don't patch jumps in the copied block, we already fixed these
+            if(rb == nb) continue;
+            
             auto & rjmp = ops[blocks[rb].code.back()];
             if(rjmp.opcode > ops::jmp) continue;   // return or tail-call
-            
+
             for(int x = 0; x < 2; ++x)
             {
                 if(x && rjmp.opcode == ops::jmp) break;
 
+                if(jump_debug) BJIT_LOG("Patching jump to %d\n", rjmp.label[x]);
                 for(auto & a : blocks[rjmp.label[x]].args)
                 {
                     if(!a.alts.size()) continue;
                     bool found = false;
                     for(auto & s : a.alts)
                     {
+                        if(s.src == rb && ops[s.val].block != target)
+                        {
+                            if(jump_debug)
+                                BJIT_LOG("L:%d:%04x is from %d (keep)\n",
+                                    s.src, s.val, ops[s.val].block);
+                            found = true;
+                            break;
+                        }
+                        // is this from somewhere else?
                         if(s.src != rb) continue;
-                        found = true;
+                        
                         for(auto & r : renameCopy.map)
                         {
                             if(s.val == r.src)
                             {
-                                s.val = r.dst;
+                                found = true;
+                                if(jump_debug)
+                                    BJIT_LOG("L:%d:%04x needs rewrite: ",
+                                        s.src, s.val);
+                                        
+                                if(s.src == rb)
+                                {
+                                    if(jump_debug)
+                                        BJIT_LOG("simple: L:%d:%04x\n",
+                                            ops[r.dst].block, r.dst);
+                                    s.val = r.dst;
+                                }
+                                else BJIT_ASSERT(false);
+
+                                found = true;
                                 break;
                             }
+                            if(found) break;
                         }
                         break;
                     }
