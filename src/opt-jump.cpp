@@ -12,8 +12,15 @@ using namespace bjit;
 
 static const bool jump_debug = false;
 
-// This optimizes simple back edges (jump, target dominates)
-// by duplicating the contents of the block and building new phis.
+// This optimizes simple back edges: target block dominates and branches.
+// Break critical edges if any. Copy target block into a new block.
+//
+// Then for each block whose immediate dominator is the target block
+// find all live-in variables originating from that block and insert phis.
+// Rename the variables in any block dominated by this block.
+//
+// This effectively gives us loop-inversion for simple loops. 
+//
 bool Proc::opt_jump_be(uint16_t b)
 {
     auto & jmp = ops[blocks[b].code.back()];
@@ -40,36 +47,6 @@ bool Proc::opt_jump_be(uint16_t b)
     if(jcc.opcode >= ops::jmp)
     {
         if(jump_debug) BJIT_LOG(" JUMP:%d not branch\n", b);
-        return false;
-    }
-
-    // does target dominate the branches?
-    if(blocks[jcc.label[0]].idom != target
-    || blocks[jcc.label[1]].idom != target)
-    {
-        if(jump_debug) BJIT_LOG(" JUMP:%d branches not dominated\n", b);
-        return false;
-    }
-
-    // does one of the branches dominate us?
-    // if not, then this is potentially complicated
-    bool haveDom = (jcc.label[0] == b || jcc.label[1] == b);
-    if(!haveDom && blocks[b].dom.size() > blocks[jcc.label[0]].dom.size()
-    && blocks[b].dom[blocks[jcc.label[0]].dom.size()-1] == jcc.label[0])
-    {
-        haveDom = true;
-    }
-    
-    if(!haveDom && blocks[b].dom.size() > blocks[jcc.label[1]].dom.size()
-    && blocks[b].dom[blocks[jcc.label[1]].dom.size()-1] == jcc.label[1])
-    {
-        haveDom = true;
-    }
-
-    if(!haveDom)
-    {
-        if(jump_debug) BJIT_LOG(" LOOP:%d (%d:%d,%d) no dom",
-            b, target, jcc.label[0], jcc.label[1]);
         return false;
     }
 
@@ -125,6 +102,10 @@ bool Proc::opt_jump_be(uint16_t b)
             opc.label[0] = opi.label[0];
             opc.label[1] = opi.label[1];
 
+            // need to fix come from
+            blocks[opc.label[0]].comeFrom.push_back(nb);
+            blocks[opc.label[1]].comeFrom.push_back(nb);
+
             // stop further loop-optimization here
             // even if this folds into a simple jmp
             opc.flags.no_opt = true;
@@ -139,7 +120,6 @@ bool Proc::opt_jump_be(uint16_t b)
             
             copy.args[opc.phiIndex].phiop = opc.index;
             copy.args[opc.phiIndex].alts = head.args[opi.phiIndex].alts;
-
         }
 
         renameCopy.add(opi.index, opc.index);
@@ -148,17 +128,14 @@ bool Proc::opt_jump_be(uint16_t b)
 
     BJIT_ASSERT(copy.code.size());
 
-    // next, we need to fix-up target blocks
-    for(int k = 0; k < 2; ++k)
+    // next we need to fix all blocks that target immediately dominates
+    for(auto fb : live)
     {
-        // simple jump, only one block to fix
-        if(k && jcc.opcode == ops::jmp) break;
+        auto & fixBlock = blocks[fb];
+        if(fixBlock.idom != target) continue;
+        
+        if(jump_debug) BJIT_LOG("Block %d needs fixup.\n", fb);
 
-        renameJump.map.clear();
-
-        auto & fixBlock = blocks[jcc.label[k]];
-
-        // figure out how many phis do we need
         int nPhi = 0;
         for(auto & in : fixBlock.livein)
         {
@@ -166,28 +143,16 @@ bool Proc::opt_jump_be(uint16_t b)
             if(ops[in].block == target) ++nPhi;
         }
 
-        if(!nPhi)
-        {
-            if(jump_debug) BJIT_LOG("Don't need any phi.\n");
-            continue; // no phi, no fixup
-        }
-        else
-        {
-            if(jump_debug) BJIT_LOG("Need %d phi.\n", nPhi);
-        }
-
-        // make some space in the target
+        // insert phis
         fixBlock.code.insert(fixBlock.code.begin(), nPhi, noVal);
-
-        // just loop live-in again
+        
         int iPhi = 0;
         for(auto & in : fixBlock.livein)
         {
             // does this come from original head?
             if(ops[in].block != target) continue;
 
-            fixBlock.code[iPhi]
-                = newOp(ops::phi, ops[in].flags.type, jcc.label[k]);
+            fixBlock.code[iPhi] = newOp(ops::phi, ops[in].flags.type, fb);
 
             // target needs to rename to use the phi
             renameJump.add(in, fixBlock.code[iPhi]);
@@ -198,6 +163,7 @@ bool Proc::opt_jump_be(uint16_t b)
             fixBlock.args.back().phiop = fixBlock.code[iPhi];
 
             // add alternatives, they are in our rename map
+            // we fix the real sources later
             for(auto & r : renameCopy.map)
             {
                 if(r.src != in) continue;
@@ -210,30 +176,51 @@ bool Proc::opt_jump_be(uint16_t b)
 
             ++iPhi;
         }
+    }
 
-        BJIT_ASSERT(iPhi == nPhi);
+    // put the original phis to jump rename list
+    for(auto & r : renameCopy.map) renameJump.add(r.src, r.dst);
 
-        if(jump_debug) for(auto & r : renameJump.map)
+    // do a second pass to actually rename
+    for(auto fb : live)
+    {
+        auto & fixBlock = blocks[fb];
+        if(fixBlock.idom != target) continue;
+
+        renameCopy.map.clear();
+        // filter renames relevant to this block
+        for(auto & r : renameJump.map)
         {
-            BJIT_LOG(" %04x -> %04x\n", r.src, r.dst);
+            if(ops[r.dst].block == fb) renameCopy.add(r.src, r.dst);
         }
 
+        // find all blocks dominated by this block
         for(auto rb : live)
         {
-            if(blocks[rb].dom.size() < fixBlock.dom.size()
-            || blocks[rb].dom[fixBlock.dom.size()-1] != jcc.label[k])
+            // we need to do this the old-fashioned way because
+            // break-edge doesn't try to fix .dom globally
+            bool found = false;
+            for(int db = rb; db; db = blocks[db].idom)
             {
-                if(jump_debug)
-                    BJIT_LOG("Block L%d is not in branch L%d\n", rb, jcc.label[k]);
-                continue;
+                if(db != fb) continue;
+                found = true;
+                break;
             }
-
+            if(!found) continue;
+            
             if(jump_debug)
-                BJIT_LOG("Renaming L%d in L%d branch\n", rb, jcc.label[k]);
+                BJIT_LOG("Renaming L%d in branch %d\n", rb, fb);
 
+            // rename livein for better debugs
+            for(auto & in : blocks[rb].livein)
+            for(auto & r : renameCopy.map)
+            {
+                if(in == r.src) in = r.dst;
+            }
+                
             for(auto & rop : blocks[rb].code)
             {
-                renameJump(ops[rop]);
+                renameCopy(ops[rop]);
             }
 
             auto & rjmp = ops[blocks[rb].code.back()];
@@ -244,13 +231,39 @@ bool Proc::opt_jump_be(uint16_t b)
                 if(x && rjmp.opcode == ops::jmp) break;
 
                 for(auto & a : blocks[rjmp.label[x]].args)
-                for(auto & s : a.alts)
-                for(auto & r : renameJump.map)
                 {
-                    if(s.src == rb && s.val == r.src) s.val = r.dst;
+                    if(!a.alts.size()) continue;
+                    bool found = false;
+                    for(auto & s : a.alts)
+                    {
+                        if(s.src != rb) continue;
+                        found = true;
+                        for(auto & r : renameCopy.map)
+                        {
+                            if(s.val == r.src)
+                            {
+                                s.val = r.dst;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                    if(!found)
+                    {
+                        BJIT_LOG("FIXME: in %d->%d couldn't find %04x\n",
+                            rb, rjmp.label[x], ops[a.phiop].index);
+                        debug();
+                    }
+                    // FIXME: this is expected to fail when two paths merge
+                    // and the phis only have loop-head and it's duplicate
+                    // as the sources, but I want to repro this first to make
+                    // sure that when we try to fix it, we actually fix it
+                    BJIT_ASSERT(found);
                 }
+                
             }
         }
+        
     }
 
     if(jump_debug) { debug(); }
@@ -321,7 +334,8 @@ bool Proc::opt_jump()
             op.flags.no_opt = true;
             progress = true;
 
-            rebuild_livein();
+            // want doms though (FIXME: move this to opt_jmp_be only?)
+            rebuild_dom();
 
             if(jump_debug) BJIT_LOG(" TRY %d\n", op.label[0]);
 
@@ -337,7 +351,8 @@ bool Proc::opt_jump()
             op.flags.no_opt = true;
             progress = true;
             
-            rebuild_livein();
+            // want doms though (FIXME: move this to opt_jmp_be only?)
+            rebuild_dom();
             
             if(jump_debug) BJIT_LOG(" TRY %d\n", op.label[1]);
             

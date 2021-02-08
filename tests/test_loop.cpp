@@ -57,7 +57,7 @@ int main()
     printf(" - Wrote out.bin\n");
     BJIT_ASSERT(module.load());
 
-    for(int i = 0; i < 4; ++i)
+    for(int i = 0; i < 16; ++i)
     {
         auto h = bjit::hash64(i+1);
         int x = h&0xff;
