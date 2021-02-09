@@ -724,9 +724,10 @@ it's needed; FIXME: we might want to make hoisting a bit more intelligent and
 allow it to break critical edges directly).
 
 Then `opt_cse` tries to globally combine all pairs of identical ops and
-place the combined op at the closest common dominator (one always exists), but
-only if it can reach the CCD by following a two-way dominator/post-dominator
-chain (ie. don't cross branches that don't also merge; this is ignored for the
+place the combined op at the closest common dominator (by SSA property there
+always exists a CCD where all the inputs are defined), but only if it can reach
+the CCD by following a two-way dominator/post-dominator chain (ie. don't cross
+branches that don't also merge, but diamonds are fine; this is ignored for the
 CCD itself, because if we come from two different branches, then both branches
 compute the same value and combining just results in smaller code).
 
@@ -756,8 +757,10 @@ invalidate the CFG and dominator information.
 The `opt_jump` pass optimizes jumps. Currently it only optimizes jumps back to
 dominators (loop back edges; `opt_jump_be`) by making a copy of the block and
 adding new `phi`s for all live-in values (globally) that originated from the
-(supposedly) loop header. It relies on both `livein` and dominators and it will
-invalidate both. It rebuilds CFG but not dominators.
+(supposedly) loop header. This effectively results in loop inversion and allows
+`opt_sink` to create pre-headers by breaking critical edges. Because `opt_jump`
+rewrites CFG, it needs both `livein` and dominators and it will invalidate both.
+It rebuilds CFG, but not dominators.
 
 The `opt_scc` pass computes [SCCs](#scc) and the `opt_ra` pass performs
 register allocation. There are only done once at the end of the compilation
