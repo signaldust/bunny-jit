@@ -138,6 +138,8 @@ static void fragment(Parser & ps, Token const & t)
     case Token::Telse: ps.frags.emplace_back(new EIf(t, ps.frags, true)); break;
 
     case Token::TwhileBody: ps.frags.emplace_back(new EWhile(t, ps.frags)); break;
+    case Token::Tbreak: ps.frags.emplace_back(new EBreak(t)); break;
+    case Token::Tcontinue: ps.frags.emplace_back(new EContinue(t)); break;
     case Token::ToBlock: ps.frags.emplace_back(new EBlock(t, ps.frags)); break;
 
     default: BJIT_LOG("TT: %d\n", t.type); assert(false);
@@ -159,12 +161,13 @@ void reduce(Parser & ps, int precede)
 }
 
 // forward declare all states
-static void psStatement(Parser & ps);   // function top-level statement
-static void psMaybeAssign(Parser & ps); // expect variable value or comma
-static void psInfix(Parser & ps);       // infix operators
-static void psExpr(Parser & ps);        // expression
-static void psCondition(Parser & ps);   // if/while condition context
-static void psMaybeElse(Parser & ps);   // statement or else for an if
+static void psStatement(Parser & ps);       // function top-level statement
+static void psStatementEnd(Parser & ps);    // only ending ; accepted
+static void psMaybeAssign(Parser & ps);     // expect variable value or comma
+static void psInfix(Parser & ps);           // infix operators
+static void psExpr(Parser & ps);            // expression
+static void psCondition(Parser & ps);       // if/while condition context
+static void psMaybeElse(Parser & ps);       // statement or else for an if
 
 void bjit::parse(std::vector<uint8_t> & codeOut)
 {
@@ -207,7 +210,9 @@ void bjit::parse(std::vector<uint8_t> & codeOut)
 
     if(ps.nErrors) return;
 
-    ast->codeGen(p);
+    CodeGen cg(p);
+
+    ast->codeGen(cg);
 
     // always force return
     p.iret(p.lci(0));
@@ -269,9 +274,53 @@ static void psStatement(Parser & ps)
     case Token::Twhile: defer(ps); ps.state = psCondition; break;
     case Token::Treturn: defer(ps); ps.state = psExpr; break;
 
+    case Token::Tbreak:
+        {
+            // sanity check that we are in a valid context
+            bool good = false;
+            for(auto & t : ps.defer)
+            {
+                if(t.type == Token::TwhileBody) good = true;
+                if(good) break;
+            }
+
+            if(!good) ps.errorAt(ps.token, "'break' not within a loop");
+            else fragment(ps, ps.token);
+        }
+        ps.state = psStatementEnd;
+        break;
+    
+    case Token::Tcontinue:  // separate in case we add other breakable constructs
+        {
+            // sanity check that we are in a valid context
+            bool good = false;
+            for(auto & t : ps.defer)
+            {
+                if(t.type == Token::TwhileBody) good = true;
+                if(good) break;
+            }
+
+            if(!good) ps.errorAt(ps.token, "'continue' not within a loop");
+            else fragment(ps, ps.token);
+        }
+        ps.state = psStatementEnd;
+        break;
+
     case Token::Tsymbol: fragment(ps, ps.token); ps.state = psMaybeAssign; break;
     
     default: ps.state = psExpr; psExpr(ps); break;
+    }
+}
+
+static void psStatementEnd(Parser & ps)
+{
+    reduceStatement(ps);
+
+    if(ps.token.type != Token::Tsemicolon)
+    {
+        ps.errorAt(ps.token, "expected ';'");
+        // try to recover by pretending we had a semi
+        ps.state(ps);
     }
 }
 
