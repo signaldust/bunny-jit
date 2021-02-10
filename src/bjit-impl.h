@@ -118,6 +118,8 @@ namespace bjit
             
             bool    hasF32()        const;
             bool    hasF64()        const;
+
+            bool    hasMemTag()     const;  // aka. isLoad()?
     
             void    makeNOP() { opcode = ops::nop; u64 = ~0ull; }
         };
@@ -158,9 +160,10 @@ namespace bjit
                 }
                 else
                 {
-                    in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
-                    in[1] = op.nInputs() >= 2 ? op.in[1] : noVal;
                     imm32 = (op.hasImm32()||op.hasF32()) ? op.imm32 : 0;
+                    in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
+                    in[1] = (op.hasMemTag() || op.nInputs() >= 2)
+                        ? op.in[1] : noVal;
                 }
             }
         
@@ -243,8 +246,11 @@ namespace bjit
             // dominators
             std::vector<uint16_t>   dom;
             
-            uint16_t                idom;   // immediate dominator
-            uint16_t                pdom;  // immediate post-dominator
+            uint16_t    idom;   // immediate dominator
+            uint16_t    pdom;   // immediate post-dominator
+
+            uint16_t    memtag; // memory version into the block
+            uint16_t    memout; // memory version out of the block
     
             struct {
                 bool live       : 1;    // used/reset by DCE, RA

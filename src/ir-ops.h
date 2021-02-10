@@ -10,11 +10,12 @@
 // having SIDEFX for "safe" optimization, and CSE for "unsafe" optimizations
 //
 
-#define BJIT_SIDEFX 0x10    // never DCE
+#define BJIT_SIDEFX 0x10    // never DCE, don't move loads across
 #define BJIT_CSE    0x20    // can CSE
 #define BJIT_NOMOVE 0x40    // must be in the beginning of a block
 
-// input flags
+// input flags (lowest 2 bits are nInputs)
+#define BJIT_MEM    0x08    // in[1] holds memory version
 #define BJIT_IMM32  0x10    // has imm32 operand
 #define BJIT_I64    0x20    // has 64-bit integer constant
 #define BJIT_F64    0x40    // has double constant
@@ -208,22 +209,22 @@
     /* memory loads: load out <- [in0+offset] */ \
     /* integer variants: sign-extended */ \
     /* treat as potentially causing side-effects */ \
-    _(li8,  1+BJIT_SIDEFX, 1+BJIT_IMM32), \
-    _(li16, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
-    _(li32, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
-    _(li64, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
+    _(li8,  BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
+    _(li16, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
+    _(li32, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
+    _(li64, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
     /* unsigned variants (zero-extend) */ \
-    _(lu8,  1+BJIT_SIDEFX, 1+BJIT_IMM32), \
-    _(lu16, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
-    _(lu32, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
+    _(lu8,  BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
+    _(lu16, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
+    _(lu32, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
     /* memory stores: store [in0+offset] <- in1 */ \
     _(si8,  0, 2+BJIT_IMM32), \
     _(si16, 0, 2+BJIT_IMM32), \
     _(si32, 0, 2+BJIT_IMM32), \
     _(si64, 0, 2+BJIT_IMM32), \
     /* floating point load and store */ \
-    _(lf32, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
-    _(lf64, 1+BJIT_SIDEFX, 1+BJIT_IMM32), \
+    _(lf32, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
+    _(lf64, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
     _(sf32, 0, 2+BJIT_IMM32), \
     _(sf64, 0, 2+BJIT_IMM32), \
     /* procedure arguments */ \

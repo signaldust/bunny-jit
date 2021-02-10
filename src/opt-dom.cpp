@@ -11,6 +11,8 @@ void Proc::rebuild_cfg()
     {
         // if this fails, we're probably missing return
         BJIT_ASSERT(blocks[live[b]].code.size());
+        BJIT_ASSERT(ops[blocks[b].code.back()].opcode <= ops::tcalln);
+        
         auto & op = ops[blocks[live[b]].code.back()];
         if(op.opcode < ops::jmp)
         {

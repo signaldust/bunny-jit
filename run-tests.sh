@@ -18,6 +18,8 @@ bin/test_fib
 bin/test_call_stub
 bin/test_loop   # this tries to confuse opt_jump_be
 
+bin/test_mem_opt
+
 cat << END | bin/bjit
     x := 0/0; y := x/1u;
     while(x < 10) { if(y != 2) x = x+1; x = x+1; } return x;
