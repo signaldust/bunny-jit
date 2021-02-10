@@ -48,5 +48,9 @@ cat << END | bin/bjit
     x := 0; y := 0/0; while(x < 10) { x = x+(y/0); } return (x+1);
 END
 
+cat << END | bin/bjit
+x := 1; while(1) { x = x+1; if (x < 10) continue; break; }
+END
+
 echo "Looks like it didn't crash, at least... ;-)"
 

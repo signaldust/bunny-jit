@@ -118,6 +118,19 @@ namespace bjit
     };
     typedef std::vector<Variable> Env;
 
+    struct CodeGen
+    {
+        Proc & proc;
+
+        Label   labelBreak      = { noVal };
+        Label   labelContinue   = { noVal };
+
+        int     envBreak;
+        int     envContinue;
+
+        CodeGen(Proc & proc) : proc(proc) {}
+    };
+
     // Baseclass for AST nodes
     struct Expr
     {
@@ -131,11 +144,11 @@ namespace bjit
 
         virtual void typecheck(Parser & ps, Env & env) = 0;
         virtual void debug(int lvl = 0) = 0;
-        virtual Value codeGen(Proc & proc) = 0;
+        virtual Value codeGen(CodeGen & cg) = 0;
 
         // l-values should implement these
         virtual bool canAssign() { return false; }
-        virtual Value codeGenAssign(Proc & proc, Value v)
+        virtual Value codeGenAssign(CodeGen & cg, Value v)
         { assert(false); return Value{noVal}; }
 
         void debugCommon()
@@ -167,14 +180,14 @@ namespace bjit
             v->debug(lvl+2);
         }
 
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
             // we don't handle pointers yet
             assert(!type.nptr && !v->type.nptr);
         
             // we only really truly need to convert floats and ints
             // anything else is effectively a NOP
-            auto vv = v->codeGen(proc);
+            auto vv = v->codeGen(cg);
             if(type.kind == Type::F32 || v->type.kind == Type::F32)
             {
                 assert(false);  // not supported yet
@@ -182,11 +195,11 @@ namespace bjit
 
             // float -> int conversion
             if(type.kind <= Type::UPTR && v->type.kind == Type::F64)
-                return proc.cd2i(vv);
+                return cg.proc.cd2i(vv);
 
             // int -> float conversion
             if(type.kind == Type::F64 && v->type.kind <= Type::UPTR)
-                return proc.ci2d(vv);
+                return cg.proc.ci2d(vv);
 
             // anything else is pass-thru
             return vv;
@@ -228,16 +241,16 @@ namespace bjit
             debugCommon();
         }
 
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
             switch(token.type)
             {
             case Token::Tint:
             case Token::Tuint:
-                return proc.lci(token.vInt);
+                return cg.proc.lci(token.vInt);
             
             case Token::Tfloat:
-                return proc.lcd(token.vFloat);
+                return cg.proc.lcd(token.vFloat);
                 
             default: assert(false); return Value{noVal};
             }
@@ -272,16 +285,16 @@ namespace bjit
             debugCommon();
         }
 
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
-            return proc.env[envIndex];
+            return cg.proc.env[envIndex];
         }
 
         virtual bool canAssign() { return true; }
 
-        virtual Value codeGenAssign(Proc & proc, Value v)
+        virtual Value codeGenAssign(CodeGen & cg, Value v)
         {
-            return (proc.env[envIndex] = v);
+            return (cg.proc.env[envIndex] = v);
         }
     };
     
@@ -305,11 +318,11 @@ namespace bjit
             v->debug(lvl+2);
         }
 
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
             if(!type.nptr && type.kind == Type::F64)
-                proc.dret(v->codeGen(proc));
-            else proc.iret(v->codeGen(proc));
+                cg.proc.dret(v->codeGen(cg));
+            else cg.proc.iret(v->codeGen(cg));
             return Value{noVal};
         }
         
@@ -347,12 +360,12 @@ namespace bjit
             BJIT_LOG(")");
         }
         
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
-            Value p = fn->codeGen(proc);
-            for(auto & a : args) proc.env.push_back(a->codeGen(proc));
-            auto r = proc.icallp(p, args.size());
-            proc.env.resize(proc.env.size() - args.size());
+            Value p = fn->codeGen(cg);
+            for(auto & a : args) cg.proc.env.push_back(a->codeGen(cg));
+            auto r = cg.proc.icallp(p, args.size());
+            cg.proc.env.resize(cg.proc.env.size() - args.size());
             return r;
         }
     };
@@ -386,11 +399,11 @@ namespace bjit
             BJIT_LOG(")");
         }
         
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
-            unsigned sz = proc.env.size();
-            for(auto & a : body) a->codeGen(proc);
-            proc.env.resize(sz);
+            unsigned sz = cg.proc.env.size();
+            for(auto & a : body) a->codeGen(cg);
+            cg.proc.env.resize(sz);
             return Value{noVal};
         }
 
@@ -444,31 +457,31 @@ namespace bjit
             BJIT_LOG(")");
         }
         
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
             // do this before label creation, so we get scope
-            auto ec = proc.env.size();   // block-scope save
-            auto cc = condition->codeGen(proc);
+            auto ec = cg.proc.env.size();   // block-scope save
+            auto cc = condition->codeGen(cg);
+
+            auto lThen = cg.proc.newLabel();
+            auto lElse = cg.proc.newLabel();
+            auto lDone = cg.proc.newLabel();
             
-            auto lThen = proc.newLabel();
-            auto lElse = proc.newLabel();
-            auto lDone = proc.newLabel();
+            cg.proc.jz(cc, lElse, lThen);
             
-            proc.jz(cc, lElse, lThen);
+            cg.proc.emitLabel(lThen);
+            sThen->codeGen(cg);
+            cg.proc.env.resize(ec);
+            cg.proc.jmp(lDone);
             
-            proc.emitLabel(lThen);
-            sThen->codeGen(proc);
-            proc.env.resize(ec);
-            proc.jmp(lDone);
-            
-            proc.emitLabel(lElse);
+            cg.proc.emitLabel(lElse);
             if(sElse)
             {
-                sElse->codeGen(proc);
+                sElse->codeGen(cg);
             }
-            proc.jmp(lDone);
-            proc.emitLabel(lDone);
-            proc.env.resize(ec);
+            cg.proc.jmp(lDone);
+            cg.proc.emitLabel(lDone);
+            cg.proc.env.resize(ec);
             return Value{noVal};
         }
         
@@ -510,30 +523,113 @@ namespace bjit
             BJIT_LOG(")");
         }
         
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
-            auto ec = proc.env.size();
-            auto lTest = proc.newLabel();
+            auto ec = cg.proc.env.size();
+            auto lTest = cg.proc.newLabel();
 
-            proc.jmp(lTest);
-            proc.emitLabel(lTest);
+            cg.proc.jmp(lTest);
+            cg.proc.emitLabel(lTest);
             
-            auto cc = condition->codeGen(proc);
+            auto oldEnvContinue = cg.envContinue;
+            auto oldLabelContinue = cg.labelContinue;
+            cg.envContinue = cg.proc.env.size();
+            cg.labelContinue = lTest;
             
-            auto lBody = proc.newLabel();
-            auto lDone = proc.newLabel();
-            proc.jz(cc, lDone, lBody);
+            auto cc = condition->codeGen(cg);
+            
+            auto lBody = cg.proc.newLabel();
+            auto lDone = cg.proc.newLabel();
 
-            proc.emitLabel(lBody);
-            body->codeGen(proc);
-            proc.env.resize(ec);
-            proc.jmp(lTest);
+            auto oldEnvBreak = cg.envBreak;
+            auto oldLabelBreak = cg.labelBreak;
+            cg.envBreak = cg.proc.env.size();
+            cg.labelBreak = lDone;
             
-            proc.emitLabel(lDone);
-            proc.env.resize(ec);
+            cg.proc.jz(cc, lDone, lBody);
+
+            cg.proc.emitLabel(lBody);
+            body->codeGen(cg);
+            cg.proc.env.resize(ec);
+            cg.proc.jmp(lTest);
+            
+            cg.proc.emitLabel(lDone);
+            cg.proc.env.resize(ec);
+
+            cg.envBreak = oldEnvBreak;
+            cg.labelBreak = oldLabelBreak;
+
+            cg.envContinue = oldEnvContinue;
+            cg.labelContinue = oldLabelContinue;
+            
             return Value{noVal};
         }
+    };
+
+    struct EBreak : Expr
+    {
+        EBreak(Token const & t) : Expr(t)
+        {
+        }
+
+        void typecheck(Parser & ps, Env & env)
+        {
+            type.kind = Type::VOID;
+        }
+
+        void debug(int lvl)
+        {
+            BJIT_LOG("\n%*s(break ", lvl, "");
+            debugCommon();
+            BJIT_LOG(")");
+        }
         
+        virtual Value codeGen(CodeGen & cg)
+        {
+            // to deal with deadcode that might follow
+            // we generate a new label, resize env, jump
+            // then emit the newly created label to restore
+            // a context that any following expressions expect
+            auto l = cg.proc.newLabel();
+
+            cg.proc.env.resize(cg.envBreak);
+            cg.proc.jmp(cg.labelBreak);
+
+            cg.proc.emitLabel(l);
+        
+            return Value{noVal};
+        }
+    };
+    
+    struct EContinue : Expr
+    {
+        EContinue(Token const & t) : Expr(t)
+        {
+        }
+
+        void typecheck(Parser & ps, Env & env)
+        {
+            type.kind = Type::VOID;
+        }
+
+        void debug(int lvl)
+        {
+            BJIT_LOG("\n%*s(continue ", lvl, "");
+            debugCommon();
+            BJIT_LOG(")");
+        }
+        
+        virtual Value codeGen(CodeGen & cg)
+        {
+            // see break
+            auto l = cg.proc.newLabel();
+
+            cg.proc.env.resize(cg.envContinue);
+            cg.proc.jmp(cg.labelContinue);
+
+            cg.proc.emitLabel(l);
+            return Value{noVal};
+        }
     };
     
     struct EDefine : Expr
@@ -567,10 +663,10 @@ namespace bjit
             BJIT_LOG(")");
         }
         
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
-            proc.env.push_back(value->codeGen(proc));
-            return proc.env.back();
+            cg.proc.env.push_back(value->codeGen(cg));
+            return cg.proc.env.back();
         }
         
     };
@@ -646,25 +742,25 @@ namespace bjit
             BJIT_LOG(")");
         }
         
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
             switch(token.type)
             {
-            case Token::TbitNot: return proc.inot(a->codeGen(proc));
+            case Token::TbitNot: return cg.proc.inot(a->codeGen(cg));
             case Token::TlogNot:
                 {
-                    auto z = proc.lci(0);
-                    return proc.ieq(a->codeGen(proc), z);
+                    auto z = cg.proc.lci(0);
+                    return cg.proc.ieq(a->codeGen(cg), z);
                 }
 
-            case Token::Tpos: return a->codeGen(proc);
+            case Token::Tpos: return a->codeGen(cg);
             case Token::Tneg:
                 if(!type.nptr && type.kind == Type::F64)
-                    return proc.dneg(a->codeGen(proc));
+                    return cg.proc.dneg(a->codeGen(cg));
                     
                 if(!type.nptr && type.kind == Type::F32) assert(false);
                 
-                return proc.ineg(a->codeGen(proc));
+                return cg.proc.ineg(a->codeGen(cg));
                 
             default: assert(false); return Value{noVal};
             }
@@ -935,114 +1031,114 @@ namespace bjit
             BJIT_LOG(")");
         }
         
-        virtual Value codeGen(Proc & proc)
+        virtual Value codeGen(CodeGen & cg)
         {
             assert(type.kind != Type::F32);
 
             // these do short-circuit, so need to check first
             if(token.type == Token::TlogAnd)
             {
-                proc.env.push_back(a->codeGen(proc));
-                auto la = proc.newLabel();
-                auto lb = proc.newLabel();
+                cg.proc.env.push_back(a->codeGen(cg));
+                auto la = cg.proc.newLabel();
+                auto lb = cg.proc.newLabel();
 
-                proc.jz(proc.env.back(),lb,la);
-                proc.emitLabel(la);
+                cg.proc.jz(cg.proc.env.back(),lb,la);
+                cg.proc.emitLabel(la);
                 
-                proc.env.back() = b->codeGen(proc);
-                proc.jmp(lb);
-                proc.emitLabel(lb);
+                cg.proc.env.back() = b->codeGen(cg);
+                cg.proc.jmp(lb);
+                cg.proc.emitLabel(lb);
                 
-                auto v = proc.env.back();
-                proc.env.pop_back();
+                auto v = cg.proc.env.back();
+                cg.proc.env.pop_back();
                 return v;
             }
             
             if(token.type == Token::TlogOr)
             {
-                proc.env.push_back(a->codeGen(proc));
-                auto la = proc.newLabel();
-                auto lb = proc.newLabel();
+                cg.proc.env.push_back(a->codeGen(cg));
+                auto la = cg.proc.newLabel();
+                auto lb = cg.proc.newLabel();
                 
-                proc.jz(proc.env.back(),la,lb);
-                proc.emitLabel(la);
+                cg.proc.jz(cg.proc.env.back(),la,lb);
+                cg.proc.emitLabel(la);
                 
-                proc.env.back() = b->codeGen(proc);
-                proc.jmp(lb);
-                proc.emitLabel(lb);
+                cg.proc.env.back() = b->codeGen(cg);
+                cg.proc.jmp(lb);
+                cg.proc.emitLabel(lb);
                 
-                auto v = proc.env.back();
-                proc.env.pop_back();
+                auto v = cg.proc.env.back();
+                cg.proc.env.pop_back();
                 return v;
             }
             
             if(token.type == Token::Tassign)
             {
-                auto vb = b->codeGen(proc);
-                return a->codeGenAssign(proc, vb);
+                auto vb = b->codeGen(cg);
+                return a->codeGenAssign(cg, vb);
             }
 
-            auto va = a->codeGen(proc);
-            auto vb = b->codeGen(proc);
+            auto va = a->codeGen(cg);
+            auto vb = b->codeGen(cg);
         
             switch(token.type)
             {
             case Token::Tadd:
                 if(!type.nptr && type.kind == Type::F64)
-                    return proc.dadd(va, vb);
-                else return proc.iadd(va, vb);
+                    return cg.proc.dadd(va, vb);
+                else return cg.proc.iadd(va, vb);
                 
             case Token::Tsub:
                 if(!type.nptr && type.kind == Type::F64)
-                    return proc.dsub(va, vb);
-                else return proc.isub(va, vb);
+                    return cg.proc.dsub(va, vb);
+                else return cg.proc.isub(va, vb);
                 
             case Token::Tmul:
-                if(type.kind == Type::F64) return proc.dmul(va, vb);
-                else return proc.imul(va, vb);
+                if(type.kind == Type::F64) return cg.proc.dmul(va, vb);
+                else return cg.proc.imul(va, vb);
                 
             case Token::Tdiv:
-                if(type.kind == Type::F64) return proc.ddiv(va, vb);
-                else if(type.kind == Type::UPTR) return proc.udiv(va, vb);
-                else return proc.idiv(va, vb);
+                if(type.kind == Type::F64) return cg.proc.ddiv(va, vb);
+                else if(type.kind == Type::UPTR) return cg.proc.udiv(va, vb);
+                else return cg.proc.idiv(va, vb);
                 
             case Token::Tmod:
                 if(type.kind == Type::F64) assert(false);
-                else if(type.kind == Type::UPTR) return proc.umod(va, vb);
-                else return proc.imod(va, vb);
+                else if(type.kind == Type::UPTR) return cg.proc.umod(va, vb);
+                else return cg.proc.imod(va, vb);
             
-            case Token::TshiftL: return proc.ishl(va, vb);
+            case Token::TshiftL: return cg.proc.ishl(va, vb);
             case Token::TshiftR:
-                if(type.kind == Type::UPTR) return proc.ushr(va, vb);
-                else return proc.ishr(va, vb);
+                if(type.kind == Type::UPTR) return cg.proc.ushr(va, vb);
+                else return cg.proc.ishr(va, vb);
     
-            case Token::TbitOr: return proc.ior(va, vb);
-            case Token::TbitAnd: return proc.iand(va, vb);
-            case Token::TbitXor: return proc.ixor(va, vb);
+            case Token::TbitOr: return cg.proc.ior(va, vb);
+            case Token::TbitAnd: return cg.proc.iand(va, vb);
+            case Token::TbitXor: return cg.proc.ixor(va, vb);
     
             case Token::Teq:
                 // note: we need to use argument (not result) type here
-                if(a->type.kind == Type::F64) return proc.deq(va, vb);
-                else return proc.ieq(va, vb);
+                if(a->type.kind == Type::F64) return cg.proc.deq(va, vb);
+                else return cg.proc.ieq(va, vb);
             case Token::TnotEq:
-                if(a->type.kind == Type::F64) return proc.dne(va, vb);
-                else return proc.ine(va, vb);
+                if(a->type.kind == Type::F64) return cg.proc.dne(va, vb);
+                else return cg.proc.ine(va, vb);
             
             case Token::Tless:
-                if(a->type.kind == Type::F64) return proc.dlt(va, vb);
-                else return proc.ilt(va, vb);
+                if(a->type.kind == Type::F64) return cg.proc.dlt(va, vb);
+                else return cg.proc.ilt(va, vb);
             
             case Token::TlessEq:
-                if(a->type.kind == Type::F64) return proc.dle(va, vb);
-                else return proc.ile(va, vb);
+                if(a->type.kind == Type::F64) return cg.proc.dle(va, vb);
+                else return cg.proc.ile(va, vb);
             
             case Token::Tgreater:
-                if(a->type.kind == Type::F64) return proc.dgt(va, vb);
-                else return proc.igt(va, vb);
+                if(a->type.kind == Type::F64) return cg.proc.dgt(va, vb);
+                else return cg.proc.igt(va, vb);
             
             case Token::TgreaterEq:
-                if(a->type.kind == Type::F64) return proc.dge(va, vb);
-                else return proc.ige(va, vb);
+                if(a->type.kind == Type::F64) return cg.proc.dge(va, vb);
+                else return cg.proc.ige(va, vb);
 
             default: assert(false); return Value{noVal};
             }
