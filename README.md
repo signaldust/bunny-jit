@@ -767,7 +767,8 @@ register allocation. There are only done once at the end of the compilation
 and they are always done, even for non-optimized builds. After RA the code
 is ready to be assembled. Note that code is still valid SSA.
 
-Currently Bunny-JIT does not perform any sort of memory optimization.
+Currently Bunny-JIT does very limited memory optimization: we allow DCE, CSE
+and hoisting on loads, but assume any side-effect (of any kind) can alias.
 It probably never try to do sophisticated analyse aliasing, because this is
 such a huge can of worms, but I'm looking to maybe optimize some of the simple
 cases (eg. identical loads with no stores between them) in the future.
