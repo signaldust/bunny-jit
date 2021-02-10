@@ -8,6 +8,88 @@ using namespace bjit;
 
 static const bool cse_debug = false;    // print decisions
 
+void Proc::rebuild_memtags(bool unsafe)
+{
+    for(auto b : live)
+    {
+        // reset block tags to noVal, we'll solve these in 2nd pass
+        blocks[b].memtag = noVal;
+        
+        // we start each block with noVal and then let CSE
+        // lookup the actual block-tag if load's tag is noVal
+        uint16_t memtag = noVal;
+        
+        for(auto c : blocks[b].code)
+        {
+            if(c == noVal) continue;
+            
+            if(ops[c].opcode > ops::jmp
+            && ops[c].hasSideFX() && (!unsafe || !ops[c].canCSE()))
+            {
+                memtag = c;
+            }
+
+            if(ops[c].hasMemTag())
+            {
+                ops[c].in[1] = memtag;
+            }
+        }
+
+        // save output tag
+        blocks[b].memout = memtag;
+    }
+
+    // iterate incoming tags, should usually converge in 2-3 rounds
+    bool progress = true;
+    while(progress)
+    {
+        progress = false;
+        for(auto b : live)
+        {
+            // did we already pick unique tag for this block?
+            if(blocks[b].memtag != noVal
+            && ops[blocks[b].memtag].block == b) continue;
+            
+            for(auto cf : blocks[b].comeFrom)
+            {
+                // does the incoming edge have a tag?
+                if(blocks[cf].memout == noVal) continue;
+                
+                // do tags already match?
+                if(blocks[cf].memout == blocks[b].memtag) continue;
+
+                // does this block have a tag?
+                if(blocks[b].memtag == noVal)
+                {
+                    blocks[b].memtag = blocks[cf].memout;
+                    // pass to output unless we have something better
+                    if(blocks[b].memout == noVal)
+                    {
+                        blocks[b].memout = blocks[b].memtag;
+                        progress = true;
+                    }
+                }
+                else
+                {
+                    // incoming tags don't match, pick a unique one
+                    // we'll pick the last op in the block (jump, return)
+                    // as this isn't going to be moved or removed
+                    blocks[b].memtag = blocks[b].code.back();
+                    
+                    // if we have an output tag that's from another block
+                    // then we need to update that as well; otherwise we have
+                    // local sideFX and should keep the existing out tag
+                    if(ops[blocks[b].memout].block != b)
+                    {
+                        blocks[b].memout = blocks[b].memtag;
+                        progress = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
 /*
 
  We do three passes here:
@@ -19,6 +101,7 @@ static const bool cse_debug = false;    // print decisions
 bool Proc::opt_cse(bool unsafe)
 {
     rebuild_dom();
+    rebuild_memtags(unsafe);
     
     impl::Rename rename;
 
@@ -46,6 +129,9 @@ bool Proc::opt_cse(bool unsafe)
             // CSE: do this after simplification
             if(!op.canCSE() || (!unsafe && op.hasSideFX())) continue;
 
+            // update memtag to that of block if we need one
+            if(op.hasMemTag() && op.in[1] == noVal) op.in[1] = blocks[b].memtag;
+
             // always try to hoist first?
             // walk up the idom chain
             auto mblock = b;
@@ -63,6 +149,11 @@ bool Proc::opt_cse(bool unsafe)
                     break;
                 }
                 if(done) break;
+
+                // if this is a load, then don't hoist into a block
+                // with a different memory tag
+                if(op.hasMemTag()
+                && blocks[blocks[mblock].idom].memout != op.in[1]) break;
 
                 mblock = blocks[mblock].idom;
             }
@@ -95,8 +186,11 @@ bool Proc::opt_cse(bool unsafe)
                         canMove = false;
                         break;
                     }
-
                     if(!canMove) break;
+
+                    // sanity check that we don't move loads past sideFX
+                    if(op.hasMemTag() &&
+                    ops[blocks[mblock].code[k]].hasSideFX()) break;
 
                     // move
                     std::swap(blocks[mblock].code[k],
@@ -238,6 +332,10 @@ bool Proc::opt_cse(bool unsafe)
         else
         {
             if(cse_debug) BJIT_LOG("GOOD: move to CCD:%d", ccd);
+            if(op0.hasMemTag())
+            {
+                BJIT_ASSERT(op0.in[1] == blocks[ccd].memout);
+            }
         
             // NOTE: We do a lazy clear of the original position
             // in the rename pass below when block doesn't match.
@@ -264,6 +362,10 @@ bool Proc::opt_cse(bool unsafe)
                 }
 
                 if(!canMove) break;
+                
+                // sanity check that we don't move loads past sideFX
+                if(op0.hasMemTag() &&
+                ops[blocks[ccd].code[k]].hasSideFX()) break;
 
                 // move
                 std::swap(blocks[ccd].code[k],

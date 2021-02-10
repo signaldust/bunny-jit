@@ -10,7 +10,7 @@ using namespace bjit;
 
 */
 
-static const bool jump_debug = true;
+static const bool jump_debug = false;
 
 // This optimizes simple back edges: target block dominates and branches.
 // Break critical edges if any. Copy target block into a new block.

@@ -19,12 +19,12 @@ const char * bjit::impl::Op::strOpcode() const
 
 bool bjit::impl::Op::hasOutput() const
 {
-    return 0 != (opData[this->opcode].outputs & 0xf);
+    return 0 != (opData[this->opcode].outputs & 0x3);
 }
 
 unsigned bjit::impl::Op::nInputs() const
 {
-    return opData[this->opcode].inputs & 0xf;   // mask the flags
+    return opData[this->opcode].inputs & 0x3;   // mask the flags
 }
 
 bool bjit::impl::Op::hasImm32() const
@@ -47,6 +47,11 @@ bool bjit::impl::Op::hasF32() const
     return 0 != (opData[this->opcode].inputs & BJIT_F32);
 }
 
+bool bjit::impl::Op::hasMemTag() const
+{
+    return (opData[this->opcode].inputs & BJIT_MEM);
+}
+
 bool bjit::impl::Op::hasSideFX() const
 {
     return !opData[this->opcode].outputs
@@ -63,4 +68,3 @@ bool bjit::impl::Op::canMove() const
 {
     return !(opData[this->opcode].outputs & BJIT_NOMOVE);
 }
-

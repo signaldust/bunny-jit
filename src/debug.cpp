@@ -48,8 +48,9 @@ void bjit::Proc::debugOp(uint16_t iop) const
     // this should now hold
     if(!op.hasI64() && !op.hasF64())
     {
-        if(op.nInputs() < 2) BJIT_ASSERT(op.in[1] == noVal);
         if(op.nInputs() < 1) BJIT_ASSERT(op.in[0] == noVal);
+        if(!op.hasMemTag()
+        && op.nInputs() < 2) BJIT_ASSERT(op.in[1] == noVal);
     }
 
     // special-case reload to not print register
@@ -79,6 +80,8 @@ void bjit::Proc::debugOp(uint16_t iop) const
     || op.opcode == ops::dcalln
     || op.opcode == ops::tcalln) BJIT_LOG(" near: %d", op.imm32);
     else if(op.hasImm32()) BJIT_LOG(" %+d", op.imm32);
+
+    if(op.hasMemTag()) BJIT_LOG(" mem(%04x)", op.in[1]);
     
     if(op.hasI64()) BJIT_LOG(" i64:%" PRId64, op.i64);
     if(op.hasF32()) BJIT_LOG(" f32:%.8e", op.f32);
@@ -122,6 +125,10 @@ void bjit::Proc::debug() const
             else BJIT_LOG(" PDom: exit");
             //BJIT_LOG("\n; "); for(auto s : blocks[b].dom) BJIT_LOG(" ^L%d", s);
             //BJIT_LOG("\n; "); for(auto s : blocks[b].pdom) BJIT_LOG(" L%d^", s);
+
+            // print memory tag, but not for entry (always ffff and def at 0000)
+            if(b) BJIT_LOG(" mem(%04x)", blocks[b].memtag);
+            
             //if(0)
             for(int i = 0; i < blocks[b].livein.size(); ++i)
             {

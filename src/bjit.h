@@ -625,6 +625,7 @@ namespace bjit
         bool opt_jump();
 
         // opt-cse.cpp
+        void rebuild_memtags(bool unsafe);
         bool opt_cse(bool unsafe);
 
         // opt-sink.cpp
