@@ -522,12 +522,12 @@ bool Proc::opt_fold(bool unsafe)
 
                 // can we replace modulo with mask? max 32-bits for now
                 if(I(ops::umod) && I1(ops::lci)
-                && !(N1.u64 & (N1.u64 - 1)) && (N1.u64 <= (1ull<<32)))
+                && !(N1.u64 & (N1.u64 - 1)) && (N1.u64 <= (((uint64_t)1)<<32)))
                 {
                     uint32_t b = N1.imm32;
                     int shift = 0; while(b >>= 1) ++shift;
                     op.opcode = ops::iandI;
-                    op.imm32 = ((1ull<<shift)-1);
+                    op.imm32 = ((((uint64_t)1)<<shift)-1);
                     op.in[1] = noVal;
                     progress = true;
                 }
