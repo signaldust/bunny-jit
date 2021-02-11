@@ -67,6 +67,9 @@ namespace bjit
     // we use this for types, etc
     typedef uint64_t    RegMask;
 
+    // convert single-register to a mask
+    static RegMask R2Mask(int r) { return ((RegMask)1)<<r; }
+        
     namespace regs
     {
         // List of registers for register allocator
@@ -95,44 +98,43 @@ namespace bjit
         // dummy type for ops without outputs
         static const RegMask type_none = 0;
 
-        
         // Integer register mask
         static const RegMask mask_int
-            =(1ull<<rax)
-            |(1ull<<rdx)
-            |(1ull<<rbx)
-            |(1ull<<rcx)
-            |(1ull<<rsi)
-            |(1ull<<rdi)
-            |(1ull<<rbp)
-            |(1ull<<r8)
-            |(1ull<<r9)
-            |(1ull<<r10)
-            |(1ull<<r11)
-            |(1ull<<r12)
-            |(1ull<<r13)
-            |(1ull<<r14)
-            |(1ull<<r15) //*/
+            =R2Mask(rax)
+            |R2Mask(rdx)
+            |R2Mask(rbx)
+            |R2Mask(rcx)
+            |R2Mask(rsi)
+            |R2Mask(rdi)
+            |R2Mask(rbp)
+            |R2Mask(r8)
+            |R2Mask(r9)
+            |R2Mask(r10)
+            |R2Mask(r11)
+            |R2Mask(r12)
+            |R2Mask(r13)
+            |R2Mask(r14)
+            |R2Mask(r15) //*/
             ;
 
         // Float register masks
         static const RegMask mask_float
-            =(1ull<<xmm0)
-            |(1ull<<xmm1)
-            |(1ull<<xmm2)
-            |(1ull<<xmm3)
-            |(1ull<<xmm4)
-            |(1ull<<xmm5)
-            |(1ull<<xmm6)
-            |(1ull<<xmm7)
-            |(1ull<<xmm8)
-            |(1ull<<xmm9)
-            |(1ull<<xmm10)
-            |(1ull<<xmm11)
-    		|(1ull<<xmm12)
-            |(1ull<<xmm13)
-            |(1ull<<xmm14)
-            |(1ull<<xmm15)
+            =R2Mask(xmm0)
+            |R2Mask(xmm1)
+            |R2Mask(xmm2)
+            |R2Mask(xmm3)
+            |R2Mask(xmm4)
+            |R2Mask(xmm5)
+            |R2Mask(xmm6)
+            |R2Mask(xmm7)
+            |R2Mask(xmm8)
+            |R2Mask(xmm9)
+            |R2Mask(xmm10)
+            |R2Mask(xmm11)
+    		|R2Mask(xmm12)
+            |R2Mask(xmm13)
+            |R2Mask(xmm14)
+            |R2Mask(xmm15)
             ;
 
         // Caller saved (lost on function call)
@@ -142,17 +144,17 @@ namespace bjit
         //
         // NOTE: This list MUST include any registers used for arguments.
         static const RegMask caller_saved
-            =(1ull<<rax)
+            =R2Mask(rax)
 #ifndef _WIN32
-            |(1ull<<rsi)
-            |(1ull<<rdi)
+            |R2Mask(rsi)
+            |R2Mask(rdi)
 #endif
-            |(1ull<<rcx)
-            |(1ull<<rdx)
-            |(1ull<<r8)
-            |(1ull<<r9)
-            |(1ull<<r10)
-            |(1ull<<r11)
+            |R2Mask(rcx)
+            |R2Mask(rdx)
+            |R2Mask(r8)
+            |R2Mask(r9)
+            |R2Mask(r10)
+            |R2Mask(r11)
             |mask_float;
             
         const char * getName(int reg);

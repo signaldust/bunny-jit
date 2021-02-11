@@ -132,10 +132,10 @@ void Proc::allocRegs()
             if(!mask) return regs::nregs;
 
             // if preferred register is impossible, clear it
-            if(reg != regs::nregs && !((1ull<<reg)&mask))
+            if(reg != regs::nregs && !(R2Mask(reg)&mask))
             {
                 //BJIT_LOG("incompatible: mask %012llx (reg: %012llx)\n",
-                //    mask, (1ull<<reg));
+                //    mask, R2Mask(reg));
                 reg = regs::nregs;
             }
 
@@ -143,7 +143,7 @@ void Proc::allocRegs()
 
             for(int r = 0; r < regs::nregs; ++r)
             {
-                if(((1ull<<r) & mask) && regstate[r] == noVal)
+                if((R2Mask(r) & mask) && regstate[r] == noVal)
                 {
                     if(ra_debug) BJIT_LOG("found free: %s\n", regName(r));
                     return r;
@@ -154,7 +154,7 @@ void Proc::allocRegs()
             if(!(mask & (mask - 1)))
             {
                 unsigned r = 0, s = 64;
-                while(s >>= 1) if(mask & ~((1ull<<s)-1))
+                while(s >>= 1) if(mask & ~(R2Mask(s)-1))
                     { r += s; mask >>= s; }
                 if(ra_debug) BJIT_LOG("one reg: %s\n", regName(r));
                 return r;
@@ -170,13 +170,13 @@ void Proc::allocRegs()
                     if(ra_debug)
                     BJIT_LOG("op uses reg: %s\n", regName(ops[op.in[j]].reg));
 
-                    mask &=~ (1ull<<ops[op.in[j]].reg);
+                    mask &=~ R2Mask(ops[op.in[j]].reg);
                     
                     // is there only a single register left?
                     if(!(mask & (mask - 1)))
                     {
                         unsigned r = 0, s = 64;
-                        while(s >>= 1) if(mask & ~((1ull<<s)-1))
+                        while(s >>= 1) if(mask & ~(R2Mask(s)-1))
                             { r += s; mask >>= s; }
                         if(ra_debug) BJIT_LOG("last reg reg: %s\n", regName(r));
                         return r;
@@ -195,7 +195,7 @@ void Proc::allocRegs()
             int anyValid = regs::nregs;
             for(int r = 0; r < regs::nregs; ++r)
             {
-                if((1ull<<r) & mask)
+                if(R2Mask(r) & mask)
                 {
                     anyValid = r;
                     if(!ops[regstate[r]].nInputs())
@@ -246,11 +246,11 @@ void Proc::allocRegs()
 
                 // avoid putting second operand in the same register as first
                 if(i && (op.in[0] != op.in[1]))
-                    mask &=~(1ull<<ops[op.in[0]].reg);
+                    mask &=~R2Mask(ops[op.in[0]].reg);
 
                 int wr = ops[op.in[i]].reg;
                 if(regstate[wr] != op.in[i]) wr = regs::nregs;
-                else if(blocks[b].regsIn[wr] == op.in[i]) keepIn |= (1ull<<wr);
+                else if(blocks[b].regsIn[wr] == op.in[i]) keepIn |= R2Mask(wr);
                 
                 int r = findBest(mask, wr, c);
 
@@ -274,7 +274,7 @@ void Proc::allocRegs()
                         {
                             smask &= op.regsIn(1);
                             // but not r
-                            smask &=~(1ull<<r);
+                            smask &=~R2Mask(r);
                         }
                         // if the best choice after this op is r
                         // then we're going to lose this no matter what
@@ -313,7 +313,7 @@ void Proc::allocRegs()
                         ? codeOut[codeOut.size()-2] : noVal)
                     && (ops[op.in[i]].nInputs()<2
                         || ops[ops[op.in[i]].in[1]].reg != r)
-                    && (ops[op.in[i]].regsOut() & (1ull<<r)))
+                    && (ops[op.in[i]].regsOut() & R2Mask(r)))
                     {
                         if(ra_debug) BJIT_LOG("; Can patch...\n");
                         regstate[ops[op.in[i]].reg] = noVal;
@@ -333,7 +333,7 @@ void Proc::allocRegs()
                             if(!((ops[op.in[i]].nInputs()<2
                             || ops[ops[op.in[i]].in[1]].reg != r)))
                                 BJIT_LOG("in[1] reg\n");
-                            if(!(ops[op.in[i]].regsOut() & (1ull<<r)))
+                            if(!(ops[op.in[i]].regsOut() & R2Mask(r)))
                                 BJIT_LOG("out mask\n");
                         }
                         uint16_t rr = newOp(ops::rename, ops[op.in[0]].flags.type, b);
@@ -437,12 +437,12 @@ void Proc::allocRegs()
                 for(int i = 0; i < op.nInputs(); ++i)
                 {
                     // protect inputs
-                    notlost &=~(1ull<<ops[op.in[i]].reg);
+                    notlost &=~R2Mask(ops[op.in[i]].reg);
                 }
                 
                 for(int r = 0; r < regs::nregs; ++r)
                 {
-                    if(regstate[r] == noVal || (1ull<<r)&~lost) continue;
+                    if(regstate[r] == noVal || R2Mask(r)&~lost) continue;
     
                     // scan from current op, don't wanna overwrite inputs
                     int s = findBest(
@@ -548,7 +548,7 @@ void Proc::allocRegs()
                     // store this as incoming register
                     blocks[b].regsIn[op.reg]
                         = regstate[op.reg] = blocks[b].code[c];
-                    keepIn |= (1ull<<op.reg);
+                    keepIn |= R2Mask(op.reg);
                 }
                 
                 // never forcibly allocate a register to phi
@@ -559,8 +559,8 @@ void Proc::allocRegs()
 
             // try to mask second operand if possible
             if(op.nInputs()>1 && op.in[0] != op.in[1]
-            && (mask &~(1ull<<ops[op.in[1]].reg)))
-                mask &=~(1ull<<ops[op.in[1]].reg);
+            && (mask &~R2Mask(ops[op.in[1]].reg)))
+                mask &=~R2Mask(ops[op.in[1]].reg);
             
             op.reg = findBest(mask, prefer, c+1);
             BJIT_ASSERT(op.reg < regs::nregs);
@@ -572,7 +572,7 @@ void Proc::allocRegs()
         codeOut.clear();
         for(int i = 0; i < regs::nregs; ++i)
         {
-            if(!(keepIn&(1ull<<i)))
+            if(!(keepIn&R2Mask(i)))
             {
                 if(ra_debug && blocks[b].regsIn[i] != noVal)
                     BJIT_LOG("drop %04x in %s - not needed?\n",
@@ -777,7 +777,7 @@ void Proc::allocRegs()
                             int r = 0;
                             for(;r < regs::nregs;++r)
                             {
-                                if(((1ull<<r)&mask)
+                                if((R2Mask(r)&mask)
                                 && sregs[r] == noVal
                                 && tregs[r] == noVal) break;
                             }
@@ -971,7 +971,7 @@ void Proc::allocRegs()
         if(op.scc >= sccUsed.size()) sccUsed.resize(op.scc + 1, false);
         if(op.flags.spill) sccUsed[op.scc] = true;
 
-        usedRegs |= (1ull<<op.reg);
+        usedRegs |= R2Mask(op.reg);
     }
 
     std::vector<uint16_t>   slots(sccUsed.size(), 0xffff);

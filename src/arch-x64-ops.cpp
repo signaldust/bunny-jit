@@ -26,16 +26,16 @@ RegMask Op::regsOut()
         default: return regsMask(); // no special case -> any valid
 
         // special
-        case ops::alloc: return (1ull<<regs::rsp);
+        case ops::alloc: return R2Mask(regs::rsp);
     
         // divisions are fixed registers
-        case ops::idiv: case ops::udiv: return (1ull<<regs::rax);
-        case ops::imod: case ops::umod: return (1ull<<regs::rdx);
+        case ops::idiv: case ops::udiv: return R2Mask(regs::rax);
+        case ops::imod: case ops::umod: return R2Mask(regs::rdx);
 
-        case ops::icallp: return (1ull<<regs::rax);
+        case ops::icallp: return R2Mask(regs::rax);
         
         case ops::fcallp: 
-        case ops::dcallp: return (1ull<<regs::xmm0);
+        case ops::dcallp: return R2Mask(regs::xmm0);
 
         // we have in[0] = index in type, in[1] = index total
         // which one we want to use varies by platform
@@ -43,10 +43,10 @@ RegMask Op::regsOut()
 #ifdef _WIN32
             switch(indexTotal)  // Win64 wants the total position
             {
-            case 0: return (1ull<<regs::rcx);
-            case 1: return (1ull<<regs::rdx);
-            case 2: return (1ull<<regs::r8);
-            case 3: return (1ull<<regs::r9);
+            case 0: return R2Mask(regs::rcx);
+            case 1: return R2Mask(regs::rdx);
+            case 2: return R2Mask(regs::r8);
+            case 3: return R2Mask(regs::r9);
 
             // FIXME: We need to teach RA about stack parameters.
             default: BJIT_ASSERT(false);
@@ -54,12 +54,12 @@ RegMask Op::regsOut()
 #else
             switch(indexType)   // SysV uses position by type
             {
-            case 0: return (1ull<<regs::rdi);
-            case 1: return (1ull<<regs::rsi);
-            case 2: return (1ull<<regs::rdx);
-            case 3: return (1ull<<regs::rcx);
-            case 4: return (1ull<<regs::r8);
-            case 5: return (1ull<<regs::r9);
+            case 0: return R2Mask(regs::rdi);
+            case 1: return R2Mask(regs::rsi);
+            case 2: return R2Mask(regs::rdx);
+            case 3: return R2Mask(regs::rcx);
+            case 4: return R2Mask(regs::r8);
+            case 5: return R2Mask(regs::r9);
 
             // FIXME: We need to teach RA about stack parameters.
             default: BJIT_ASSERT(false);
@@ -70,10 +70,10 @@ RegMask Op::regsOut()
 #ifdef _WIN32
             switch(indexTotal)  // Win64 wants the total position
             {
-            case 0: return (1ull<<regs::xmm0);
-            case 1: return (1ull<<regs::xmm1);
-            case 2: return (1ull<<regs::xmm2);
-            case 3: return (1ull<<regs::xmm3);
+            case 0: return R2Mask(regs::xmm0);
+            case 1: return R2Mask(regs::xmm1);
+            case 2: return R2Mask(regs::xmm2);
+            case 3: return R2Mask(regs::xmm3);
 
             // FIXME: We need to teach RA about stack parameters.
             default: BJIT_ASSERT(false);
@@ -81,14 +81,14 @@ RegMask Op::regsOut()
 #else
             switch(indexType)   // SysV uses position by type
             {
-            case 0: return (1ull<<regs::xmm0);
-            case 1: return (1ull<<regs::xmm1);
-            case 2: return (1ull<<regs::xmm2);
-            case 3: return (1ull<<regs::xmm3);
-            case 4: return (1ull<<regs::xmm4);
-            case 5: return (1ull<<regs::xmm5);
-            case 6: return (1ull<<regs::xmm6);
-            case 7: return (1ull<<regs::xmm7);
+            case 0: return R2Mask(regs::xmm0);
+            case 1: return R2Mask(regs::xmm1);
+            case 2: return R2Mask(regs::xmm2);
+            case 3: return R2Mask(regs::xmm3);
+            case 4: return R2Mask(regs::xmm4);
+            case 5: return R2Mask(regs::xmm5);
+            case 6: return R2Mask(regs::xmm6);
+            case 7: return R2Mask(regs::xmm7);
 
             // FIXME: We need to teach RA about stack parameters.
             default: BJIT_ASSERT(false);
@@ -109,27 +109,27 @@ RegMask Op::regsIn(int i)
         // indirect calls can theoretically take any GP register
         // but force RAX so we hopefully don't globber stuff
         case ops::icallp: case ops::dcallp: case ops::tcallp:
-            return (1ull<<regs::rax);
+            return R2Mask(regs::rax);
         
         // loads and stores allow stack pointer as their first argument
         case ops::li8: case ops::li16: case ops::li32: case ops::li64:
         case ops::lu8: case ops::lu16: case ops::lu32:
         case ops::lf32: case ops::lf64:
         case ops::si8: case ops::si16: case ops::si32: case ops::si64:
-            return regs::mask_int | (i ? 0 : (1ull<<regs::rsp));
+            return regs::mask_int | (i ? 0 : R2Mask(regs::rsp));
         case ops::sf32: case ops::sf64:
-            return i ? regs::mask_float : (regs::mask_int | (1ull<<regs::rsp));
+            return i ? regs::mask_float : (regs::mask_int | R2Mask(regs::rsp));
 
         // allow iadd and iaddI to take RSP too, saves moves if we use LEA
         case ops::iadd: case ops::iaddI:
-            return regs::mask_int | (1ull<<regs::rsp);
+            return regs::mask_int | R2Mask(regs::rsp);
         
         // integer division takes RDX:RAX as 128-bit first operand
         // we only do 64-bit, but force RAX on 1st and forbid RDX on 2nd
         case ops::idiv: case ops::udiv:
         case ops::imod: case ops::umod:
-            return (!i) ? (1ull<<regs::rax)
-            : (regs::mask_int & ~(1ull<<regs::rdx));
+            return (!i) ? R2Mask(regs::rax)
+            : (regs::mask_int & ~R2Mask(regs::rdx));
 
         case ops::jilt: case ops::jige:
         case ops::jigt: case ops::jile:
@@ -164,29 +164,29 @@ RegMask Op::regsIn(int i)
             
         // shifts want their second operand in CL
         case ops::ishl: case ops::ishr: case ops::ushr:
-            return i ? (1ull<<regs::rcx) :
-                (regs::mask_int &~ (1ull<<regs::rcx));
+            return i ? R2Mask(regs::rcx) :
+                (regs::mask_int &~ R2Mask(regs::rcx));
 
         case ops::ipass:
 #ifdef _WIN32
             switch(indexTotal)  // Win64 wants the total position
             {
-            case 0: return (1ull<<regs::rcx);
-            case 1: return (1ull<<regs::rdx);
-            case 2: return (1ull<<regs::r8);
-            case 3: return (1ull<<regs::r9);
+            case 0: return R2Mask(regs::rcx);
+            case 1: return R2Mask(regs::rdx);
+            case 2: return R2Mask(regs::r8);
+            case 3: return R2Mask(regs::r9);
 
             default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #else
             switch(indexType)   // SysV uses position by type
             {
-            case 0: return (1ull<<regs::rdi);
-            case 1: return (1ull<<regs::rsi);
-            case 2: return (1ull<<regs::rdx);
-            case 3: return (1ull<<regs::rcx);
-            case 4: return (1ull<<regs::r8);
-            case 5: return (1ull<<regs::r9);
+            case 0: return R2Mask(regs::rdi);
+            case 1: return R2Mask(regs::rsi);
+            case 2: return R2Mask(regs::rdx);
+            case 3: return R2Mask(regs::rcx);
+            case 4: return R2Mask(regs::r8);
+            case 5: return R2Mask(regs::r9);
 
             default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
@@ -196,33 +196,33 @@ RegMask Op::regsIn(int i)
 #ifdef _WIN32
             switch(indexTotal)  // Win64 wants the total index
             {
-            case 0: return (1ull<<regs::xmm0);
-            case 1: return (1ull<<regs::xmm1);
-            case 2: return (1ull<<regs::xmm2);
-            case 3: return (1ull<<regs::xmm3);
+            case 0: return R2Mask(regs::xmm0);
+            case 1: return R2Mask(regs::xmm1);
+            case 2: return R2Mask(regs::xmm2);
+            case 3: return R2Mask(regs::xmm3);
 
             default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #else
             switch(indexType)   // SysV uses position by type
             {
-            case 0: return (1ull<<regs::xmm0);
-            case 1: return (1ull<<regs::xmm1);
-            case 2: return (1ull<<regs::xmm2);
-            case 3: return (1ull<<regs::xmm3);
-            case 4: return (1ull<<regs::xmm4);
-            case 5: return (1ull<<regs::xmm5);
-            case 6: return (1ull<<regs::xmm6);
-            case 7: return (1ull<<regs::xmm7);
+            case 0: return R2Mask(regs::xmm0);
+            case 1: return R2Mask(regs::xmm1);
+            case 2: return R2Mask(regs::xmm2);
+            case 3: return R2Mask(regs::xmm3);
+            case 4: return R2Mask(regs::xmm4);
+            case 5: return R2Mask(regs::xmm5);
+            case 6: return R2Mask(regs::xmm6);
+            case 7: return R2Mask(regs::xmm7);
 
             default: BJIT_ASSERT(false); // FIXME: RA can't handle
             }
 #endif
 
         // these are fixed
-        case ops::iret: return (1ull<<regs::rax);
-        case ops::fret: return (1ull<<regs::xmm0);
-        case ops::dret: return (1ull<<regs::xmm0);
+        case ops::iret: return R2Mask(regs::rax);
+        case ops::fret: return R2Mask(regs::xmm0);
+        case ops::dret: return R2Mask(regs::xmm0);
 
     }
 }
@@ -235,7 +235,7 @@ RegMask Op::regsLost()
         case ops::imod: case ops::umod:
             // mark the output as lost as well, so RA tries to save
             // if we still need the value after the division
-            return (1ull<<regs::rax)|(1ull<<regs::rdx);
+            return R2Mask(regs::rax)|R2Mask(regs::rdx);
 
         // for now, collect registers used by previous args
         // this should help convince RA to do the right thing

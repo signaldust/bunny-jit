@@ -71,10 +71,10 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     int nPush = 0;
     for(int i = 0; regs::calleeSaved[i] != regs::none; ++i)
     {
-        if(usedRegs & (1ull<<regs::calleeSaved[i]))
+        if(usedRegs & R2Mask(regs::calleeSaved[i]))
         {
             savedRegs.push_back(regs::calleeSaved[i]);
-            if((1ull<<savedRegs.back()) & regs::mask_float)
+            if(R2Mask(savedRegs.back()) & regs::mask_float)
             {
                 // force alignment if necessary, we need 128-bit
                 if(!(nPush&1))
@@ -456,7 +456,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(frameBytes) { _ADDri(regs::rsp, frameBytes); }
                 for(int r = savedRegs.size(); r--;)
                 {
-                    if((1ull<<savedRegs[r]) & regs::mask_float)
+                    if(R2Mask(savedRegs[r]) & regs::mask_float)
                     {
                     
                         _load_f128(savedRegs[r], regs::rsp, 0);
@@ -476,7 +476,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(frameBytes) { _ADDri(regs::rsp, frameBytes); }
                 for(int r = savedRegs.size(); r--;)
                 {
-                    if((1ull<<savedRegs[r]) & regs::mask_float)
+                    if(R2Mask(savedRegs[r]) & regs::mask_float)
                     {
                         _load_f128(savedRegs[r], regs::rsp, 0);
                         // we might have used regs:none for alignment
@@ -496,7 +496,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(frameBytes) { _ADDri(regs::rsp, frameBytes); }
                 for(int r = savedRegs.size(); r--;)
                 {
-                    if((1ull<<savedRegs[r]) & regs::mask_float)
+                    if(R2Mask(savedRegs[r]) & regs::mask_float)
                     {
                         _load_f128(savedRegs[r], regs::rsp, 0);
                         // we might have used regs:none for alignment
@@ -764,7 +764,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::dneg:
                 if(i.reg == ops[i.in[0]].reg)
                 {
-                    _XORPSri(i.reg, _mm_set_epi64x(1ull<<63, 1ull<<63));
+                    uint64_t signBit = ((uint64_t)1)<<63;
+                    _XORPSri(i.reg, _mm_set1_epi64x(signBit));
                 }
                 else
                 {
@@ -834,7 +835,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::fneg:
                 if(i.reg == ops[i.in[0]].reg)
                 {
-                    _XORPSri(i.reg, _mm_set_epi32(1<<31, 1<<31, 1<<31, 1<<31));
+                    uint32_t signBit = ((uint32_t)1)<<31;
+                    _XORPSri(i.reg, _mm_set1_epi32(signBit));
                 }
                 else
                 {
