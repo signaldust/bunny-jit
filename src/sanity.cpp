@@ -32,12 +32,15 @@ void Proc::sanity()
 
             if(op.opcode == ops::phi)
             {
-                BJIT_ASSERT(blocks[b].args[op.phiIndex].alts.size()
-                    == blocks[b].comeFrom.size());
+                int nPhiSrc = 0;
+                for(auto & a : blocks[b].alts) if(a.phi == c) ++nPhiSrc;
+                BJIT_ASSERT(nPhiSrc == blocks[b].comeFrom.size());
             
                 int phiSourcesFound = 0;
-                for(auto & s : blocks[b].args[op.phiIndex].alts)
+                for(auto & s : blocks[b].alts)
                 {
+                    if(s.phi != c) continue;
+                    
                     bool phiSourceInComeFrom = false;
                     for(auto cf : blocks[b].comeFrom)
                     {
@@ -48,7 +51,7 @@ void Proc::sanity()
                     BJIT_ASSERT(phiSourceInComeFrom);
                     ++phiSourcesFound;
                 }
-                BJIT_ASSERT(phiSourcesFound == blocks[b].args[op.phiIndex].alts.size());
+                BJIT_ASSERT(phiSourcesFound == blocks[b].comeFrom.size());
             }
             
             // sanity check that definitions dominate uses

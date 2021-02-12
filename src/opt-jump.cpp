@@ -122,11 +122,18 @@ bool Proc::opt_jump_be(uint16_t b)
             BJIT_ASSERT(opc.phiIndex == opi.phiIndex);
             
             copy.args[opc.phiIndex].phiop = opc.index;
-            copy.args[opc.phiIndex].alts = head.args[opi.phiIndex].alts;
         }
 
         renameCopy.add(opi.index, opc.index);
     }
+    
+    // copy phi alts
+    copy.alts = head.alts;
+    for(auto & a : copy.alts)
+    {
+        a.phi = blocks[nb].args[ops[a.phi].phiIndex].phiop;
+    }
+    
     if(jump_debug) BJIT_LOG("Copied %d ops.\n", (int) copy.code.size());
 
     BJIT_ASSERT(copy.code.size());
@@ -171,8 +178,8 @@ bool Proc::opt_jump_be(uint16_t b)
             {
                 if(r.src != in) continue;
 
-                fixBlock.args.back().add(r.src, target);
-                fixBlock.args.back().add(r.dst, nb);
+                fixBlock.newAlt(fixBlock.code[iPhi], target, r.src);
+                fixBlock.newAlt(fixBlock.code[iPhi], nb, r.dst);
 
                 break;
             }
@@ -237,61 +244,40 @@ bool Proc::opt_jump_be(uint16_t b)
                 if(x && rjmp.opcode == ops::jmp) break;
 
                 if(jump_debug) BJIT_LOG("Patching jump to %d\n", rjmp.label[x]);
-                for(auto & a : blocks[rjmp.label[x]].args)
+                for(auto & s : blocks[rjmp.label[x]].alts)
                 {
-                    if(!a.alts.size()) continue;
-                    bool found = false;
-                    for(auto & s : a.alts)
+                    if(s.src == rb && ops[s.val].block != target)
                     {
-                        if(s.src == rb && ops[s.val].block != target)
+                        if(jump_debug)
+                            BJIT_LOG("L:%d:%04x is from %d (keep)\n",
+                                s.src, s.val, ops[s.val].block);
+                        continue;
+                    }
+                    // is this from somewhere else?
+                    if(s.src != rb) continue;
+                    
+                    for(auto & r : renameCopy.map)
+                    {
+                        if(s.val == r.src)
                         {
                             if(jump_debug)
-                                BJIT_LOG("L:%d:%04x is from %d (keep)\n",
-                                    s.src, s.val, ops[s.val].block);
-                            found = true;
+                                BJIT_LOG("L:%d:%04x needs rewrite: ",
+                                    s.src, s.val);
+                                    
+                            if(s.src == rb)
+                            {
+                                if(jump_debug)
+                                    BJIT_LOG("simple: L:%d:%04x\n",
+                                        ops[r.dst].block, r.dst);
+                                s.val = r.dst;
+                            }
+                            else BJIT_ASSERT(false);
                             break;
                         }
-                        // is this from somewhere else?
-                        if(s.src != rb) continue;
-                        
-                        for(auto & r : renameCopy.map)
-                        {
-                            if(s.val == r.src)
-                            {
-                                found = true;
-                                if(jump_debug)
-                                    BJIT_LOG("L:%d:%04x needs rewrite: ",
-                                        s.src, s.val);
-                                        
-                                if(s.src == rb)
-                                {
-                                    if(jump_debug)
-                                        BJIT_LOG("simple: L:%d:%04x\n",
-                                            ops[r.dst].block, r.dst);
-                                    s.val = r.dst;
-                                }
-                                else BJIT_ASSERT(false);
-
-                                found = true;
-                                break;
-                            }
-                            if(found) break;
-                        }
-                        break;
                     }
-                    if(!found)
-                    {
-                        BJIT_LOG("FIXME: in %d->%d couldn't find %04x\n",
-                            rb, rjmp.label[x], ops[a.phiop].index);
-                        debug();
-                    }
-                    // we should not hit this case anymore
-                    BJIT_ASSERT(found);
                 }
-                
             }
         }
-        
     }
 
     if(jump_debug) { debug(); }
@@ -331,16 +317,14 @@ bool Proc::opt_jump()
             // rewrite phi-sources
             if(jmp.opcode <= ops::jmp)
             {
-                for(auto & a : blocks[jmp.label[0]].args)
-                for(auto & s : a.alts)
+                for(auto & s : blocks[jmp.label[0]].alts)
                 {
                     if(s.src == op.label[0]) s.src = b;
                 }
             }
             if(jmp.opcode < ops::jmp)
             {
-                for(auto & a : blocks[jmp.label[1]].args)
-                for(auto & s : a.alts)
+                for(auto & s : blocks[jmp.label[1]].alts)
                 {
                     if(s.src == op.label[0]) s.src = b;
                 }

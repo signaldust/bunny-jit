@@ -212,19 +212,15 @@ namespace bjit
         // Use by Block to track actual phi-alternatives
         struct Phi
         {
-            struct Alt
-            {
-                uint16_t    val;    // source value
-                uint16_t    src;    // source block
-            };
-    
-            std::vector<Alt>    alts;
             uint16_t            phiop;
-    
-            void add(uint16_t val, uint16_t block)
-            {
-                alts.emplace_back(Alt{val, block});
-            }
+            uint16_t            tmp;    // used by DCE
+        };
+
+        struct PhiAlt
+        {
+            uint16_t    phi;
+            uint16_t    src;
+            uint16_t    val;
         };
     
         // One basic block
@@ -232,6 +228,12 @@ namespace bjit
         {
             std::vector<uint16_t>   code;
             std::vector<Phi>        args;
+            std::vector<PhiAlt>     alts;
+
+            void newAlt(uint16_t phi, uint16_t src, uint16_t val)
+            {
+                alts.emplace_back(PhiAlt{phi, src, val});
+            }
     
             std::vector<uint16_t>   livein;
             std::vector<uint16_t>   liveout;

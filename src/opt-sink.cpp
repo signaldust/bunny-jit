@@ -12,8 +12,7 @@ bool Proc::opt_sink(bool unsafe)
     // livescan doesn't find phi-inputs, we need them here
     for(auto b : live)
     {
-        for(auto & a : blocks[b].args)
-        for(auto & s : a.alts)
+        for(auto & s : blocks[b].alts)
         {
             blocks[b].livein.push_back(s.val);
         }

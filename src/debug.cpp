@@ -89,8 +89,9 @@ void bjit::Proc::debugOp(uint16_t iop) const
 
     if(op.opcode == ops::phi)
     {
-        for(auto & a : blocks[op.block].args[op.phiIndex].alts)
+        for(auto & a : blocks[op.block].alts)
         {
+            if(a.phi != iop) continue;
             if(ops[a.val].scc != noSCC)
                 BJIT_LOG(" L%d:[%04x]:%04x", a.src, ops[a.val].scc, a.val);
             else 

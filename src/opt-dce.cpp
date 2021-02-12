@@ -36,10 +36,19 @@ void Proc::opt_dce(bool unsafe)
         while(todo.size())
         {
             auto b = todo.back(); todo.pop_back();
+            bool deadTail = false;
             
             for(auto i : blocks[b].code)
             {
                 if(i == noVal) continue;
+            
+                if(deadTail)
+                {
+                    ops[i].opcode = ops::nop;
+                    ops[i].in[0] = noVal;
+                    ops[i].in[1] = noVal;
+                    continue;
+                }
             
                 switch(ops[i].nInputs())
                 {
@@ -69,47 +78,39 @@ void Proc::opt_dce(bool unsafe)
                         && ops[blocks[target].code[0]].opcode == ops::phi)
                         {
                             bool bad = false;
-                            auto vs = noVal, vt = noVal;
-                            
-                            for(auto & a : blocks[target].args)
+
+                            // clear temps
+                            for(auto & a : blocks[target].args) a.tmp = noVal;
+
+                            // find relevant alternatives
+                            auto & args = blocks[target].args;
+                            for(auto & a : blocks[target].alts)
                             {
-                                for(auto & s : a.alts)
+                                // is this alternative relevant?
+                                if(a.src != ops[i].block
+                                && a.src != ops[i].label[k]) continue;
+
+                                // if we've not seen it, store tmp
+                                if(args[ops[a.phi].phiIndex].tmp == noVal)
                                 {
-                                    if(s.src == ops[i].block)
-                                    {
-                                        if(vs != noVal) BJIT_ASSERT(vs == s.val);
-                                        vs = s.val;
-                                    }
-                                    if(s.src == ops[i].label[k])
-                                    {
-                                        if(vt != noVal) BJIT_ASSERT(vt == s.val);
-                                        vt = s.val;
-                                    }
+                                    args[ops[a.phi].phiIndex].tmp = a.val;
                                 }
-    
-                                // if these don't match, then threading is not safe
-                                if(vs != vt)
+                                else if(args[ops[a.phi].phiIndex].tmp != a.val)
                                 {
-                                    if(0) BJIT_LOG("bad: B%d:%04x vs. B%d:%04x\n",
-                                        ops[i].block, vs, ops[i].label[k], vt);
-                                    bad = true; break;
+                                    bad = true;
+                                    break;
                                 }
                             }
-
+                            
                             if(bad) break;
                         }
                         
                         // patch target phis
-                        for(auto & a : blocks[target].args)
+                        for(auto & s : blocks[target].alts)
                         {
-                            for(auto & s : a.alts)
+                            if(s.src == ops[i].label[k])
                             {
-                                if(s.src == ops[i].label[k])
-                                {
-                                    a.alts.push_back(s);
-                                    a.alts.back().src = b;
-                                    break;
-                                }
+                                blocks[target].newAlt(s.phi, b, s.val);
                             }
                         }
                         
@@ -135,112 +136,93 @@ void Proc::opt_dce(bool unsafe)
                         progress = true;
                     }
                 }
+                
+                if(ops[i].opcode <= ops::tcallp) deadTail = true;
             }
         }
     
         // phi-uses
-        for(auto & b : blocks)
+        for(auto & bi : live)
         {
-            if(!b.flags.live) continue;
-            bool deadTail = false;
-            for(auto i : b.code)
+            auto & b = blocks[bi];
+            // cleanup dead sources
+            {
+                int j = 0;
+                for(int i = 0; i < b.alts.size(); ++i)
+                {
+                    if(ops[b.alts[i].phi].opcode == ops::nop) continue;
+                    if(!blocks[b.alts[i].src].flags.live) continue;
+                    if(j != i) b.alts[j] = b.alts[i];
+                    ++j;
+                }
+                b.alts.resize(j);
+            }
+            // set tmp sources to noVal
+            for(auto & a : b.args) a.tmp = noVal;
+
+            // find which phis have actual uses
+            for(auto & s : b.alts)
+            {
+                // ignore simple loopback
+                if(s.phi == s.val) continue;
+
+                // if we don't have a value yet, set this as value
+                if(b.args[ops[s.phi].phiIndex].tmp == noVal)
+                {
+                    b.args[ops[s.phi].phiIndex].tmp = s.val;
+                }
+                else if(b.args[ops[s.phi].phiIndex].tmp != s.val)
+                {
+                    // had more than one value, need to keep this
+                    b.args[ops[s.phi].phiIndex].tmp = s.phi;
+                }
+            }
+
+            // set use-counts for phis we're going to keep
+            for(auto & s : b.alts)
+            {
+                if(b.args[ops[s.phi].phiIndex].tmp == s.phi)
+                {
+                    ++ops[s.val].nUse;
+                }
+            }
+        }
+        
+        for(auto & b : live)
+        {
+            // rename
+            for(auto i : blocks[b].code)
             {
                 if(i == noVal) continue;
-                
-                if(deadTail)
-                {
-                    ops[i].opcode = ops::nop;
-                    ops[i].in[0] = noVal;
-                    ops[i].in[1] = noVal;
-                    continue;
-                }
-            
-                // don't short-circuit nUse=0 here because
-                // another phi might mark us as used
-                //
-                // FIXME: does this find all cases with regular iteration
-                // or do we need to add breath-first search to deal with
-                // some esoteric special case?
-                if(ops[i].opcode == ops::phi)
-                {
-                    auto & alts = blocks[ops[i].block].args[ops[i].phiIndex].alts;
-                    // cleanup dead sources
-                    int j = 0;
-                    for(int i = 0; i < alts.size(); ++i)
-                    {
-                        if(!blocks[alts[i].src].flags.live) continue;
-                        alts[j++] = alts[i];
-                    }
-                    alts.resize(j);
-                
-                    for(auto & src : alts)
-                    {
-                        // if this happens, then CSE messed up
-                        BJIT_ASSERT(ops[src.val].opcode != ops::nop);
-                        
-                        while(ops[src.val].opcode == ops::phi
-                        && blocks[ops[src.val].block]
-                            .args[ops[src.val].phiIndex].alts.size() == 1)
-                        {
-                            BJIT_ASSERT(src.val != i);
-                            src.val = blocks[ops[src.val].block]
-                                .args[ops[src.val].phiIndex].alts[0].val;
-                        }
-    
-                        // check if all source values are the same?
-                        if(ops[src.val].opcode == ops::phi)
-                        {
-                            auto & ss = ops[src.val];
-                            auto v = src.val;
-                            for(int j = 0;
-                                j < blocks[ss.block]
-                                    .args[ss.phiIndex].alts.size(); ++j)
-                            {
-                                auto alt = blocks[ss.block].
-                                    args[ss.phiIndex].alts[j].val;
-                                if(v == src.val) v = alt;
-                                if(v != alt && src.val != alt)
-                                {
-                                    v = src.val;
-                                    break;
-                                }
-                            }
-                            
-                            if(src.val != v) progress = true;
-                            src.val = v;
-                        }
-    
-                        ++ops[src.val].nUse;
-                    }
-                }
-    
-                // check if all phi-values are the same
+
+                // rename phis we can eliminate
                 for(int k = 0; k < ops[i].nInputs(); ++k)
                 {
-                    if(ops[ops[i].in[k]].opcode == ops::phi)
+                    auto & phi = ops[ops[i].in[k]];
+                    if(phi.opcode != ops::phi) continue;
+
+                    auto src = blocks[phi.block].args[phi.phiIndex].tmp;
+                    if(src != phi.index)
                     {
-                        auto & src = ops[ops[i].in[k]];
-                        auto v = ops[i].in[k];
-                        for(int j = 0;
-                            j < blocks[src.block]
-                                .args[src.phiIndex].alts.size(); ++j)
-                        {
-                            auto alt = blocks[src.block]
-                                .args[src.phiIndex].alts[j].val;
-                            if(v == ops[i].in[k]) v = alt;
-                            if(v != alt && ops[i].in[k] != alt)
-                            {
-                                v = ops[i].in[k];
-                                break;
-                            }
-                        }
-                        
-                        if(ops[i].in[k] != v) progress = true;
-                        ops[i].in[k] = v;
+                        ops[i].in[k] = src;
+                        ++ops[src].nUse;
+                        progress = true;
                     }
                 }
-    
-                if(ops[i].opcode <= ops::tcallp) deadTail = true;
+            }
+
+            for(auto & a : blocks[b].alts)
+            {
+                auto & phi = ops[a.val];
+                if(phi.opcode != ops::phi) continue;
+
+                auto src = blocks[phi.block].args[phi.phiIndex].tmp;
+                if(src != phi.index)
+                {
+                    a.val = src;
+                    ++ops[src].nUse;
+                    progress = true;
+                }
             }
         }
 
@@ -269,10 +251,6 @@ void Proc::opt_dce(bool unsafe)
                 case 2: --ops[op.in[1]].nUse;
                 case 1: --ops[op.in[0]].nUse;
                 default:
-                    if(op.opcode == ops::phi)
-                    {
-                        blocks[op.block].args[op.phiIndex].alts.clear();
-                    }
                     op.opcode = ops::nop;
                     op.in[0] = noVal;
                     op.in[1] = noVal;
@@ -295,7 +273,6 @@ void Proc::opt_dce(bool unsafe)
             if(b.code.size() != j) { b.code.resize(j); progress = true; }
             liveOps += j;
         }
-
     }
     
     BJIT_LOG("\n DCE:%d", iters);
@@ -314,18 +291,14 @@ void Proc::findUsesBlock(int b, bool inOnly, bool localOnly)
         {
             if(k && op.opcode == ops::jmp) break;
             
-            for(auto & a : blocks[op.label[k]].args)
+            for(auto & s : blocks[op.label[k]].alts)
             {
-                for(auto & s : a.alts)
-                {
-                    if(s.src != b) continue;
-                    
-                    if(0) BJIT_LOG("live out %d->%d : v%04x\n",
-                        b, op.label[k], s.val);
+                if(s.src != b) continue;
+                
+                if(0) BJIT_LOG("live out %d->%d : v%04x\n",
+                    b, op.label[k], s.val);
 
-                    ++ops[s.val].nUse;
-                    break;
-                }
+                ++ops[s.val].nUse;
             }
             for(auto & a : blocks[op.label[k]].livein)
             {
