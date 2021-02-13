@@ -31,7 +31,7 @@ fully [W^X](https://en.wikipedia.org/wiki/W%5EX) compliant), but we support gene
 
 <sup>2</sup><i>
 We sort of don't do these things specifically, because we really just perform DCE,
-CSE (well, we do PRE kinda explicitly), generic hoisting/sinking and constant
+CSE (well, PRE kinda explicitly with some limitations), generic hoisting/sinking and constant
 folding, but because of how we do all these globally relying on SSA invariants, this
 is more or less what we end up with currently. See [below](#optimizations).</i>
 
