@@ -235,6 +235,18 @@ bool Proc::opt_cse(bool unsafeOpt)
     auto checkPre = [&](OpCSE & cse)
     {
         auto & op = ops[cse.index];
+
+        bool hasPhi = false;
+
+        // fast path check whether there's any point trying :)
+        if(op.nInputs() >= 1
+        && ops[op.in[0]].opcode == ops::phi
+        && ops[op.in[0]].block == op.block) hasPhi = true;
+        if(op.nInputs() >= 2
+        && ops[op.in[1]].opcode == ops::phi
+        && ops[op.in[1]].block == op.block) hasPhi = true;
+
+        if(!hasPhi) return;
         
         // in the interest of simplicity, we rely on hoisting to pull
         // us to the phis we're going to check.. this is not perfect
