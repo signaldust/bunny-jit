@@ -34,7 +34,7 @@ ifeq ($(OS),Windows_NT)
     CLEANALL := win\rm-rf.bat $(BJIT_BUILDDIR) && win\rm-rf.bat $(BJIT_BINDIR)
 
     # Link flags
-    BJIT_LINKFLAGS ?= --rtlib=compiler-rt $(LIBRARY)
+    BJIT_LINKFLAGS ?= $(LIBRARY)
 
     CFLAGS += -D_CRT_SECURE_NO_WARNINGS
     
