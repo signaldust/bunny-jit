@@ -72,7 +72,7 @@ namespace bjit
                 Slot & s = slots[i];
                 if(slotInUse == (s.hash & 0x3))
                 {
-                    fn(s.key, s.value);
+                    fn(s.item);
                 }
             }
         }
