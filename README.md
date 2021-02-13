@@ -697,16 +697,20 @@ a simple form of data-flow analysis.
 
 Invariants: DCE builds the list of `live` blocks, so it must run as the very first
 thing even for non-optimizing builds. It does not rely on any other analysis.
-It does not break register allocation (ie. we actually do a final DCE pass after
-we've computed all shuffles; if this breaks the code, it's a bug in `opt_ra`).
+DCE is used a cleanup pass, so all other passes (including register allocation)
+must leave the IR in a state where DCE is safe (ie. we even do a final DCE pass
+after register allocation, just before native assembly; if this breaks the code,
+it's almost certainly a bug in `opt_ra`).
 
-DCE (and other optimizations) also calls `rebuild_cfg` rebuilds "come from"
+DCE (and other optimizations) also calls `rebuild_cfg` which rebuilds "come from"
 information and cleans up `phi` alternatives where the incoming edge no longer
-exists. Invariants: `rebuild_cfg` assumes `live` contains all live blocks.
+exists. Invariants: `rebuild_cfg` assumes `live` contains all live blocks and
+that all jumps can be found by looking at the last ops of each block (ie. all
+dead tails have been eliminated).
 
 The `opt_fold` pass only does simple constant-folding/strength-reduction and
-does not rely on anything other than `live` containing all live blocks. When it
-simplifies an operation into a `nop` it leaves it in-place for DCE to clean up.
+algebraic simplications and only relies on `live` containing all live blocks.
+Operations simplified to `nop` are left in-place for DCE to clean up.
 
 Because `opt_fold` also simplifies conditional jumps into non-conditional jumps
 and because `opt_dce` simplies unnecessary `phi` loops this gives us much of
@@ -714,8 +718,8 @@ and because `opt_dce` simplies unnecessary `phi` loops this gives us much of
 branch condition to ever choose that branch. I'm not entirely convinced this
 would really be worth the trouble.
 
-Invariants: Folding does not use any properties of CFG. It only relies on the
-SSA invariant that definitions always dominate uses.
+Invariants: Folding does not use any properties of CFG and does not rewrite CFG.
+It only relies on the SSA invariant that definitions always dominate uses.
 
 The `opt_cse` pass does two things: it first tries to hoist operations up the
 dominator chain to the earliest block where all inputs are available, unless
