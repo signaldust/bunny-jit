@@ -25,7 +25,7 @@ using namespace bjit;
 We try to avoid any folding here that isn't guaranteed to be profitable.
 
 */
-bool Proc::opt_fold(bool unsafe)
+bool Proc::opt_fold(bool unsafeOpt)
 {
     //debug();
 

@@ -93,9 +93,11 @@ namespace bjit
         // Consider using Module::compile() instead
         void compile(std::vector<uint8_t> & bytes, unsigned levelOpt)
         {
-            if(levelOpt) opt(levelOpt > 1);
+            bool unsafeOpt = levelOpt > 1;
             
-            allocRegs();
+            if(levelOpt) opt(unsafeOpt);
+            
+            allocRegs(unsafeOpt);
             arch_emit(bytes);
         }
 
@@ -427,7 +429,7 @@ namespace bjit
 
         uint16_t    currentBlock;
 
-        void opt(bool unsafe = false)
+        void opt(bool unsafeOpt = false)
         {
             // do DCE first, then fold
             // repeat until neither does progress
@@ -436,12 +438,12 @@ namespace bjit
             do
             {
                 BJIT_ASSERT(++iterOpt < 0x100);
-                opt_dce(unsafe);
+                opt_dce(unsafeOpt);
                 
-            } while(opt_fold(unsafe)    // opt_fold first, needs nUse
-                || opt_cse(unsafe)      // opt_cse doesn't need nUse
+            } while(opt_fold(unsafeOpt) // opt_fold first, needs nUse
+                || opt_cse(unsafeOpt)   // opt_cse doesn't need nUse
                 || opt_jump()           // opt_jump first -> preheaders
-                || opt_sink(unsafe)     // opt_sink needs livescan
+                || opt_sink(unsafeOpt)  // opt_sink needs livescan
                 );
         }
 
@@ -616,25 +618,25 @@ namespace bjit
         }
 
         // opt-ra.cpp
-        void allocRegs();
+        void allocRegs(bool unsafeOpt);
         void findSCC();     // resolve stack congruence classes
 
         // opt-fold.cpp
-        bool opt_fold(bool unsafe);
+        bool opt_fold(bool unsafeOpt);
 
         // opt-jump.cpp
         bool opt_jump_be(uint16_t b);
         bool opt_jump();
 
         // opt-cse.cpp
-        void rebuild_memtags(bool unsafe);
-        bool opt_cse(bool unsafe);
+        void rebuild_memtags(bool unsafeOpt);
+        bool opt_cse(bool unsafeOpt);
 
         // opt-sink.cpp
-        bool opt_sink(bool unsafe);
+        bool opt_sink(bool unsafeOpt);
 
         // opt-dce.cpp
-        void opt_dce(bool unsafe = false);
+        void opt_dce(bool unsafeOpt = false);
 
         // opt-dom.cpp - used by opt-dce()
         void rebuild_cfg();
