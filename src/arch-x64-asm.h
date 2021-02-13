@@ -250,10 +250,11 @@ struct AsmX64
         _ModRM(3, r0, r1);
     }
 
-    // this encodes r, [r+r] cases (eg. for LEA)
-    void _RRR(int w, int r0, int r1, int r2, int op0, int op1 = -1, int op2 = -1)
+    // this encodes r, [r+r*(1<<scale)] cases (eg. for LEA)
+    void _RRRs(int w, int r0, int r1, int r2, int scale,
+        int op0, int op1 = -1, int op2 = -1)
     {
-        if((0x7 & r1) == REG(regs::rbp)
+        if((0x7 & r1) == REG(regs::rbp) && !scale
         && (0x7 & r2) != REG(regs::rsp)) std::swap(r1, r2);
         
         bool disp8 = ((0x7 & r1) == REG(regs::rbp));
@@ -264,7 +265,7 @@ struct AsmX64
 
         // 0, r, 4 = SIB [r+r] or 1, r, 4 = SIB [r+r+disp8]
         _ModRM(disp8 ? 1 : 0, r0, 4);
-        _SIB(r1, r2, 0);
+        _SIB(r1, r2, scale);
         if(disp8) emit(0);
     }
 
@@ -448,7 +449,8 @@ struct AsmX64
 
 // we currently use this for iaddI
 #define _LEAri(r, ptr, off) a64._RM(1, REG(r), REG(ptr), off, 0x8D)
-#define _LEArr(r0, r1, r2)  a64._RRR(1, REG(r0), REG(r1), REG(r2), 0x8D)
+#define _LEArr(r0, r1, r2)  a64._RRRs(1, REG(r0), REG(r1), REG(r2), 0, 0x8D)
+#define _LEArrs(r0,r1,r2,s) a64._RRRs(1, REG(r0), REG(r1), REG(r2), s, 0x8D)
 
 #define _IMULrri(r0,r1,v)   a64._IMULrriXX(REG(r0),REG(r1),v)
 
