@@ -735,15 +735,11 @@ branches that don't also merge, but diamonds are fine; this is ignored for the
 CCD itself, because if we come from two different branches, then both branches
 compute the same value and combining just results in smaller code).
 
-Because of how we compute the validity of CSE, we can also combine operations
-where one operation post-dominates another and because we move the operation
-to a common path, this effectively gives us a form of PRE. On top of this we
-now also handle the case where we can match `phi` operands against ops with
-the `phi` alternatives as operands; in this case we insert matching ops for
-any alternatives lacking them and collect the results into a new `phi` giving
-us more or less full PRE (there might be some esoteric cases involving `phi`
-operands from different blocks that we explicitly ignore, but trying to deal
-with those gets a bit too complex for our purposes).
+CSE also tries to match against the alternatives of a `phi` operands. If we find
+matches this way, we insert similar ops on other paths (assuming they don't have
+one already) and then collect results into a new `phi` which gives us PRE for the
+simple cases, although we don't currently attempt to recursively search through
+multiple `phi`s (maybe some day; this can get a bit expensive though).
 
 Invariants: CSE rebuilds/uses dominators, moves/renames operations, can insert
 additional `phi` but doesn't currently change CFG.
