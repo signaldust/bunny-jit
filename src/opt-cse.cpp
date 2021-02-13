@@ -250,7 +250,7 @@ bool Proc::opt_cse(bool unsafeOpt)
         
         // in the interest of simplicity, we rely on hoisting to pull
         // us to the phis we're going to check.. this is not perfect
-        // but it covers all the most obvious cases (especially with CSE)
+        // but it covers the most obvious cases (especially with CSE)
         auto & mb = blocks[op.block];
 
         preList.clear();
