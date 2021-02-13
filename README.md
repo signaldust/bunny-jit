@@ -714,7 +714,7 @@ Operations simplified to `nop` are left in-place for DCE to clean up.
 
 Because `opt_fold` also simplifies conditional jumps into non-conditional jumps
 and because `opt_dce` simplies unnecessary `phi` loops this gives us much of
-`SCCP` although we can't handle the cases where a branch must be taken for the
+SCCP although we can't handle the cases where a branch must be taken for the
 branch condition to ever choose that branch. I'm not entirely convinced this
 would really be worth the trouble.
 
