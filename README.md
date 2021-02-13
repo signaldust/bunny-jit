@@ -21,7 +21,7 @@ Features:
   * uses low-level portable instruction set that models common architectures
   * supports integers, single- and double-floats (probably SIMD at some point)
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
-  * performs roughly<sup>2</sup> DCE, GCSE+LICM (PRE?), CF/CP (SCCP?) and register allocation (as of now)
+  * performs roughly<sup>2</sup> DCE, GCSE/LICM/PRE, CF/CP (SCCP?) and register allocation (as of now)
   * assembles to native x64 binary code with simple module system that supports [hot-patching](#patching-calls)
   * uses `std::vector` to manage memory, keeps `valgrind` happy, tries to be cache efficient
 
@@ -31,9 +31,9 @@ fully [W^X](https://en.wikipedia.org/wiki/W%5EX) compliant), but we support gene
 
 <sup>2</sup><i>
 We sort of don't do these things specifically, because we really just perform DCE,
-CSE, generic hoisting/sinking and constant folding, but because of how we do all 
-these globally relying on SSA invariants, this is more or less what we end up with
-currently. See [below](#optimizations).</i>
+CSE (well, we know do PRE kinda explicitly), generic hoisting/sinking and constant
+folding, but because of how we do all these globally relying on SSA invariants, this
+is more or less what we end up with currently. See [below](#optimizations).</i>
 
 I suggest looking at the tests (eg. `tests/test_fib.cpp`) for examples of how to
 use the programming API, which is the primary focus of this library.
@@ -737,13 +737,16 @@ compute the same value and combining just results in smaller code).
 
 Because of how we compute the validity of CSE, we can also combine operations
 where one operation post-dominates another and because we move the operation
-to a common path, this effectively gives us a form of PRE. However, we don't
-handle the case where one of the operands of the post-dominating op is a `phi`
-with the other op's operand being a `phi` alternative, so we can't hanlde all
-the possible cases. This could probably be fixed (hoist the post-dominating
-op into the other branch), but I don't see it as high priority.
+to a common path, this effectively gives us a form of PRE. On top of this we
+now also handle the case where we can match `phi` operands against ops with
+the `phi` alternatives as operands; in this case we insert matching ops for
+any alternatives lacking them and collect the results into a new `phi` giving
+us more or less full PRE (there might be some esoteric cases involving `phi`
+operands from different blocks that we explicitly ignore, but trying to deal
+with those gets a bit too complex for our purposes).
 
-Invariants: CSE rebuilds/uses dominators, but doesn't currently change CFG.
+Invariants: CSE rebuilds/uses dominators, moves/renames operations, can insert
+additional `phi` but doesn't currently change CFG.
 
 Because `opt_cse` needs dominator information (for both hosting and actual CSE)
 to avoid moving operations in the wrong places, it calls `rebuild_dom` which
