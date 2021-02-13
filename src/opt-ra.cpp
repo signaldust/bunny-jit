@@ -545,6 +545,7 @@ void Proc::allocRegs()
                         = regstate[op.reg] = blocks[b].code[c];
                     keepIn |= R2Mask(op.reg);
                 }
+                else op.flags.spill = true; // we need the value somewhere
                 
                 // never forcibly allocate a register to phi
                 continue;
@@ -648,7 +649,7 @@ void Proc::allocRegs()
                     }
                     else
                     {
-                        BJIT_LOG("PHI LOOP: Broken SCCs?\n");
+                        BJIT_LOG("PHI LOOP: phi %04x, Broken SCCs?\n", s.phi);
                         BJIT_ASSERT(false);
                     }
                 }
