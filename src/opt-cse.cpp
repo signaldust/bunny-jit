@@ -229,6 +229,110 @@ bool Proc::opt_cse(bool unsafeOpt)
         BJIT_LOG("\nCSE pairs: %04x vs. %04x: ", p>>16, p&noVal);
     }
 
+    std::vector<uint16_t>   preList;
+
+    // check for PRE
+    auto checkPre = [&](OpCSE & cse)
+    {
+        auto & op = ops[cse.index];
+        
+        // in the interest of simplicity, if we have two phi-operands
+        // that are defined in different blocks, then we only try to
+        // match one of them at a time..
+        uint16_t b[2] = { noVal, noVal };
+        if(op.nInputs() >= 1 && ops[op.in[0]].opcode == ops::phi)
+        {
+            b[0] = ops[op.in[0]].block;
+        }
+        if(op.nInputs() >= 2 && ops[op.in[1]].opcode == ops::phi)
+        {
+            b[1] = ops[op.in[1]].block;
+        }
+        if(b[0] == b[1]) { b[1] = noVal; }
+        for(int bi = 0; bi < 2; ++bi)
+        {
+            if(b[bi] == noVal) continue;
+
+            auto & mb = blocks[b[bi]];
+
+            preList.clear();
+            preList.insert(preList.begin(), mb.comeFrom.size(), noVal);
+
+            int matches = false;
+
+            // match for each potential source
+            for(int c = 0; c < mb.comeFrom.size(); ++c)
+            {
+                auto cf = mb.comeFrom[c];
+                
+                OpCSE match(op);
+                for(auto & a : blocks[b[bi]].alts)
+                {
+                    if(a.src != cf) continue;
+                    if(a.phi == match.in[0]) match.in[0] = a.val;
+                    if(a.phi == match.in[1]) match.in[1] = a.val;
+                }
+
+                // match
+                auto * p = cseTable.find(match);
+                if(p)
+                {
+                    preList[c] = p->index;
+                    matches = true;
+                }
+            }
+
+            if(!matches) continue;
+
+            // found either a partial or full redundancy:
+            if(cse_debug) BJIT_LOG("\nPRE: L%d:%04x matches in L%d with:",
+                op.block, op.index, b[bi]);
+                
+            // insert a new phi into the matched block
+            auto phi = newOp(ops::phi, op.flags.type, b[bi]);
+            mb.code.insert(mb.code.begin(), phi);
+                
+            for(int c = 0; c < mb.comeFrom.size(); ++c)
+            {
+
+                // partial redundancy?
+                //
+                // FIXME: this duplicates work form above
+                if(preList[c] == noVal)
+                {
+                    OpCSE match(op);
+                    for(auto & a : blocks[b[bi]].alts)
+                    {
+                        if(a.src != mb.comeFrom[c]) continue;
+                        if(a.phi == match.in[0]) match.in[0] = a.val;
+                        if(a.phi == match.in[1]) match.in[1] = a.val;
+                    }
+
+                    preList[c] = newOp(op.opcode, op.flags.type, mb.comeFrom[c]);
+                    ops[preList[c]].in[0] = match.in[0];
+                    ops[preList[c]].in[1] = match.in[1];
+                    ops[preList[c]].imm32 = match.imm32;
+                    blocks[mb.comeFrom[c]].code.insert(
+                        blocks[mb.comeFrom[c]].code.end()-1, preList[c]);
+
+                    if(cse_debug) BJIT_LOG("\n - L%d: %04x (added)",
+                        mb.comeFrom[c], preList[c]);
+                }
+                else
+                {
+                    if(cse_debug) BJIT_LOG("\n - L%d: %04x",
+                        mb.comeFrom[c], preList[c]);
+                }
+
+                mb.newAlt(phi, mb.comeFrom[c], preList[c]);
+                rename.add(op.index, phi);
+                op.makeNOP();
+            }
+        }
+
+    };
+    cseTable.foreach(checkPre);
+
     // returns true if we made some progress
     auto csePair = [&](Op & op0, Op & op1) -> bool
     {
@@ -382,7 +486,6 @@ bool Proc::opt_cse(bool unsafeOpt)
         BJIT_ASSERT(false); // not reached
     };
 
-    
     bool progress = true, anyProgress = false;
     while(progress)
     {
