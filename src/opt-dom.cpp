@@ -26,23 +26,25 @@ void Proc::rebuild_cfg()
 
     // cleanup dead phi alternatives
     for(auto & b : live)
-    for(auto & a : blocks[b].args)
     {
         int j = 0;
-        for(int i = 0; i < a.alts.size(); ++i)
+        auto & alts = blocks[b].alts;
+        for(int i = 0; i < alts.size(); ++i)
         {
+            if(ops[alts[i].val].opcode == ops::nop) continue;
+            
             bool keep = false;
             for(auto s : blocks[b].comeFrom)
             {
-                if(a.alts[i].src != s) continue;
+                if(alts[i].src != s) continue;
                 keep = true;
                 break;
             }
             if(!keep) continue;
-            if(i != j) a.alts[j] = a.alts[i];
+            if(i != j) alts[j] = alts[i];
             ++j;
         }
-        if(j != a.alts.size()) a.alts.resize(j);
+        if(j != alts.size()) alts.resize(j);
     }
 }
 

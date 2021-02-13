@@ -32,9 +32,8 @@ void Proc::allocRegs()
         // clear live-in use-counts
         for(auto & in : blocks[b].livein) ops[in].nUse = 0;
 
-        // clear phi-in use-counts
-        for(auto & a : blocks[b].args)
-        for(auto & s : a.alts)
+        // clear phi-in use-counts (FIXME: do we need this?)
+        for(auto & s : blocks[b].alts)
         {
             ops[s.val].nUse = 0;
         }
@@ -43,12 +42,9 @@ void Proc::allocRegs()
         findUsesBlock(b, false, false);
         
         // mark anything used by any phi
-        for(auto & a : blocks[b].args)
+        for(auto & s : blocks[b].alts)
         {
-            for(auto & s : a.alts)
-            {
-                ops[s.val].nUse = 1;
-            }
+            ops[s.val].nUse = 1;
         }
 
         // cleanup stale renames
@@ -115,8 +111,7 @@ void Proc::allocRegs()
                 break;
             }
 
-            if(!found) for(auto & a : blocks[b].args)
-            if(!found) for(auto & s : a.alts)
+            if(!found) for(auto & s : blocks[b].alts)
             {
                 if(s.src != b && s.val != regstate[r]) continue;
                 found = true;
@@ -227,8 +222,7 @@ void Proc::allocRegs()
             {
                 if(k && op.opcode == ops::jmp) break;
 
-                for(auto & a : blocks[op.label[k]].args)
-                for(auto & s : a.alts)
+                for(auto & s : blocks[op.label[k]].alts)
                 for(auto & r : rename.map)
                 {
                     if(s.src == b && s.val == r.src) s.val = r.dst;
@@ -516,22 +510,23 @@ void Proc::allocRegs()
 
             if(op.opcode == ops::phi)
             {
-                auto & alts =  blocks[b].args[op.phiIndex].alts;
-                for(int i = 0; i < alts.size(); ++i)
+                for(auto & a : blocks[b].alts)
                 {
+                    if(a.phi != op.index) continue;
+                    
                     if(op.reg == regs::nregs)
                     for(int r = 0; r < regs::nregs; ++r)
                     {
                         uint16_t v = regstate[r];
                         
-                        while(v != noVal && v != alts[i].val
+                        while(v != noVal && v != a.val
                         && (ops[v].opcode == ops::rename
                             || ops[v].opcode == ops::reload))
                         {
                             v = ops[v].in[0];
                         }
                     
-                        if(v != alts[i].val) continue;
+                        if(v != a.val) continue;
                         op.reg = r;
                         break;
                     }
@@ -539,7 +534,7 @@ void Proc::allocRegs()
                     // cleanup other alternatives
                     for(int r = 0; r < regs::nregs; ++r)
                     {
-                        if(regstate[r] == alts[i].val) regstate[r] = noVal;
+                        if(regstate[r] == a.val) regstate[r] = noVal;
                     }
                 }
 
@@ -632,38 +627,35 @@ void Proc::allocRegs()
 
             if(ra_debug) BJIT_LOG("Args L%d (L%d)-> L%d\n", b, out, target);
 
-            for(auto & a : blocks[target].args)
+            for(auto & s : blocks[target].alts)
             {
-                for(auto & s : a.alts)
-                {
-                    if(s.src != b) continue;
+                if(s.src != b) continue;
 
-                    // if we need a spill, can we do a trivial one?
-                    if(ops[a.phiop].flags.spill
-                    && ops[a.phiop].reg == regs::nregs)
+                // if we need a spill, can we do a trivial one?
+                if(ops[s.phi].flags.spill
+                && ops[s.phi].reg == regs::nregs)
+                {
+                    // if both are spilled same SCC then it's fine
+                    if(ops[s.val].flags.spill
+                    && ops[s.val].scc == ops[s.phi].scc) continue;
+                     
+                    // don't spill phi-to-phi, this'll cause
+                    // problems with scc
+                    if(!ops[s.val].flags.spill
+                    && ops[s.val].opcode != ops::phi)
                     {
-                        // if both are spilled same SCC then it's fine
-                        if(ops[s.val].flags.spill
-                        && ops[s.val].scc == ops[a.phiop].scc) continue;
-                         
-                        // don't spill phi-to-phi, this'll cause
-                        // problems with scc
-                        if(!ops[s.val].flags.spill
-                        && ops[s.val].opcode != ops::phi)
-                        {
-                            ops[s.val].flags.spill = true;
-                            ops[s.val].scc = ops[a.phiop].scc;
-                        }
-                        else
-                        {
-                            BJIT_LOG("PHI LOOP: Broken SCCs?\n");
-                            BJIT_ASSERT(false);
-                        }
+                        ops[s.val].flags.spill = true;
+                        ops[s.val].scc = ops[s.phi].scc;
                     }
-                    
-                    if(ops[a.phiop].reg == regs::nregs) continue;
-                    tregs[ops[a.phiop].reg] = s.val;
+                    else
+                    {
+                        BJIT_LOG("PHI LOOP: phi %04x, Broken SCCs?\n", s.phi);
+                        BJIT_ASSERT(false);
+                    }
                 }
+                
+                if(ops[s.phi].reg == regs::nregs) continue;
+                tregs[ops[s.phi].reg] = s.val;
             }
 
             // throw away source registers that are not needed by target
@@ -845,8 +837,7 @@ void Proc::allocRegs()
             }
 
             // rename target PHI values (but not block, we do it below)
-            for(auto & a : blocks[target].args)
-            for(auto & s : a.alts)
+            for(auto & s : blocks[target].alts)
             for(auto & r : rename.map)
             {
                 if(s.val == r.src) s.val = r.dst;
@@ -894,8 +885,7 @@ void Proc::allocRegs()
                     blocks[b0].flags.live = true;
                 
                     // rename target PHI sources, satisfy sanity
-                    for(auto & a : blocks[op.label[0]].args)
-                    for(auto & s : a.alts)
+                    for(auto & s : blocks[op.label[0]].alts)
                     {
                         if(ops[s.val].block == b0) s.src = b0;
                     }
@@ -928,8 +918,7 @@ void Proc::allocRegs()
                     blocks[b1].flags.live = true;
                     
                     // rename target PHI sources, satisfy sanity
-                    for(auto & a : blocks[op.label[1]].args)
-                    for(auto & s : a.alts)
+                    for(auto & s : blocks[op.label[1]].alts)
                     {
                         if(ops[s.val].block == b1) s.src = b1;
                     }
@@ -1003,16 +992,14 @@ void Proc::allocRegs()
             }
 
             if(ops[c].opcode <= ops::jmp)
-            for(auto & a : blocks[ops[c].label[0]].args)
-            for(auto & s : a.alts)
+            for(auto & s : blocks[ops[c].label[0]].alts)
             for(auto & r : rename.map)
             {
                 if(s.val == r.src && s.src == b) s.val = r.dst;
             }
             
             if(ops[c].opcode < ops::jmp)
-            for(auto & a : blocks[ops[c].label[0]].args)
-            for(auto & s : a.alts)
+            for(auto & s : blocks[ops[c].label[0]].alts)
             for(auto & r : rename.map)
             {
                 if(s.val == r.src && s.src == b) s.val = r.dst;
@@ -1077,8 +1064,10 @@ void Proc::findSCC()
             // at least one phi-alternative should have SCC
             if(ops[c].opcode == ops::phi)
             {
-                for(auto & s : b.args[ops[c].phiIndex].alts)
+                for(auto & s : b.alts)
                 {
+                    if(s.phi != c) continue;
+                    
                     // check for validity, pick first possible
                     if(ops[s.val].scc != noSCC && !sccUsed[ops[s.val].scc])
                     {
@@ -1172,14 +1161,13 @@ void Proc::findSCC()
         {
             if(k && ops[c].opcode == ops::jmp) break;
     
-            for(auto & a : blocks[ops[c].label[k]].args)
-            for(auto & s : a.alts)
+            for(auto & s : blocks[ops[c].label[k]].alts)
             {
-                if(s.src == b && ops[s.val].scc != ops[a.phiop].scc)
+                if(s.src == b && ops[s.val].scc != ops[s.phi].scc)
                 {
                     if(scc_debug)
                         BJIT_LOG("rename jump: %04x:[%04x] -> %04x:[%04x]\n",
-                        s.val, ops[s.val].scc, a.phiop, ops[a.phiop].scc);
+                        s.val, ops[s.val].scc, s.phi, ops[s.phi].scc);
     
                     uint16_t rr = newOp(ops::rename, ops[s.val].flags.type, b);
                     ops[rr].scc = nSCC++;   // play safe: alloc a fresh one

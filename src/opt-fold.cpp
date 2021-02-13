@@ -57,8 +57,7 @@ bool Proc::opt_fold(bool unsafe)
                 // rename phis
                 if(op.opcode <= ops::jmp)
                 {
-                    for(auto & a : blocks[op.label[0]].args)
-                    for(auto & s : a.alts)
+                    for(auto & s : blocks[op.label[0]].alts)
                     for(auto & r : rename.map)
                     {
                         if(s.val == r.src) s.val = r.dst;
@@ -67,8 +66,7 @@ bool Proc::opt_fold(bool unsafe)
     
                 if(op.opcode < ops::jmp)
                 {
-                    for(auto & a : blocks[op.label[1]].args)
-                    for(auto & s : a.alts)
+                    for(auto & s : blocks[op.label[1]].alts)
                     for(auto & r : rename.map)
                     {
                         if(s.val == r.src) s.val = r.dst;

@@ -182,7 +182,8 @@ namespace bjit
             {
                 BJIT_ASSERT(ops[args[a].phiop].flags.type
                     == ops[env[a].index].flags.type);
-                args[a].add(env[a].index, currentBlock);
+                blocks[label.index].newAlt(
+                    args[a].phiop, currentBlock, env[a].index);
             }
         }
 
@@ -213,8 +214,10 @@ namespace bjit
                     == ops[env[a].index].flags.type);
                 BJIT_ASSERT(ops[aElse[a].phiop].flags.type
                     == ops[env[a].index].flags.type);
-                aThen[a].add(env[a].index, currentBlock);
-                aElse[a].add(env[a].index, currentBlock);
+                blocks[labelThen.index].newAlt(
+                    aThen[a].phiop, currentBlock, env[a].index);
+                blocks[labelElse.index].newAlt(
+                    aElse[a].phiop, currentBlock, env[a].index);
             }
         }
 
@@ -485,8 +488,7 @@ namespace bjit
             for(auto & cf : blocks[to].comeFrom) if(cf == from) cf = b;
 
             // for target phis
-            for(auto & a : blocks[to].args)
-            for(auto & s : a.alts)
+            for(auto & s : blocks[to].alts)
             {
                 if(s.src == from)
                 {
