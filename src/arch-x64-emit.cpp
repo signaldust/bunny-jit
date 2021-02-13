@@ -599,9 +599,37 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
                 
             case ops::imulI:
-                // this curiously doesn't need a move
-                // if we have imm8 or imm32
-                _IMULrri(i.reg, ops[i.in[0]].reg, i.imm32);
+                {
+                    // fold converts pow2 multiplies to shl
+                    // so here we check for the non-pow2 cases
+                    //
+                    // NOTE: LEA with RBP/R13 needs disp8 which is gives
+                    // one cycle penalty and means IMUL is better (less uops)
+                    auto rin = ops[i.in[0]].reg;
+                    if(i.imm32 > 0 && REG(regs::rbp) != (0x7 & REG(rin)))
+                    {
+                        int shift = 0, imm32 = i.imm32;
+                        while(!(imm32&1)) { ++shift; imm32 >>= 1; }
+                        switch(imm32)
+                        {
+                        case 3: // lea [reg+2*reg]
+                            _LEArrs(i.reg, rin, rin, 1);
+                            if(shift) { _SHLri8(i.reg); a64.emit(shift); }
+                            break;
+                        case 5: // lea [reg+4*reg]
+                            _LEArrs(i.reg, rin, rin, 2);
+                            if(shift) { _SHLri8(i.reg); a64.emit(shift); }
+                            break;
+                        case 9: // lea [reg+8*reg]
+                            _LEArrs(i.reg, rin, rin, 3);
+                            if(shift) { _SHLri8(i.reg); a64.emit(shift); }
+                            break;
+                        default:
+                            _IMULrri(i.reg, ops[i.in[0]].reg, i.imm32);
+                        }
+                    }
+                    else _IMULrri(i.reg, ops[i.in[0]].reg, i.imm32);
+                }
                 break;
                 
             case ops::idiv:
