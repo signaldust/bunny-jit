@@ -3,7 +3,7 @@
 
 using namespace bjit;
 
-void Proc::opt_dce(bool unsafe)
+void Proc::opt_dce(bool unsafeOpt)
 {
     bool progress = true;
     //debug();
@@ -243,7 +243,7 @@ void Proc::opt_dce(bool unsafe)
                 if(op.opcode == ops::nop) continue;
                 
                 // NOTE: nUse aliases on labels, check other stuff first
-                if((op.hasSideFX() && (!unsafe || !op.canCSE()))
+                if((op.hasSideFX() && (!unsafeOpt || !op.canCSE()))
                 || op.nUse) continue;
 
                 switch(op.nInputs())

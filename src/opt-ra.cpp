@@ -10,7 +10,7 @@ static const bool scc_debug = false;    // print lots of debug spam
 
 static const bool fix_sanity = true;    // whether to fix sanity for shuffles
 
-void Proc::allocRegs()
+void Proc::allocRegs(bool unsafeOpt)
 {
     // explicitly do one DCE so non-optimized builds work
     opt_dce();
@@ -20,6 +20,7 @@ void Proc::allocRegs()
     opt_dce();
     rebuild_dom();
     rebuild_livein();
+    rebuild_memtags(unsafeOpt);
 
     BJIT_LOG(" RA:BB");
 
@@ -32,7 +33,7 @@ void Proc::allocRegs()
         // clear live-in use-counts
         for(auto & in : blocks[b].livein) ops[in].nUse = 0;
 
-        // clear phi-in use-counts (FIXME: do we need this?)
+        // clear phi-in use-counts
         for(auto & s : blocks[b].alts)
         {
             ops[s.val].nUse = 0;
@@ -44,7 +45,7 @@ void Proc::allocRegs()
         // mark anything used by any phi
         for(auto & s : blocks[b].alts)
         {
-            ops[s.val].nUse = 1;
+            ops[s.val].nUse += 1;
         }
 
         // cleanup stale renames
@@ -81,7 +82,8 @@ void Proc::allocRegs()
                 ops[r.dst].nUse += ops[r.src].nUse;
             }
         }
-        
+
+        // rename live-in for target blocks
         if(ops[blocks[b].code.back()].opcode <= ops::jmp)
         for(int k = 0; k < 2; ++k)
         {
@@ -90,11 +92,13 @@ void Proc::allocRegs()
             for(auto & i : blocks[ops[blocks[b].code.back()].label[k]].livein)
             {
                 for(auto & r : rename.map) { if(r.src == i) i = r.dst; }
-                //ops[i].nUse += 1;
             }
         }
 
         if(ra_debug) BJIT_LOG("L%d:\n", b);
+
+        // initialize memtag for rematerialization of loads
+        uint16_t    memtag = blocks[b].memtag;
 
         uint16_t    regstate[regs::nregs];
         memcpy(regstate, blocks[b].regsIn, sizeof(regstate));
@@ -354,9 +358,6 @@ void Proc::allocRegs()
 
                 if(regstate[r] != op.in[i])
                 {
-                    if(ra_debug) BJIT_LOG("; need reload for %04x into %s\n",
-                        op.in[i], regName(r));
-
                     auto in = op.in[i];
                         
                     // undo renames/reloads before reloading
@@ -370,29 +371,60 @@ void Proc::allocRegs()
                         in = ops[in].in[0];
                     }
                     
-                    if(ra_debug) BJIT_LOG("; need reload for %04x into %s\n",
-                        op.in[i], regName(r));
+                    if(ra_debug) BJIT_LOG("; need reload for %04x = %04x into %s",
+                        op.in[i], in, regName(r));
+                        
+                    auto & rop = ops[in];
+                    uint16_t rr = newOp(ops::reload, rop.flags.type, b);
 
-                    uint16_t rr = newOp(ops::reload, ops[op.in[i]].flags.type, b);
+                    // can we rematerialize?
+                    bool canRemat = false;
                     
-                    // don't do a true reload if we can remat constant
-                    if(ops[op.in[i]].opcode == ops::lci
-                    || ops[op.in[i]].opcode == ops::lcd)
+                    // FIXME: don't need this as constants are CSE + no inputs
+                    if(false)
+                    if(rop.opcode == ops::lci || rop.opcode == ops::lcd)
                     {
-                        ops[rr].opcode = ops[op.in[i]].opcode;
-                        ops[rr].i64 = ops[op.in[i]].i64;
+                        canRemat = true;
+                    }
+
+                    // we can remat ops where CSE is valid and inputs are intact
+                    // but don't bother if the op is marked for sideFX even if
+                    // "unsafeOpt" because it's probably a division that's expensive
+                    //
+                    // we don't try to deal with renames here, we'll just give up
+                    // if the inputs are not in their original locations anymore
+                    if(rop.canCSE() && !rop.hasSideFX()
+                    && (!rop.hasMemTag() || rop.in[1] == memtag))
+                    {
+                        canRemat = true;
+                        // check input validity
+                        for(int j = 0; j < rop.nInputs(); ++j)
+                        {
+                            if(regstate[ops[rop.in[j]].reg] == rop.in[j]) continue;
+                            
+                            canRemat = false;
+                            break;
+                        }
+                    }
+
+                    if(canRemat)
+                    {
+                        if(ra_debug) BJIT_LOG(" - rematerialized\n");
+                        ops[rr].opcode = rop.opcode;
+                        ops[rr].i64 = rop.i64;
                     }
                     else
                     {
+                        if(ra_debug) BJIT_LOG(" - reloaded\n");
                         ops[in].flags.spill = true;
                         ops[rr].in[0] = in;
-                        BJIT_ASSERT(ops[op.in[i]].scc == ops[in].scc);
+                        BJIT_ASSERT(rop.scc == ops[in].scc);
                         ops[rr].scc = ops[in].scc;
                     }
 
                     ops[rr].reg = r;
                     regstate[r] = rr;
-                    ops[rr].nUse = ops[op.in[i]].nUse;
+                    ops[rr].nUse = rop.nUse;
 
                     rename.add(op.in[i], rr);
                     rename(op);
@@ -507,6 +539,9 @@ void Proc::allocRegs()
             }
 
             if(!op.hasOutput()) continue;
+
+            // do we need to bump memtag?
+            if(op.hasSideFX() && (!unsafeOpt || !op.canCSE())) memtag = op.index;
 
             if(op.opcode == ops::phi)
             {

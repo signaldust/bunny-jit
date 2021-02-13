@@ -5,7 +5,7 @@ using namespace bjit;
 
 static const bool sink_debug = false;
 
-bool Proc::opt_sink(bool unsafe)
+bool Proc::opt_sink(bool unsafeOpt)
 {
     rebuild_livein();
 
@@ -66,7 +66,7 @@ bool Proc::opt_sink(bool unsafe)
             // is this something we're allowed to move?
             // does it have local uses? is it constant (no point sinking)?
             if(!op.canCSE() || op.nUse || !op.nInputs()
-            || (!unsafe && op.hasSideFX()))
+            || (!unsafeOpt && op.hasSideFX()))
             {
                 if(sink_debug)
                     BJIT_LOG("\n %04x not eligible in L%d", op.index, b);

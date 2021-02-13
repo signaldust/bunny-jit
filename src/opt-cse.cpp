@@ -8,7 +8,7 @@ using namespace bjit;
 
 static const bool cse_debug = false;    // print decisions
 
-void Proc::rebuild_memtags(bool unsafe)
+void Proc::rebuild_memtags(bool unsafeOpt)
 {
     for(auto b : live)
     {
@@ -24,7 +24,7 @@ void Proc::rebuild_memtags(bool unsafe)
             if(c == noVal) continue;
             
             if(ops[c].opcode > ops::jmp
-            && ops[c].hasSideFX() && (!unsafe || !ops[c].canCSE()))
+            && ops[c].hasSideFX() && (!unsafeOpt || !ops[c].canCSE()))
             {
                 memtag = c;
             }
@@ -98,10 +98,10 @@ void Proc::rebuild_memtags(bool unsafe)
    3. finally do a rename+cleanup pass to fix the code
 
 */
-bool Proc::opt_cse(bool unsafe)
+bool Proc::opt_cse(bool unsafeOpt)
 {
     rebuild_dom();
-    rebuild_memtags(unsafe);
+    rebuild_memtags(unsafeOpt);
     
     impl::Rename rename;
 
@@ -127,7 +127,7 @@ bool Proc::opt_cse(bool unsafe)
             if(op.opcode == ops::nop) { continue; }
             
             // CSE: do this after simplification
-            if(!op.canCSE() || (!unsafe && op.hasSideFX())) continue;
+            if(!op.canCSE() || (!unsafeOpt && op.hasSideFX())) continue;
 
             // update memtag to that of block if we need one
             if(op.hasMemTag() && op.in[1] == noVal) op.in[1] = blocks[b].memtag;
