@@ -245,6 +245,8 @@
     _(dcalln, 1+BJIT_SIDEFX, BJIT_IMM32), \
     /* this is user-requested allocation with reg = stack pointer */ \
     _(alloc,  1+BJIT_SIDEFX+BJIT_NOMOVE, BJIT_IMM32), \
+    /* this keeps the compiler from moving loads across */ \
+    _(fence, BJIT_SIDEFX, 0), \
     /* pseudo-ops: polymorphic */ \
     _(phi,    1+BJIT_NOMOVE, 0), \
     _(rename, 1, 1), \

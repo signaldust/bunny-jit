@@ -393,6 +393,8 @@ namespace bjit
         BJIT_STORE(si32, _ptr); BJIT_STORE(si64, _ptr);
         BJIT_STORE(sf32, _f32); BJIT_STORE(sf64, _f64);
 
+        void fence() { addOp(ops::fence, Op::_none); }
+
     private:
         ////////////////
         // STATE DATA //
