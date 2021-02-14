@@ -107,6 +107,10 @@ bool Proc::opt_cse(bool unsafeOpt)
 
     BJIT_LOG(" CSE");
 
+    // we'll do a second round of dom-rebuilding
+    // if we break edges when hoisting
+    bool needRebuildDOM = false;
+
     // pairs, packed into uint32_t for cheap sort
     BJIT_ASSERT(sizeof(uint32_t) == 2*sizeof(noVal));
     std::vector<uint32_t>   pairs;
@@ -159,8 +163,26 @@ bool Proc::opt_cse(bool unsafeOpt)
                 // NOTE/FIXME: we currently need this to preserve null-pointer
                 // checks, but really we should check if there's a conditional
                 // branch of something the load address depends on
-                if(op.hasMemTag()
-                && blocks[blocks[mblock].idom].pdom != mblock) break;
+
+                // if we're not the pdom of the idom, our idom branches
+                // if the current block has more than one incoming edge
+                // then hoist to the edge from idom, otherwise break out
+                if(blocks[blocks[mblock].idom].pdom != mblock)
+                {
+                    if(blocks[mblock].comeFrom.size() > 1)
+                    {
+                        auto & jcc =ops[blocks[blocks[mblock].idom].code.back()];
+                        BJIT_ASSERT(jcc.opcode < ops::jmp);
+                        
+                        auto e = breakEdge(blocks[mblock].idom, mblock);
+                        if(jcc.label[0] == mblock) jcc.label[0] = e;
+                        if(jcc.label[1] == mblock) jcc.label[1] = e;
+                        mblock = e;
+
+                        needRebuildDOM = true;
+                    }
+                    break;
+                }
 
                 mblock = blocks[mblock].idom;
             }
@@ -222,6 +244,9 @@ bool Proc::opt_cse(bool unsafeOpt)
             }
         }
     }
+
+    // do we need a DOM rebuild?
+    if(needRebuildDOM) rebuild_dom();
 
     // found no pairs, we're done
     if(!pairs.size()) return false;
