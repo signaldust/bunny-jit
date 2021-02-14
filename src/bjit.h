@@ -474,6 +474,10 @@ namespace bjit
             blocks[b].dom = blocks[from].dom;
             blocks[b].dom.push_back(b);
 
+            // fix memtags (eg. CSE/RA)
+            blocks[b].memtag = blocks[from].memout;
+            blocks[b].memout = blocks[from].memout;
+
             blocks[b].idom = from;
             blocks[b].pdom = to;
             blocks[b].flags.live = true;
