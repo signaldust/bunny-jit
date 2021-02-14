@@ -250,7 +250,5 @@
     /* pseudo-ops: polymorphic */ \
     _(phi,    1+BJIT_NOMOVE, 0), \
     _(rename, 1, 1), \
-    /* FIXME: reload needs SIDEFX so DCE doesn't remove them in shuffles */ \
-    /* but really it might be better to fix this by adding proper phis? */ \
-    _(reload, 1+BJIT_SIDEFX, 1), \
+    _(reload, 1, 1), \
     _(nop,    0, 0) /* removed by DCE */
