@@ -243,6 +243,9 @@ bool Proc::opt_cse(bool unsafeOpt)
     {
         auto & op = ops[cse.index];
 
+        // no PRE on loads
+        if(op.hasMemTag()) return;
+
         bool hasPhi = false;
 
         // fast path check whether there's any point trying :)
