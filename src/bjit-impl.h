@@ -214,6 +214,9 @@ namespace bjit
         {
             uint16_t            phiop;
             uint16_t            tmp;    // used by DCE
+
+            Phi() : phiop(noVal) {}
+            Phi(uint16_t phiop) : phiop(phiop) {}
         };
 
         struct PhiAlt

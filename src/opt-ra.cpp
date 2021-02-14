@@ -20,13 +20,99 @@ void Proc::allocRegs(bool unsafeOpt)
     opt_dce();
     rebuild_dom();
     rebuild_livein();
+
+    BJIT_LOG(" RA:PHI");
+    
+    // reintroduce phis to blocks with multiple incoming edges
+    impl::Rename rename;
+    impl::Rename renameBlock;
+    for(auto b : live)
+    {
+        if(blocks[b].comeFrom.size() == 1 || !blocks[b].livein.size()) continue;
+        
+        // make room for new phi
+        blocks[b].code.insert(blocks[b].code.begin(),
+            blocks[b].livein.size(), noVal);
+
+        for(int i = 0; i < blocks[b].livein.size(); ++i)
+        {
+            auto & op = ops[blocks[b].livein[i]];
+            
+            blocks[b].code[i] = newOp(ops::phi, op.flags.type, b);
+            ops[blocks[b].code[i]].phiIndex = blocks[b].args.size();
+            ops[blocks[b].code[i]].scc = op.scc;
+            blocks[b].args.emplace_back(impl::Phi(blocks[b].code[i]));
+
+            for(auto cf : blocks[b].comeFrom)
+            {
+                blocks[b].newAlt(blocks[b].code[i], cf, op.index);
+            }
+
+            rename.add(op.index, blocks[b].code[i]);
+        }
+        
+        blocks[b].livein.clear();
+    }
+
+    for(auto b : live)
+    {
+        renameBlock.map.clear();
+        // we need to do this manually here
+        // because we want the LAST rename that dominates
+        for(int j = rename.map.size(); j--;)
+        {
+            auto & r = rename.map[j];
+            
+            bool found = false;
+            int idom = b;
+            while(idom)
+            {
+                if(ops[r.dst].block == idom) found = true;
+                idom = blocks[idom].idom;
+            }
+            if(!found) continue;
+
+            renameBlock.map.push_back(r);
+        }
+
+    
+        // rename the block
+        for(int i = 0; i < blocks[b].code.size(); ++i)
+        {
+            auto & op = ops[blocks[b].code[i]];
+
+            renameBlock(op);
+
+            if(op.opcode <= ops::jmp)
+            for(int k = 0; k < 2; ++k)
+            {
+                if(k && op.opcode == ops::jmp) break;
+                
+                for(auto & l : blocks[op.label[k]].livein)
+                for(auto & r : renameBlock.map)
+                {
+                    if(l == r.src) l = r.dst;
+                }
+
+                for(auto & a : blocks[op.label[k]].alts)
+                {
+                    if(a.src != b) continue;
+                    for(auto & r : renameBlock.map)
+                    {
+                        if(a.val == r.src) a.val = r.dst;
+                    }
+                }
+            }
+        }
+    }
+
+    for(auto b : live) blocks[b].livein.clear();
+    rebuild_livein();
     rebuild_memtags(unsafeOpt);
 
     BJIT_LOG(" RA:BB");
 
     std::vector<uint16_t>   codeOut;
-
-    impl::Rename rename;
 
     for(auto b : live)
     {
@@ -88,6 +174,10 @@ void Proc::allocRegs(bool unsafeOpt)
         for(int k = 0; k < 2; ++k)
         {
             if(k && ops[blocks[b].code.back()].opcode == ops::jmp) break;
+            
+            // bad things happen(tm) if we have livein and multiple comeFrom here
+            BJIT_ASSERT(!blocks[ops[blocks[b].code.back()].label[k]].livein.size()
+            || blocks[ops[blocks[b].code.back()].label[k]].comeFrom.size() == 1);
 
             for(auto & i : blocks[ops[blocks[b].code.back()].label[k]].livein)
             {
@@ -229,7 +319,10 @@ void Proc::allocRegs(bool unsafeOpt)
                 for(auto & s : blocks[op.label[k]].alts)
                 for(auto & r : rename.map)
                 {
-                    if(s.src == b && s.val == r.src) s.val = r.dst;
+                    if(s.src == b && s.val == r.src)
+                    {
+                        s.val = r.dst;
+                    }
                 }
             }
 
@@ -286,6 +379,7 @@ void Proc::allocRegs(bool unsafeOpt)
                             
                             ops[sr].in[0] = regstate[r];
                             ops[sr].reg = s;
+                            ops[sr].scc = ops[regstate[r]].scc;
                             regstate[s] = sr;
 
                             ops[sr].nUse = ops[regstate[r]].nUse;
@@ -484,6 +578,7 @@ void Proc::allocRegs(bool unsafeOpt)
                         
                         ops[sr].in[0] = regstate[r];
                         ops[sr].reg = s;
+                        ops[sr].scc = ops[regstate[r]].scc;
                         regstate[s] = sr;
     
                         ops[sr].nUse = ops[regstate[r]].nUse;
@@ -627,21 +722,8 @@ void Proc::allocRegs(bool unsafeOpt)
         }
     }
 
-    // FIXME: is this always safe?
-    opt_dce();
-
-    // cleanup stuff that DCE decided is dead
-    for(auto b : live)
-    {
-        for(int i = 0; i < regs::nregs; ++i)
-        {
-            if(blocks[b].regsOut[i] != noVal
-            && ops[blocks[b].regsOut[i]].opcode == ops::nop)
-            {
-                blocks[b].regsOut[i] = noVal;
-            }
-        }
-    }
+    // do NOT DCE here, we need to keep "useless" phi's for shuffling
+    if(ra_debug) debug();
 
     BJIT_LOG(" RA:JMP");
 
@@ -692,6 +774,15 @@ void Proc::allocRegs(bool unsafeOpt)
                 if(ops[s.phi].reg == regs::nregs) continue;
                 tregs[ops[s.phi].reg] = s.val;
             }
+            
+            // this can be a bit too spammy to put into ra_debug
+            if(0) for(int r = 0; r < regs::nregs; ++r)
+            {
+                if(tregs[r] == noVal && sregs[r] == noVal) continue;
+
+                BJIT_LOG(" before clean: %s src: %04x dst: %04x\n",
+                    regName(r), sregs[r], tregs[r]);
+            }
 
             // throw away source registers that are not needed by target
             for(int s = 0; s < regs::nregs; ++s)
@@ -709,25 +800,13 @@ void Proc::allocRegs(bool unsafeOpt)
                 if(!found) sregs[s] = noVal;
             }
 
-            // if we have any renames or reloads, trace tham back
-            // but only if the SCCs match
-            for(int i = 0; i < regs::nregs; ++i)
+            // this can be a bit too spammy to put into ra_debug
+            if(0) for(int r = 0; r < regs::nregs; ++r)
             {
-                while(tregs[i] != noVal &&
-                ( ops[tregs[i]].opcode == ops::rename
-                || ops[tregs[i]].opcode == ops::reload)
-                && ops[tregs[i]].scc == ops[ops[tregs[i]].in[0]].scc)
-                {
-                    tregs[i] = ops[tregs[i]].in[0];
-                }
-                
-                while(sregs[i] != noVal &&
-                ( ops[sregs[i]].opcode == ops::rename
-                || ops[sregs[i]].opcode == ops::reload)
-                && ops[sregs[i]].scc == ops[ops[sregs[i]].in[0]].scc)
-                {
-                    sregs[i] = ops[sregs[i]].in[0];
-                }
+                if(tregs[r] == noVal && sregs[r] == noVal) continue;
+
+                BJIT_LOG(" after clean: %s src: %04x dst: %04x\n",
+                    regName(r), sregs[r], tregs[r]);
             }
 
             bool done = false;
@@ -736,7 +815,7 @@ void Proc::allocRegs(bool unsafeOpt)
                 if(ra_debug) BJIT_LOG("Shuffle L%d:\n", b);
                 done = true;
 
-                // this is a bit too spammy to put into ra_debug
+                // this can be way too spammy to put into ra_debug
                 if(0) for(int r = 0; r < regs::nregs; ++r)
                 {
                     if(tregs[r] == noVal && sregs[r] == noVal) continue;
@@ -1041,6 +1120,8 @@ void Proc::allocRegs(bool unsafeOpt)
             }
         }
     }
+    
+    if(ra_debug) debug();
 
     opt_dce();
 
