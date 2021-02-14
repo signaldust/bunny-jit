@@ -243,9 +243,6 @@ bool Proc::opt_cse(bool unsafeOpt)
     {
         auto & op = ops[cse.index];
 
-        // no PRE on loads
-        if(op.hasMemTag()) return;
-
         bool hasPhi = false;
 
         // fast path check whether there's any point trying :)
@@ -266,12 +263,16 @@ bool Proc::opt_cse(bool unsafeOpt)
         preList.clear();
         preList.insert(preList.begin(), mb.comeFrom.size(), noVal);
 
-        int matches = false;
+        // only do PRE if we find a match
+        bool matches = false;
 
         // match for each potential source
         for(int c = 0; c < mb.comeFrom.size(); ++c)
         {
             auto cf = mb.comeFrom[c];
+
+            // forbid PRE if we're not the pdom of the source
+            if(blocks[cf].pdom != op.block) return;
             
             OpCSE match(op);
             for(auto & a : mb.alts)
