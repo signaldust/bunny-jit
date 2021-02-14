@@ -155,6 +155,13 @@ bool Proc::opt_cse(bool unsafeOpt)
                 if(op.hasMemTag()
                 && blocks[blocks[mblock].idom].memout != op.in[1]) break;
 
+                // if this is a load, don't hoist from a non-post-dominator
+                // NOTE/FIXME: we currently need this to preserve null-pointer
+                // checks, but really we should check if there's a conditional
+                // branch of something the load address depends on
+                if(op.hasMemTag()
+                && blocks[blocks[mblock].idom].pdom != mblock) break;
+
                 mblock = blocks[mblock].idom;
             }
 
