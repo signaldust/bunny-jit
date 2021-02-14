@@ -169,8 +169,7 @@ bool Proc::opt_jump_be(uint16_t b)
 
             // setup the new phi
             ops[fixBlock.code[iPhi]].phiIndex = fixBlock.args.size();
-            fixBlock.args.resize(fixBlock.args.size() + 1);
-            fixBlock.args.back().phiop = fixBlock.code[iPhi];
+            fixBlock.args.emplace_back(impl::Phi(fixBlock.code[iPhi]));
 
             // add alternatives, they are in our rename map
             // we fix the real sources later
