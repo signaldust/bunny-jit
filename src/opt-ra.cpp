@@ -351,7 +351,9 @@ void Proc::allocRegs(bool unsafeOpt)
                         op.in[i], regName(ops[op.in[i]].reg), regName(r));
 
                     // should we try to save existing?
-                    if(regstate[r] != noVal)
+                    // CSE + no inputs is a constant, which we can always remat
+                    if(regstate[r] != noVal
+                    && (ops[regstate[r]].nInputs() || !ops[regstate[r]].canCSE()))
                     {
                         RegMask smask = ops[regstate[r]].regsMask();
 
@@ -506,6 +508,7 @@ void Proc::allocRegs(bool unsafeOpt)
                         if(ra_debug) BJIT_LOG(" - rematerialized\n");
                         ops[rr].opcode = rop.opcode;
                         ops[rr].i64 = rop.i64;
+                        ops[rr].scc = rop.scc;
                     }
                     else
                     {
@@ -563,6 +566,13 @@ void Proc::allocRegs(bool unsafeOpt)
                 for(int r = 0; r < regs::nregs; ++r)
                 {
                     if(regstate[r] == noVal || R2Mask(r)&~lost) continue;
+
+                    // if this is a constant, then don't save (can always remat)
+                    if(ops[regstate[r]].canCSE() && !ops[regstate[r]].nInputs())
+                    {
+                        regstate[r] = noVal;
+                        continue;
+                    }
     
                     // scan from current op, don't wanna overwrite inputs
                     int s = findBest(
@@ -960,8 +970,6 @@ void Proc::allocRegs(bool unsafeOpt)
             memcpy(blocks[out].regsOut, sregs, sizeof(sregs));
         };
 
-        BJIT_ASSERT(b < blocks.size());
-    
         // make a copy, since we'll be adding new ops
         const auto op = ops[blocks[b].code.back()];
 
@@ -1054,6 +1062,66 @@ void Proc::allocRegs(bool unsafeOpt)
     // add the new blocks after loop
     for(auto n : newBlocks) live.push_back(n);
 
+    // DCE should be safe at this point?
+    opt_dce(false);
+
+    // try to move phi-spills to sources instead
+    // this sometimes allows us to eliminate respills in loops
+    // if the source op is a reload from the same SCC
+    {
+        bool done = false;
+        while(!done)
+        {
+            done = true;
+
+            for(auto b : live)
+            {
+
+                // check which phis have all their sources from the same SCC
+                for(auto & a : blocks[b].alts)
+                {
+                    // if this phi doesn't spill or can't opt, skip
+                    if(!ops[a.phi].flags.spill
+                    || ops[a.phi].flags.no_opt) continue;
+    
+                    // any source SCC that doesn't match prevents optimization
+                    if(ops[a.val].scc != ops[a.phi].scc)
+                    {
+                        ops[a.phi].flags.no_opt = true;
+                    }
+                }
+    
+                // move spills to sources
+                for(auto & a : blocks[b].alts)
+                {
+                    if(!ops[a.phi].flags.spill
+                    || ops[a.phi].flags.no_opt) continue;
+    
+                    // we want to iterate if we spill an earlier phi
+                    if(ops[a.val].opcode == ops::phi
+                    && !ops[a.val].flags.spill)
+                    {
+                        done = false;
+                    }
+    
+                    ops[a.val].flags.spill = true;
+                }
+    
+                // clear spill-flag on phis we optimized
+                // but don't optimize the same phi twice
+                for(auto & a : blocks[b].args)
+                {
+                    if(!ops[a.phiop].flags.no_opt
+                    && ops[a.phiop].flags.spill)
+                    {
+                        ops[a.phiop].flags.spill = false;
+                        ops[a.phiop].flags.no_opt = true;
+                    }
+                }
+            }
+        }
+    }
+
     // find slots
     std::vector<bool>   sccUsed;
     
@@ -1068,7 +1136,7 @@ void Proc::allocRegs(bool unsafeOpt)
             op.flags.spill = false;
 
         // clear spill-flag on reloads where scc matches
-        // this can happen when a PHI has no register
+        // this can happen when we reload for a src-spilled phi
         if(op.opcode == ops::reload && op.scc == ops[op.in[0]].scc)
             op.flags.spill = false;
 

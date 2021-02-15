@@ -90,7 +90,11 @@ namespace bjit
             struct {
                 Type    type    : 4;    // see above, packed into flags
                 bool    spill   : 1;
-                bool    no_opt  : 1;    // don't unroll or hoist further
+                
+                // no_opt on jumps means "don't try to unroll this further"
+                // no_opt on regular ops means "don't hoist this further"
+                // no_opt on phis in RA means "don't try to spill sources"
+                bool    no_opt  : 1;
             } flags = {};
     
     
