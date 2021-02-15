@@ -5,13 +5,10 @@ designed to be (somewhat) portable. The [`Makefile`](#how-to-build) expects
 either Unix environment (and `libtool`) or Windows with `clang` (and `llvm-lib`)
 in path, but there is no real build magic (just compile everything in `src/` really).
 
-This is work in somewhat early progress. It should mostly work, but some things like
-[function calls](#calling-functions) are not very robust yet.
-*I feel like it's getting to the point, where it's probably worthwhile to experiment
-with, but please expect to find (and preferably report) some bugs* as the
-test-coverage is still somewhat limited. The code tries to cross-check it's own
-invariants, but this is sadly not bullet-proof and some bugs (eg. issues with
-native binary encoding) won't be found this way.
+*The project status right now is that I'm reasonably happy with the current set of
+optimizations (for the time being, at least) and the focus right now is mostly on
+simplifying existing functionality and extending test-coverage to expose more issues.
+Feel free to experiment, but please expect to still find some serious bugs.*
 
 **Please don't use it for production yet.**
 
