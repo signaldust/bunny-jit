@@ -376,7 +376,14 @@ void Proc::allocRegs(bool unsafeOpt)
 
                         // findBest should return current if no better
                         // but play safe and explicitly disallow lost regs
-                        smask &=~ op.regsLost();
+                        //
+                        // also disallow regs that we are going to lose "soon"
+                        // (eg. because we're preparing for a function call)
+                        //
+                        // FIXME: ideally findBest() should handle this by
+                        // not considering registers that are lost before the
+                        // first use for the value we're trying to save
+                        smask &=~ (op.regsLost() | op.regsLostSoon());
                             
                         // if we're moving 2nd operand to make room for
                         // the first then also take that mask into account
@@ -586,7 +593,8 @@ void Proc::allocRegs(bool unsafeOpt)
                         regstate[r] = noVal;
                         continue;
                     }
-    
+
+                    
                     // scan from current op, don't wanna overwrite inputs
                     int s = findBest(
                         notlost & ops[regstate[r]].regsMask(), regs::nregs, c);

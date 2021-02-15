@@ -18,6 +18,19 @@ RegMask Op::regsMask()
     BJIT_ASSERT(false); return 0;
 }
 
+RegMask Op::regsLostSoon()
+{
+    switch(opcode)
+    {
+        case ops::ipass:
+        case ops::fpass:
+        case ops::dpass:
+            return regs::caller_saved;
+        default:
+            return 0;
+    }
+}
+
 RegMask Op::regsOut()
 {
     // only deal with anything that isn't regs::mask_int explicit
