@@ -95,10 +95,7 @@ namespace bjit
         // set nregs as the first non-register value
         enum { BJIT_REGS(BJIT_REGS_ENUM), nregs = none };
 
-        // dummy type for ops without outputs
-        static const RegMask type_none = 0;
-
-        // Integer register mask
+        // Integer register mask (without specials)
         static const RegMask mask_int
             =R2Mask(rax)
             |R2Mask(rdx)
