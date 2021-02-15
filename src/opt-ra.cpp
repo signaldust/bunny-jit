@@ -332,6 +332,7 @@ void Proc::allocRegs(bool unsafeOpt)
         };
         
         RegMask keepIn = 0;
+        RegMask usedRegsBlock = 0;
         
         for(int c = 0; c < blocks[b].code.size(); ++c)
         {
@@ -368,6 +369,24 @@ void Proc::allocRegs(bool unsafeOpt)
                 // avoid putting second operand in the same register as first
                 if(i && (op.in[0] != op.in[1]))
                     mask &=~R2Mask(ops[op.in[0]].reg);
+
+                // if this is a local phi, then try to patch?
+                if(ops[op.in[i]].opcode == ops::phi
+                && ops[op.in[i]].block == b
+                && ops[op.in[i]].reg == regs::nregs)
+                {
+                    for(int r = 0; r < regs::nregs; ++r)
+                    {
+                        if((R2Mask(r) & (mask &~usedRegsBlock))
+                        && regstate[r] == noVal)
+                        {
+                            regstate[r] = op.in[i];
+                            ops[op.in[i]].reg = r;
+                            usedRegsBlock |= R2Mask(r);
+                            break;
+                        }
+                    }
+                }
 
                 int wr = ops[op.in[i]].reg;
                 if(regstate[wr] != op.in[i]) wr = regs::nregs;
@@ -413,6 +432,7 @@ void Proc::allocRegs(bool unsafeOpt)
                             ops[sr].reg = s;
                             ops[sr].scc = ops[regstate[r]].scc;
                             regstate[s] = sr;
+                            usedRegsBlock |= R2Mask(sr);
 
                             ops[sr].nUse = ops[regstate[r]].nUse;
                             
@@ -465,6 +485,7 @@ void Proc::allocRegs(bool unsafeOpt)
                         ops[rr].in[0] = op.in[i];
                         ops[rr].reg = r;
                         regstate[r] = rr;
+                        usedRegsBlock |= R2Mask(r);
 
                         // we're satisfying constraints, so don't throw the
                         // original away (often the renamed one will be lost)
@@ -479,7 +500,6 @@ void Proc::allocRegs(bool unsafeOpt)
                         std::swap(codeOut.back(), rr);
                         codeOut.push_back(rr);
                     }
-
                 }
 
                 if(regstate[r] != op.in[i])
@@ -506,13 +526,6 @@ void Proc::allocRegs(bool unsafeOpt)
                     // can we rematerialize?
                     bool canRemat = false;
                     
-                    // FIXME: don't need this as constants are CSE + no inputs
-                    if(false)
-                    if(rop.opcode == ops::lci || rop.opcode == ops::lcd)
-                    {
-                        canRemat = true;
-                    }
-
                     // we can remat ops where CSE is valid and inputs are intact
                     // but don't bother if the op is marked for sideFX even if
                     // "unsafeOpt" because it's probably a division that's expensive
@@ -551,6 +564,7 @@ void Proc::allocRegs(bool unsafeOpt)
 
                     ops[rr].reg = r;
                     regstate[r] = rr;
+                    usedRegsBlock |= R2Mask(r);
                     ops[rr].nUse = rop.nUse;
 
                     rename.add(op.in[i], rr);
@@ -595,6 +609,7 @@ void Proc::allocRegs(bool unsafeOpt)
                 
                 for(int r = 0; r < regs::nregs; ++r)
                 {
+                    usedRegsBlock |= R2Mask(r);
                     if(regstate[r] == noVal || R2Mask(r)&~lost) continue;
 
                     // if this is a constant, then don't save (can always remat)
@@ -715,7 +730,6 @@ void Proc::allocRegs(bool unsafeOpt)
                         = regstate[op.reg] = blocks[b].code[c];
                     keepIn |= R2Mask(op.reg);
                 }
-                else op.flags.spill = true; // we need the value somewhere
                 
                 // never forcibly allocate a register to phi
                 continue;
@@ -729,9 +743,19 @@ void Proc::allocRegs(bool unsafeOpt)
                 mask &=~R2Mask(ops[op.in[1]].reg);
             
             op.reg = findBest(mask, prefer, c+1);
+            
             BJIT_ASSERT(op.reg < regs::nregs);
             regstate[op.reg] = op.index; // blocks[b].code[c];
-            
+            usedRegsBlock |= R2Mask(op.reg);
+        }
+
+        // force spills on phi's without registers
+        for(auto & a : blocks[b].args)
+        {
+            if(ops[a.phiop].reg == regs::nregs)
+            {
+                ops[a.phiop].flags.spill = true;
+            }
         }
 
         std::swap(blocks[b].code, codeOut);
@@ -972,19 +996,51 @@ void Proc::allocRegs(bool unsafeOpt)
                     // at this point simple restore should work?
                     //BJIT_ASSERT(sregs[t] == noVal);
                     
-                    if(ra_debug) BJIT_LOG("reload -> %s:%04x (%04x)\n",
+                    if(ra_debug) BJIT_LOG("reload -> %s:%04x (%04x)",
                             regName(t), tregs[t], sregs[t]);
+                            
+                    auto & rop = ops[tregs[t]];
+                    uint16_t rr = newOp(ops::reload, rop.flags.type, out);
 
-                    uint16_t rr = newOp(ops::reload, ops[tregs[t]].flags.type, out);
+                    // can we rematerialize?
+                    bool canRemat = false;
+
+                    // same logic as main reg alloc, except we use memout
+                    // as there's no sideFX in shuffle blocks
+                    if(rop.canCSE() && !rop.hasSideFX()
+                    && (R2Mask(t) & rop.regsOut())
+                    && (!rop.hasMemTag() || rop.in[1] == blocks[b].memout))
+                    {
+                        canRemat = true;
+                        // check input validity
+                        for(int j = 0; j < rop.nInputs(); ++j)
+                        {
+                            // FIXME: is sregs correct here?
+                            if(sregs[ops[rop.in[j]].reg] == rop.in[j]) continue;
+                            canRemat = false;
+                            break;
+                        }
+                    }
+
+                    if(canRemat)
+                    {
+                        if(ra_debug) BJIT_LOG(" - rematerialized\n");
+                        ops[rr].opcode = rop.opcode;
+                        ops[rr].i64 = rop.i64;
+                        ops[rr].reg = t;
+                    }
+                    else
+                    {
+                        if(ra_debug) BJIT_LOG(" - reloaded\n");
+                        ops[rr].reg = t;
+                        ops[rr].in[0] = tregs[t];
+                        ops[tregs[t]].flags.spill = true;
+                    }
                     
+                    ops[rr].scc = rop.scc;
+                    sregs[t] = tregs[t];
                     rename.add(tregs[t], rr);
                     
-                    ops[rr].reg = t;
-                    ops[rr].in[0] = tregs[t];
-                    ops[rr].scc = ops[tregs[t]].scc;
-                    sregs[t] = tregs[t];
-                    ops[tregs[t]].flags.spill = true;
-
                     std::swap(rr, blocks[out].code.back());
                     blocks[out].code.push_back(rr);
                 }
