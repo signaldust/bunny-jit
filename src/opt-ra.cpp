@@ -1062,9 +1062,6 @@ void Proc::allocRegs(bool unsafeOpt)
     // add the new blocks after loop
     for(auto n : newBlocks) live.push_back(n);
 
-    // DCE should be safe at this point?
-    opt_dce(false);
-
     // try to move phi-spills to sources instead
     // this sometimes allows us to eliminate respills in loops
     // if the source op is a reload from the same SCC
