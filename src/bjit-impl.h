@@ -105,7 +105,6 @@ namespace bjit
             RegMask     regsIn(int i);  // in arch-XX-ops.cpp
             RegMask     regsOut();      // in arch-XX-ops.cpp
             RegMask     regsLost();     // in arch-XX-ops.cpp
-            RegMask     regsLostSoon(); // in arch-XX-ops.cpp, hint to RA
     
             // rest are in ir-ops.cpp
             const char* strOpcode() const;
