@@ -93,7 +93,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             }
             else
             {
-                _PUSH(savedRegs.back()); ++nPush;
+                _PUSH(savedRegs.back());
+                nPush += 1;
             }
         }
     }
@@ -101,13 +102,12 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     // this tracks additional stack offset
     // when we need to adjust stack during calls
     BJIT_ASSERT(ops[0].opcode == ops::alloc);
-    unsigned    frameOffset = ((ops[0].imm32+0xf)&~0xf);;
+    unsigned    frameOffset = ((ops[0].imm32+0xf)&~0xf);
 
     // need 8 mod 16 - add slots, emit "prelude" if necessary
-    nPush += nSlots;
-    if(!(nPush & 1)) nPush += 1;
+    if(!((nPush+nSlots) & 1)) frameOffset += 8;
     // add user-requested frame on top
-    int frameBytes = 8*nPush + frameOffset;
+    int frameBytes = 8*nSlots + frameOffset;
     if(frameBytes) { _SUBri(regs::rsp, frameBytes); }
 
     // block todo-stack
