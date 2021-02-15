@@ -118,13 +118,13 @@ RegMask Op::regsIn(int i)
         case ops::lu8: case ops::lu16: case ops::lu32:
         case ops::lf32: case ops::lf64:
         case ops::si8: case ops::si16: case ops::si32: case ops::si64:
-            return regs::mask_int; // FIXME: | (i ? 0 : R2Mask(regs::rsp));
+            return regs::mask_int | (i ? 0 : R2Mask(regs::rsp));
         case ops::sf32: case ops::sf64:
-            return i ? regs::mask_float : (regs::mask_int);// | R2Mask(regs::rsp));
+            return i ? regs::mask_float : ((regs::mask_int) | R2Mask(regs::rsp));
 
         // allow iadd and iaddI to take RSP too, saves moves if we use LEA
         case ops::iadd: case ops::iaddI:
-            return regs::mask_int; // | R2Mask(regs::rsp);
+            return regs::mask_int | R2Mask(regs::rsp);
         
         // integer division takes RDX:RAX as 128-bit first operand
         // we only do 64-bit, but force RAX on 1st and forbid RDX on 2nd

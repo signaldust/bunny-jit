@@ -389,7 +389,14 @@ void Proc::allocRegs(bool unsafeOpt)
                 }
 
                 int wr = ops[op.in[i]].reg;
-                if(regstate[wr] != op.in[i]) wr = regs::nregs;
+                if(regstate[wr] != op.in[i])
+                {
+                    // if value is not in it's original register
+                    // then we need to mask for the allowable regs
+                    // because the op itself might allow special too
+                    wr = regs::nregs;
+                    mask &= ops[op.in[i]].regsMask();
+                }
                 else if(blocks[b].regsIn[wr] == op.in[i]) keepIn |= R2Mask(wr);
                 
                 int r = findBest(mask, wr, c);
