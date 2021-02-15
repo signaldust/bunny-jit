@@ -239,7 +239,6 @@ namespace bjit
             }
     
             std::vector<uint16_t>   livein;
-            std::vector<uint16_t>   liveout;
             std::vector<uint16_t>   comeFrom;   // which blocks we come from?
     
             // register state on input
@@ -256,7 +255,7 @@ namespace bjit
 
             uint16_t    memtag; // memory version into the block
             uint16_t    memout; // memory version out of the block
-    
+
             struct {
                 bool live       : 1;    // used/reset by DCE, RA
                 bool regsDone   : 1;    // reg-alloc uses this
