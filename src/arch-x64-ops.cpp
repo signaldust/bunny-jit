@@ -32,10 +32,10 @@ RegMask Op::regsOut()
         case ops::idiv: case ops::udiv: return R2Mask(regs::rax);
         case ops::imod: case ops::umod: return R2Mask(regs::rdx);
 
-        case ops::icallp: return R2Mask(regs::rax);
+        case ops::icallp: case ops::icalln: return R2Mask(regs::rax);
         
-        case ops::fcallp: 
-        case ops::dcallp: return R2Mask(regs::xmm0);
+        case ops::fcallp: case ops::fcalln:
+        case ops::dcallp: case ops::dcalln: return R2Mask(regs::xmm0);
 
         // we have in[0] = index in type, in[1] = index total
         // which one we want to use varies by platform
@@ -252,8 +252,8 @@ RegMask Op::regsLost()
                 return used;
             }
 
-        case ops::icalln: case ops::fcalln:  case ops::dcalln:
-        case ops::icallp: case ops::fcallp:  case ops::dcallp:
+        case ops::icalln: case ops::fcalln: case ops::dcalln:
+        case ops::icallp: case ops::fcallp: case ops::dcallp:
             return regs::caller_saved;
 
         default: return 0;

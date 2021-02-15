@@ -206,8 +206,10 @@ void Proc::allocRegs(bool unsafeOpt)
             if(!found) regstate[r] = noVal;
         }
 
-        // FIXME: this should do a parallel search
-        auto findBest = [&](RegMask mask, int reg, int c) -> int
+        // find best satisfying mask, prefer reg, scan from c
+        // if val!=noVal then we mask lost regs until first use
+        // and try to satisfy input constraints
+        auto findBest = [&](RegMask mask, int reg, int c, uint16_t val=noVal) -> int
         {
             if(!mask) return regs::nregs;
 
@@ -221,14 +223,24 @@ void Proc::allocRegs(bool unsafeOpt)
 
             if(reg < regs::nregs) return reg;
 
+            // normally we pick the first free register we'll find
+            // but if we are trying to save a value, then there is no
+            // point in saving somewhere we're going to lose soon or
+            // that we'll have to move again to satisfy next use
+            //
+            // so in this case, go to the extra effort to try to pick
+            // a register that is actually going to be useful
+            RegMask freeMask = 0;
             for(int r = 0; r < regs::nregs; ++r)
             {
                 if((R2Mask(r) & mask) && regstate[r] == noVal)
                 {
                     if(ra_debug) BJIT_LOG("found free: %s\n", regName(r));
-                    return r;
+                    if(val == noVal) return r;
+                    freeMask |= R2Mask(r);
                 }
             }
+            if(freeMask) { mask = freeMask; }
             
             // is there only a single register left?
             if(!(mask & (mask - 1)))
@@ -239,18 +251,27 @@ void Proc::allocRegs(bool unsafeOpt)
                 if(ra_debug) BJIT_LOG("one reg: %s\n", regName(r));
                 return r;
             }
-            
+
             for(int i = c; i < blocks[b].code.size(); ++i)
             {
                 auto & op = ops[blocks[b].code[i]];
+                bool foundUse = false;
                 for(int j = 0; j < op.nInputs(); ++j)
                 {
-                    if(op.in[j] != regstate[ops[op.in[j]].reg]) continue;
-
-                    if(ra_debug)
-                    BJIT_LOG("op uses reg: %s\n", regName(ops[op.in[j]].reg));
-
-                    mask &=~ R2Mask(ops[op.in[j]].reg);
+                    // if op wants the value we're trying to save, mask input
+                    // constraints if this doesn't completely clear mask
+                    if(op.in[j] == val)
+                    {
+                        if(mask & op.regsIn(j)) mask &= op.regsIn(j);
+                        foundUse = false;
+                    }
+                    else if(op.in[j] == regstate[ops[op.in[j]].reg])
+                    {
+                        if(ra_debug)
+                        BJIT_LOG("op uses reg: %s\n", regName(ops[op.in[j]].reg));
+    
+                        mask &=~ R2Mask(ops[op.in[j]].reg);
+                    } else continue;
                     
                     // is there only a single register left?
                     if(!(mask & (mask - 1)))
@@ -265,7 +286,18 @@ void Proc::allocRegs(bool unsafeOpt)
 
                 // prefer registers we're not going to lose soon
                 if(mask &~ op.regsLost()) mask &=~ op.regsLost();
+                else if(val != noVal)
+                {
+                    if(ra_debug) BJIT_LOG("losing all before %04x used\n", val);
+                    if(ra_debug) BJIT_LOG("%08x and lost %08x\n",
+                        (uint32_t)mask, (uint32_t)op.regsLost());
+                    return regs::nregs;
+                }
                 else break; // doesn't matter what we pick
+
+                // if we're just looking for best free, break when we find
+                // the next use as anything valid at that point is fine
+                if(foundUse) break;
             }
 
             // FIXME: check live-out set?
@@ -277,6 +309,8 @@ void Proc::allocRegs(bool unsafeOpt)
             {
                 if(R2Mask(r) & mask)
                 {
+                    if(regstate[r] == noVal) return r;
+                    
                     anyValid = r;
                     if(!ops[regstate[r]].nInputs())
                     {
@@ -376,6 +410,13 @@ void Proc::allocRegs(bool unsafeOpt)
 
                         // findBest should return current if no better
                         // but play safe and explicitly disallow lost regs
+                        //
+                        // also disallow regs that we are going to lose "soon"
+                        // (eg. because we're preparing for a function call)
+                        //
+                        // FIXME: ideally findBest() should handle this by
+                        // not considering registers that are lost before the
+                        // first use for the value we're trying to save
                         smask &=~ op.regsLost();
                             
                         // if we're moving 2nd operand to make room for
@@ -388,8 +429,8 @@ void Proc::allocRegs(bool unsafeOpt)
                         }
                         // if the best choice after this op is r
                         // then we're going to lose this no matter what
-                        int s = findBest(smask, regs::nregs, c+1);
-                        if(s != r && s != wr)
+                        int s = findBest(smask, regs::nregs, c+1, regstate[r]);
+                        if(s != regs::nregs && s != r && s != wr)
                         {
                             if(ra_debug) BJIT_LOG("; saving %04x (%s -> %s) \n",
                                     regstate[r], regName(r), regName(s));
@@ -586,12 +627,12 @@ void Proc::allocRegs(bool unsafeOpt)
                         regstate[r] = noVal;
                         continue;
                     }
-    
+
                     // scan from current op, don't wanna overwrite inputs
-                    int s = findBest(
-                        notlost & ops[regstate[r]].regsMask(), regs::nregs, c);
+                    int s = findBest(notlost & ops[regstate[r]].regsMask(),
+                        regs::nregs, c, regstate[r]);
     
-                    if(s < regs::nregs && regstate[s] == noVal)
+                    if(s < regs::nregs)
                     {
                         if(ra_debug) BJIT_LOG("; saving lost %04x (%s -> %s) \n",
                                 regstate[r], regName(r), regName(s));
