@@ -16,8 +16,38 @@ void Proc::allocRegs(bool unsafeOpt)
     opt_dce();
     findSCC();
 
-    // we also need a legit DCE here (shuffle-block phi-fixups broken?)
-    opt_dce();
+    // save a DCE pass by rebuilding live manually
+    // this is needed to get SCC shuffle blocks in correct order
+    for(auto & b : live) blocks[b].flags.live = false;
+    todo.clear();
+    live.clear();
+    
+    todo.push_back(0);
+    live.push_back(0);
+    blocks[0].flags.live = true;
+    while(todo.size())
+    {
+        auto b = todo.back();
+        todo.pop_back();
+
+        auto & jmp = ops[blocks[b].code.back()];
+        
+        if(jmp.opcode <= ops::jmp)
+        for(int k = 0; k < 2; ++k)
+        {
+            if(k && jmp.opcode == ops::jmp) break;
+
+            if(!blocks[jmp.label[k]].flags.live)
+            {
+                todo.push_back(jmp.label[k]);
+                live.push_back(jmp.label[k]);
+                blocks[jmp.label[k]].flags.live = true;
+            }
+        }            
+    }
+
+    // rebuild the other stuff
+    rebuild_cfg();
     rebuild_dom();
     rebuild_livein();
 
