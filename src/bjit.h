@@ -433,20 +433,35 @@ namespace bjit
 
         void opt(bool unsafeOpt = false)
         {
-            // do DCE first, then fold
-            // repeat until neither does progress
-            // check sanity limit for better test-automation
+            // check sanity limit (eg. don't let tests hang)
             int iterOpt = 0;
-            do
+
+            // do we want to repeat?
+            bool repeat = true;
+            opt_dce(unsafeOpt);
+            
+            while(repeat)
             {
                 BJIT_ASSERT(++iterOpt < 0x100);
-                opt_dce(unsafeOpt);
+
+                repeat = false;
                 
-            } while(opt_fold(unsafeOpt) // opt_fold first, needs nUse
-                || opt_cse(unsafeOpt)   // opt_cse doesn't need nUse
-                || opt_jump()           // opt_jump first -> preheaders
-                || opt_sink(unsafeOpt)  // opt_sink needs livescan
-                );
+                // do fold
+                if(opt_fold(unsafeOpt)) repeat = true;
+
+                // then do CSE
+                if(opt_cse(unsafeOpt)) repeat = true;
+
+                // if we only made progress, then cleanup
+                if(repeat) opt_dce();
+
+                // always check jumps, this is relatively cheap
+                if(opt_jump()) { repeat = true; opt_dce(); }
+            }
+
+            // this should not currently enable further optimization
+            // so iterating the rest afterwards is wasted CPU
+            opt_sink(unsafeOpt);
         }
 
         // used to break critical edges, returns the new block
