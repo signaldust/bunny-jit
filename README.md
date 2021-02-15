@@ -745,8 +745,8 @@ one already) and then collect results into a new `phi` which gives us PRE for th
 simple cases, although we don't currently attempt to recursively search through
 multiple `phi`s (maybe some day; this can get a bit expensive though).
 
-Invariants: CSE rebuilds/uses dominators, moves/renames operations, can insert
-additional `phi` but doesn't currently change CFG.
+Invariants: CSE moves/renames operations, can insert additional `phi` and break
+critical edges, but rebuilds dominators if it changes the CFG.
 
 Because `opt_cse` needs dominator information (for both hosting and actual CSE)
 to avoid moving operations in the wrong places, it calls `rebuild_dom` which
