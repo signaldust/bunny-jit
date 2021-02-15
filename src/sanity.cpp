@@ -16,6 +16,8 @@ void Proc::sanity()
 
     rebuild_livein();
     opt_dce();  // do another round to get use counts?
+    rebuild_dom();
+    
     debug();
     
     for(auto & b : live)
