@@ -30,10 +30,10 @@ fully [W^X](https://en.wikipedia.org/wiki/W%5EX) compliant), but we support gene
 `mmap`/`mprotect` (eg. Linux, macOS, etc) and Windows (now fixed and tested as well).</i>
 
 <sup>2</sup><i>
-We sort of don't do these things specifically, because we really just perform DCE,
-CSE (and PRE with some limitations), generic hoisting/sinking and constant
-folding, but because of how we do all these globally relying on SSA invariants, this
-is more or less what we end up with currently. See [below](#optimizations).</i>
+This is a bit hand-wavy, because traditional optimizations are formulated in terms
+of variables, yet we optimize purely on SSA values, but this is roughly what we get.
+There are some limitations with PRE/SCCP in the name of simplicity, but we should
+get most of the high-value situations; see [below](#optimizations) for details.</i>
 
 I suggest looking at the tests (eg. `tests/test_fib.cpp`) for examples of how to
 use the programming API, which is the primary focus of this library.
