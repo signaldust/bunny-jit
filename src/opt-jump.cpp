@@ -291,6 +291,8 @@ bool Proc::opt_jump()
 
     if(jump_debug) debug();
     
+    BJIT_LOG(" JUMP");
+    
     bool progress = false;
     for(int li = 0, liveSz = live.size(); li < liveSz; ++li)
     {
@@ -329,7 +331,7 @@ bool Proc::opt_jump()
                 }
             }
 
-            BJIT_LOG(" JUMP");
+            BJIT_LOG(" MERGE");
             progress = true;
             continue;
         }
