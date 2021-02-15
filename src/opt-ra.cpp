@@ -1302,6 +1302,11 @@ void Proc::findSCC()
     {
         auto & b = blocks[bi];
 
+        for(auto l : b.livein) ops[l].nUse = 0;
+        for(auto c : b.code) if(ops[c].hasOutput()) { ops[c].nUse = 0; }
+
+        findUsesBlock(bi, false, false);
+
         // assume all classes are free
         for(int i = 0; i < sccUsed.size(); ++i) sccUsed[i] = false;
 
