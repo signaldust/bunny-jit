@@ -382,13 +382,13 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
             case ops::ine:
             case ops::ieq:
-                // xor destination
-                _XORrr(i.reg, i.reg);
                 // compare
                 _CMPrr(ops[i.in[0]].reg, ops[i.in[1]].reg);
-                // then emit SETcc
+                // emit SETcc
                 a64._RR(3, 3, REG(i.reg), 0x0F,
                     0x90 | _CC(i.opcode + ops::jilt - ops::ilt));
+                // zero-extend
+                _MOVZX_8(i.reg, i.reg);
                 break;
 
             case ops::iltI:
@@ -403,13 +403,13 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
             case ops::ineI:
             case ops::ieqI:
-                // xor destination
-                _XORrr(i.reg, i.reg);
                 // compare
                 _CMPri(ops[i.in[0]].reg, (int32_t) i.imm32);
                 // then emit SETcc
                 a64._RR(3, 3, REG(i.reg), 0x0F,
                     0x90 | _CC(i.opcode + ops::jilt - ops::iltI));
+                // zero-extend
+                _MOVZX_8(i.reg, i.reg);
                 break;
 
             case ops::dlt:
@@ -420,6 +420,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::dne:
             case ops::deq:
                 // xor destination
+                // NOTE: safe, 'cos can't alias on xmm inputs
                 _XORrr(i.reg, i.reg);
                 
                 // UCOMISD (scalar double compare)
@@ -436,7 +437,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
             case ops::fne:
             case ops::feq:
-                // xor destination
+                // NOTE: safe, 'cos can't alias on xmm inputs
                 _XORrr(i.reg, i.reg);
                 
                 // UCOMISD (scalar double compare)

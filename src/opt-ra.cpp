@@ -53,12 +53,12 @@ void Proc::allocRegs(bool unsafeOpt)
 
     BJIT_LOG(" RA:PHI");
     
-    // reintroduce phis to blocks with multiple incoming edges
+    // reintroduce phis to all blocks with live-in variables
     impl::Rename rename;
     impl::Rename renameBlock;
     for(auto b : live)
     {
-        if(blocks[b].comeFrom.size() == 1 || !blocks[b].livein.size()) continue;
+        if(!blocks[b].livein.size()) continue;
         
         // make room for new phi
         blocks[b].code.insert(blocks[b].code.begin(),
@@ -87,6 +87,7 @@ void Proc::allocRegs(bool unsafeOpt)
     for(auto b : live)
     {
         renameBlock.map.clear();
+        
         // we need to do this manually here
         // because we want the LAST rename that dominates
         for(int j = rename.map.size(); j--;)
@@ -105,7 +106,6 @@ void Proc::allocRegs(bool unsafeOpt)
             renameBlock.map.push_back(r);
         }
 
-    
         // rename the block
         for(int i = 0; i < blocks[b].code.size(); ++i)
         {
@@ -117,12 +117,8 @@ void Proc::allocRegs(bool unsafeOpt)
             for(int k = 0; k < 2; ++k)
             {
                 if(k && op.opcode == ops::jmp) break;
-                
-                for(auto & l : blocks[op.label[k]].livein)
-                for(auto & r : renameBlock.map)
-                {
-                    if(l == r.src) l = r.dst;
-                }
+
+                BJIT_ASSERT(!blocks[op.label[k]].livein.size());
 
                 for(auto & a : blocks[op.label[k]].alts)
                 {
@@ -136,8 +132,6 @@ void Proc::allocRegs(bool unsafeOpt)
         }
     }
 
-    for(auto b : live) blocks[b].livein.clear();
-    rebuild_livein();
     rebuild_memtags(unsafeOpt);
 
     BJIT_LOG(" RA:BB");
@@ -146,8 +140,9 @@ void Proc::allocRegs(bool unsafeOpt)
 
     for(auto b : live)
     {
-        // clear live-in use-counts
-        for(auto & in : blocks[b].livein) ops[in].nUse = 0;
+        // we should no longer have any live-in variables
+        // as we reintroduced degenerate phis for everything
+        BJIT_ASSERT(!blocks[b].livein.size());
 
         // clear phi-in use-counts
         for(auto & s : blocks[b].alts)
@@ -188,33 +183,6 @@ void Proc::allocRegs(bool unsafeOpt)
             }
         }
 
-        // rename live-in - move uses
-        for(auto & i : blocks[b].livein)
-        for(auto & r : rename.map)
-        {
-            if(i == r.src)
-            {
-                i = r.dst;
-                ops[r.dst].nUse += ops[r.src].nUse;
-            }
-        }
-
-        // rename live-in for target blocks
-        if(ops[blocks[b].code.back()].opcode <= ops::jmp)
-        for(int k = 0; k < 2; ++k)
-        {
-            if(k && ops[blocks[b].code.back()].opcode == ops::jmp) break;
-            
-            // bad things happen(tm) if we have livein and multiple comeFrom here
-            BJIT_ASSERT(!blocks[ops[blocks[b].code.back()].label[k]].livein.size()
-            || blocks[ops[blocks[b].code.back()].label[k]].comeFrom.size() == 1);
-
-            for(auto & i : blocks[ops[blocks[b].code.back()].label[k]].livein)
-            {
-                for(auto & r : rename.map) { if(r.src == i) i = r.dst; }
-            }
-        }
-
         if(ra_debug) BJIT_LOG("L%d:\n", b);
 
         // initialize memtag for rematerialization of loads
@@ -224,17 +192,10 @@ void Proc::allocRegs(bool unsafeOpt)
         memcpy(regstate, blocks[b].regsIn, sizeof(regstate));
         blocks[b].flags.regsDone = true;
 
-        // cleanup stuff that is neither live-in or phi-argh
+        // cleanup stuff that is not a phi-arg
         for(int r = 0; r < regs::nregs; ++r)
         {
             bool found = false;
-            for(auto & i : blocks[b].livein)
-            {
-                if(i != regstate[r]) continue;
-                found = true;
-                break;
-            }
-
             if(!found) for(auto & s : blocks[b].alts)
             {
                 if(s.src != b && s.val != regstate[r]) continue;
@@ -824,8 +785,7 @@ void Proc::allocRegs(bool unsafeOpt)
                 && ops[s.phi].reg == regs::nregs)
                 {
                     // if both are spilled same SCC then it's fine
-                    if(ops[s.val].flags.spill
-                    && ops[s.val].scc == ops[s.phi].scc) continue;
+                    if(ops[s.val].scc == ops[s.phi].scc) continue;
                      
                     // don't spill phi-to-phi, this'll cause
                     // problems with scc
@@ -1407,7 +1367,6 @@ void Proc::findSCC()
 
                 if(scc_debug) debugOp(c);
             }
-
         }
     }
 
@@ -1449,7 +1408,9 @@ void Proc::findSCC()
                         s.val, ops[s.val].scc, s.phi, ops[s.phi].scc);
     
                     uint16_t rr = newOp(ops::rename, ops[s.val].flags.type, b);
-                    ops[rr].scc = nSCC++;   // play safe: alloc a fresh one
+                    // play safe: alloc a fresh one, if we're going to spill
+                    // we're most of the time going to have to spill either way
+                    ops[rr].scc = nSCC++;
                     ops[rr].in[0] = s.val; s.val = rr;
 
                     std::swap(rr, blocks[b].code.back());
