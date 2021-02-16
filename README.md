@@ -32,7 +32,8 @@ of variables, yet we optimize purely on SSA values, but this is roughly what we 
 There are some limitations with PRE/SCCP in the name of simplicity, but we should
 get most of the high-value situations; see [below](#optimizations) for details.</i>
 
-I suggest looking at the tests (eg. `tests/test_fib.cpp`) for examples of how to
+I suggest looking at the tests (eg. [`tests/test_fib.cpp`](tests/test_fib.cpp) or
+[`tests/test_sieve.cpp`](tests/test_sieve.cpp)) for examples of how to
 use the programming API, which is the primary focus of this library.
 Bunny-JIT comes with some sort of simple front-end language, but this is intended
 more for testing (and I guess example) than as a serious programming language.
@@ -403,7 +404,7 @@ newly compiled code, but they remain pending and will be applied on module reloa
 
 ## What it does?
 
-The `tests/test_sieve.cpp`[tests/test_sieve.cpp] contains a C++ variation of
+The [`tests/test_sieve.cpp`](tests/test_sieve.cpp) contains a C++ variation of
 the classic sieve algorithm (here we the "flags" array and size as parameters):
 ```
 int sieve(char * flags, int size)
