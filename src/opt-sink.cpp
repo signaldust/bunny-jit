@@ -63,10 +63,8 @@ bool Proc::opt_sink(bool unsafeOpt)
         {
             auto op = ops[blocks[b].code[c]];
 
-            // is this something we're allowed to move?
-            // does it have local uses? is it constant (no point sinking)?
-            if(!op.canCSE() || op.nUse || !op.nInputs()
-            || (!unsafeOpt && op.hasSideFX()))
+            // if this has no local uses, is it something we can sink?
+            if(op.nUse || !op.canCSE() || (!unsafeOpt && op.hasSideFX()))
             {
                 if(sink_debug)
                     BJIT_LOG("\n %04x not eligible in L%d", op.index, b);

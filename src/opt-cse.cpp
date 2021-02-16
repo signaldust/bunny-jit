@@ -162,7 +162,10 @@ bool Proc::opt_cse(bool unsafeOpt)
                 // if we're not the pdom of the idom, our idom branches
                 // if the current block has more than one incoming edge
                 // then hoist to the edge from idom, otherwise break out
-                if(blocks[blocks[mblock].idom].pdom != mblock)
+                //
+                // ignore this condition for ops with no inputs (ie. constants)
+                // since we can always rematerialize these cheap
+                if(op.nInputs() && blocks[blocks[mblock].idom].pdom != mblock)
                 {
                     if(blocks[mblock].comeFrom.size() > 1)
                     {
