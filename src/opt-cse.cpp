@@ -159,11 +159,6 @@ bool Proc::opt_cse(bool unsafeOpt)
                 if(op.hasMemTag()
                 && blocks[blocks[mblock].idom].memout != op.in[1]) break;
 
-                // if this is a load, don't hoist from a non-post-dominator
-                // NOTE/FIXME: we currently need this to preserve null-pointer
-                // checks, but really we should check if there's a conditional
-                // branch of something the load address depends on
-
                 // if we're not the pdom of the idom, our idom branches
                 // if the current block has more than one incoming edge
                 // then hoist to the edge from idom, otherwise break out
