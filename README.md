@@ -405,7 +405,7 @@ newly compiled code, but they remain pending and will be applied on module reloa
 ## What it does?
 
 The [`test_sieve.cpp`](tests/test_sieve.cpp) contains a C++ variation of
-the classic sieve algorithm (here we the "flags" array and size as parameters):
+the classic sieve algorithm, with "flags" array and size as parameters:
 ```
 int sieve(char * flags, int size)
 {
