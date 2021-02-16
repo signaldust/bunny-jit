@@ -52,5 +52,7 @@ cat << END | bin/bjit
 x := 1; while(1) { x = x+1; if (x < 10) continue; break; }
 END
 
+bin/test_sieve
+
 echo "Looks like it didn't crash, at least... ;-)"
 
