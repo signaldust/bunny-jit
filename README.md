@@ -599,10 +599,9 @@ BJIT time: 478ms
 
 The exact times (obviously) vary from run to run, but the general idea is that in
 this silly benchmark, the code from Bunny-JIT is only about 10% slower. From
-the disassembly it is clear that this could be optimized further, but given the
-size and complexity of Bunny-JIT vs. Clang/LLVM this isn't too bad, is it? I also
-didn't do anything to prevent Clang from inlining or folding the array size as
-constant, so it might have cheated, who knows...
+the disassembly it is clear that this could be optimized further (and the some of
+this would be simple to do, like allow storing of immediates, etc), but given the
+size and complexity of Bunny-JIT vs. Clang/LLVM this isn't too bad, is it?
 
 You should expect Bunny-JIT to do significantly worse on code that relies heavily
 on optimizing memory access or code that can be effectively vectorized, but the
