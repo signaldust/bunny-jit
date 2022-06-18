@@ -17,7 +17,7 @@ namespace bjit
         //
         //  x0 - x7 are used for calls
         //
-        //  x16 - x17 are linked temporary
+        //  x16 - x17 are linker temporary (can we use them as callee saved?)
         //  x18 is platform register
         //
         //  x29 = frame pointer

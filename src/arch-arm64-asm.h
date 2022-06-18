@@ -241,11 +241,34 @@ struct AsmArm64
 
     }
 
-    void ADDri(int r0, int r1, int imm16)
+    void _rrr(uint32_t op, int r0, int r1, int r2)
     {
+        emit32(op | REG(r0) | (REG(r1)<<5) | (REG(r2) << 16));
 
     }
 
+    void MOVrr(int r0, int r1) { _rrr(0xAA0003E0, r0, 0, r1); }
+
+    void ADDrr(int r0, int r1, int r2) { _rrr(0x8B000000, r0, r1, r2); }
+    void SUBrr(int r0, int r1, int r2) { _rrr(0xCB000000, r0, r1, r2); }
+
+    // SUB from zero reg
+    void NEGr(int r0, int r1) { SUBrr(r0, regs::sp, r1); }
+    
+    void MULrr(int r0, int r1, int r2) { _rrr(0x9B007C00, r0, r1, r2); }
+    void SDIVrr(int r0, int r1, int r2) { _rrr(0x9AC00C00, r0, r1, r2); }
+    void UDIVrr(int r0, int r1, int r2) { _rrr(0x9AC00800, r0, r1, r2); }
+
+    void MSUBrrr(int r0, int r1, int r2, int r3)
+    { _rrr(0x9B008000 | (REG(r0)<<10), r1, r2, r3); }
+
+    // this uses EON with zero register
+    void NOTr(int r0, int r1) { _rrr(0xCA3F0000, r0, r1, 0); }
+    
+    void ANDrr(int r0, int r1, int r2) { _rrr(0x8A000000, r0, r1, r2); }
+    void ORrr(int r0, int r1, int r2) { _rrr(0xAA000000, r0, r1, r2); }
+    void XORrr(int r0, int r1, int r2) { _rrr(0xCA000000, r0, r1, r2); }
+    
 };
 
 }

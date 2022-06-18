@@ -14,7 +14,6 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
     std::vector<int>    savedRegs;
 
-
     // block todo-stack
     std::vector<unsigned>   todo;
     
@@ -54,8 +53,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
         }
         else
         {
-            a64.emit(0x14000000 | (0x3ffffff & -(out.size() >> 4)));
             a64.addReloc(label);
+            a64.emit(0x14000000 | (0x3ffffff & -(out.size() >> 4)));
         }
         scheduleThreading();
     };
@@ -118,6 +117,88 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::fret:
             case ops::dret:
                 a64.emit32(0xD65F03C0);
+                break;
+
+            case ops::iadd:
+                a64.ADDrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+
+            case ops::iaddI:
+                // use x16 (not currently allocated) as temporary
+                a64.MOVri(regs::x16, (int32_t) i.imm32);
+                a64.ADDrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                break;
+                
+            case ops::isub:
+                a64.SUBrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::isubI:
+                // use x16 (not currently allocated) as temporary
+                a64.MOVri(regs::x16, (int32_t) i.imm32);
+                a64.SUBrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                break;
+
+            case ops::ineg: a64.NEGr(i.reg, ops[i.in[0]].reg); break;
+                
+            case ops::imul:
+                a64.MULrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::imulI:
+                // use x16 (not currently allocated) as temporary
+                a64.MOVri(regs::x16, (int32_t) i.imm32);
+                a64.MULrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                break;
+                
+            case ops::idiv:
+                a64.SDIVrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+                
+            case ops::udiv:
+                a64.UDIVrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+
+            case ops::imod:
+                a64.SDIVrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64.MSUBrrr(i.reg, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+                
+            case ops::umod:
+                a64.UDIVrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64.MSUBrrr(i.reg, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+
+            case ops::inot: a64.NOTr(i.reg, ops[i.in[0]].reg); break;
+                
+            case ops::iand:
+                a64.ANDrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::iandI:
+                a64.MOVri(regs::x16, (int32_t) i.imm32);
+                a64.ANDrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                break;
+                
+            case ops::ior:
+                a64.ORrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::iorI:
+                a64.MOVri(regs::x16, (int32_t) i.imm32);
+                a64.ORrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                break;
+                
+            case ops::ixor:
+                a64.XORrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::ixorI:
+                a64.MOVri(regs::x16, (int32_t) i.imm32);
+                a64.XORrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                break;
+            
+
+            case ops::rename:
+                if(i.reg == ops[i.in[0]].reg) break;
+                if(i.flags.type == Op::_ptr)
+                    a64.MOVrr(i.reg, ops[i.in[0]].reg);
+                else BJIT_ASSERT(false);
                 break;
 
             default: BJIT_ASSERT(false);
