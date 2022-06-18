@@ -80,25 +80,27 @@ RegMask Op::regsIn(int i)
     {
         default: return regsMask(); // no special case -> same as output
 
-#if 0
         // indirect calls can theoretically take any GP register
-        // but force RAX so we hopefully don't globber stuff
+        // but we don't want to use x0-x7 used for passing arguments
+        //
+        // FIXME: should check how many integer arguments we have
         case ops::icallp: case ops::dcallp:
         case ops::fcallp: case ops::tcallp:
-            return R2Mask(regs::rax);
-#endif
+            return regs::mask_int &
+                ~(R2Mask(regs::x0) |R2Mask(regs::x1)
+                |R2Mask(regs::x2) |R2Mask(regs::x3)
+                |R2Mask(regs::x4) |R2Mask(regs::x5)
+                |R2Mask(regs::x6) |R2Mask(regs::x7));
 
-#if 0
         // loads and stores allow stack pointer as their first argument
         // FIXME: we do NOT want to rename to RSP though :D
         case ops::li8: case ops::li16: case ops::li32: case ops::li64:
         case ops::lu8: case ops::lu16: case ops::lu32:
         case ops::lf32: case ops::lf64:
         case ops::si8: case ops::si16: case ops::si32: case ops::si64:
-            return regs::mask_int | (i ? 0 : R2Mask(regs::rsp));
+            return regs::mask_int | (i ? 0 : R2Mask(regs::sp));
         case ops::sf32: case ops::sf64:
-            return i ? regs::mask_float : ((regs::mask_int) | R2Mask(regs::rsp));
-#endif
+            return i ? regs::mask_float : ((regs::mask_int) | R2Mask(regs::sp));
 
         // jumps and float compares need explicit types
         case ops::jilt: case ops::jige:

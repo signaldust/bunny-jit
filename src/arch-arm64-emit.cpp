@@ -9,12 +9,39 @@ using namespace bjit;
 
 void Module::arch_compileStub(uintptr_t address)
 {
+    BJIT_ASSERT(false);
 }
 
-void Module::arch_patchStub(void * ptr, unsigned offset, uintptr_t address)
+void Module::arch_patchStub(void * ptr, uintptr_t address)
 {
+    BJIT_ASSERT(false);
 }
 
+void Module::arch_patchNear(void * ptr, int32_t delta)
+{
+    // all the near patches are imm26..
+    auto code = (uint32_t*) ptr;
+    
+    auto offset = (0x3ffffff & code[0]) + (delta >> 2);
+    code[0] = (code[0] & ~0x3ffffff) | (offset & 0x3ffffff);
+}
+
+namespace bjit
+{
+    namespace regs
+    {
+        // the vector registers need only be saved 64 bit wide
+        // so these are all very much just .. 64 bit all the way
+        //
+        static int calleeSaved[] =
+        {
+            x19, x20, x21, x22, x23, x24,
+            x25, x26, x27, x28,
+
+            none
+        };
+    };
+}
 
 void Proc::arch_emit(std::vector<uint8_t> & out)
 {
@@ -22,7 +49,42 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
     AsmArm64 a64(out, blocks.size());
 
+    // figure out what we need to save
     std::vector<int>    savedRegs;
+    if(0) for(int i = 0; regs::calleeSaved[i] != regs::none; ++i)
+    {
+        if(usedRegs & R2Mask(regs::calleeSaved[i]))
+        {
+            savedRegs.push_back(regs::calleeSaved[i]);
+        }
+    }
+
+    // create a stack frame (push fp, lr)
+    // this only allows offset for up to 63 slots
+    // so deal with ops::alloc and variable slots separately
+    a64.emit32(0xA9807BFD | ((0x7f & -(2+savedRegs.size())) << 15));
+
+    // mov fp, sp
+    a64.emit32(0x910003fd);
+    
+    for(int i = 0; i < savedRegs.size(); ++i)
+    {
+        // FIXME: check types, this is integer only
+        a64._mem(0xF9000000, savedRegs[i], regs::sp, 16 + i, 3);
+    }
+
+    auto restoreFrame = [&]()
+    {
+        a64.emit32(0x910003BF);
+        
+        for(int i = 0; i < savedRegs.size(); ++i)
+        {
+            // FIXME: check types, this is integer only
+            a64._mem(0xF9400000, savedRegs[i], regs::sp, 16 + i, 3);
+        }
+        
+        a64.emit32(0xA8C07BFD | ((0x7f & (2+savedRegs.size())) << 15));
+    };
 
     // block todo-stack
     std::vector<unsigned>   todo;
@@ -120,12 +182,40 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::fpass: // outgoing arguments
             case ops::dpass: break; // these are nops for now
 
-            case ops::jmp:
-                doJump(i.label[0]);
+            case ops::icallp:
+            case ops::fcallp:
+            case ops::dcallp:
+                // BLR
+                a64.emit32(0xD63F0000 | (REG(ops[i.in[0]].reg)<<5));
                 break;
 
-            case ops::lci:
-                a64.MOVri(i.reg, i.i64);
+            case ops::tcallp:
+                // BR
+                restoreFrame();
+                a64.emit32(0xD61F0000 | (REG(ops[i.in[0]].reg)<<5));
+                break;
+
+            // FIXME:
+            // bjit::Module needs architecture specific patching logic!
+            case ops::icalln:
+            case ops::fcalln:
+            case ops::dcalln:
+                // BL
+                nearReloc.emplace_back(
+                    NearReloc{(uint32_t)out.size(), (uint32_t) i.imm32});
+                a64.emit32(0x94000000 | (0x3ffffff & -(out.size() >> 2)));
+                break;
+
+            case ops::tcalln:
+                // B
+                restoreFrame();
+                nearReloc.emplace_back(
+                    NearReloc{(uint32_t)out.size(), (uint32_t) i.imm32});
+                a64.emit32(0x14000000 | (0x3ffffff & -(out.size() >> 2)));
+                break;
+
+            case ops::jmp:
+                doJump(i.label[0]);
                 break;
 
             case ops::iretI:
@@ -134,6 +224,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::iret:
             case ops::fret:
             case ops::dret:
+                restoreFrame();
                 a64.emit32(0xD65F03C0);
                 break;
 
@@ -243,6 +334,90 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::fdiv:
                 a64._rrr(0x1E201800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
+                
+            case ops::lci:
+                a64.MOVri(i.reg, i.i64);
+                break;
+
+            case ops::lcf:
+                a64.emit32(0x1C000000 | REG(i.reg) | ((0x7ffff &
+                    (a64.data32(reinterpret_cast<uint32_t&>(i.f32))>>2)) << 5));
+                break;
+            case ops::lcd:
+                a64.emit32(0x5C000000 | REG(i.reg) | ((0x7ffff &
+                    (a64.data64(reinterpret_cast<uint64_t&>(i.f64))>>2)) << 5));
+                break;
+
+            case ops::i8:
+                a64._rrr(0x93401C00, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+            case ops::i16:
+                a64._rrr(0x93403C00, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+            case ops::i32:
+                a64._rrr(0x93407C00, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+
+            case ops::u8:
+                a64._rrr(0x53001C00, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+            case ops::u16:
+                a64._rrr(0x53003C00, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+            case ops::u32:
+                // this is simply 32-bit MOVrr ..
+                a64._rrr(0x2A0003E0, i.reg, regs::x0, ops[i.in[0]].reg);
+                break;
+                
+            case ops::li8:
+                a64._mem(0x39800000, i.reg, ops[i.in[0]].reg, i.imm32, 0);
+                break;
+            case ops::li16:
+                a64._mem(0x79800000, i.reg, ops[i.in[0]].reg, i.imm32, 1);
+                break;
+            case ops::li32:
+                a64._mem(0xB9800000, i.reg, ops[i.in[0]].reg, i.imm32, 2);
+                break;
+            case ops::li64:
+                a64._mem(0xF9400000, i.reg, ops[i.in[0]].reg, i.imm32, 3);
+                break;
+
+            case ops::lu8:
+                a64._mem(0x39400000, i.reg, ops[i.in[0]].reg, i.imm32, 0);
+                break;
+            case ops::lu16:
+                a64._mem(0x79400000, i.reg, ops[i.in[0]].reg, i.imm32, 1);
+                break;
+            case ops::lu32:
+                a64._mem(0xB9400000, i.reg, ops[i.in[0]].reg, i.imm32, 2);
+                break;
+
+            case ops::lf32:
+                a64._mem(0xBD400000, i.reg, ops[i.in[0]].reg, i.imm32, 2);
+                break;
+            case ops::lf64:
+                a64._mem(0xFD400000, i.reg, ops[i.in[0]].reg, i.imm32, 3);
+                break;
+                
+            case ops::si8:
+                a64._mem(0x39000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 0);
+                break;
+            case ops::si16:
+                a64._mem(0x79000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 1);
+                break;
+            case ops::si32:
+                a64._mem(0xB9000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 2);
+                break;
+            case ops::si64:
+                a64._mem(0xF9000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 3);
+                break;
+
+            case ops::sf32:
+                a64._mem(0xBD000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 2);
+                break;
+            case ops::sf64:
+                a64._mem(0xFD000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 3);
+                break;
 
             case ops::ci2f:
                 a64._rrr(0x1E220000, i.reg, ops[i.in[0]].reg, regs::x0);
@@ -264,7 +439,6 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::cd2f:
                 a64._rrr(0x1E624000, i.reg, ops[i.in[0]].reg, regs::x0);
                 break;
-                
 
             case ops::bci2f:
                 a64._rrr(0x1E260000, i.reg, ops[i.in[0]].reg, 0);
@@ -356,8 +530,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
         {
             // rest should be imm19?
             auto offset = (data >> 5) + (a64.blockOffsets[r.blockIndex] >> 2);
-            data &=~ (0x3ffff << 5);
-            data |= (offset & 0x3ffff) << 5;
+            data &=~ (0x7ffff << 5);
+            data |= (offset & 0x7ffff) << 5;
         }
         
         *((uint32_t*)(out.data() + r.codeOffset)) = data;

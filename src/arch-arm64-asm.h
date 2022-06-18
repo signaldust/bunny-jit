@@ -236,9 +236,26 @@ struct AsmArm64
         }
 
         // general 64-bit LDR pc-relative .. imm19
-        auto off = data64(imm64) >> 2;
+        auto off = (data64(imm64) - out.size()) >> 2;
         emit32(0x58000000 | REG(r) | ((0x7ffff & off) << 5));
 
+    }
+
+    void _mem(uint32_t op, int r0, int r1, int32_t offset, int shift)
+    {
+        // FIXME: should use the two reg mode
+        if(offset < 0 || offset > (0x3ff << shift)
+        || (offset & ~((~0u)<<shift)))
+        {
+            // need some magic
+            MOVri(regs::x16, offset);
+            ADDrr(regs::x16, regs::x16, r1);
+
+            r1 = regs::x16;
+            offset = 0;
+        }
+
+        emit32(op | REG(r0) | (REG(r1)<<5) | (((offset>>shift)&0x1ff) << 10));
     }
 
     void _rrr(uint32_t op, int r0, int r1, int r2)

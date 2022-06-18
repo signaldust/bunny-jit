@@ -28,7 +28,7 @@ namespace bjit
 #ifdef _WIN32
             rsi, rdi,
 
-            // these are callee saved SSE wide (128bit
+            // these are callee saved SSE wide (128bit)
             xmm6, xmm7, xmm8, xmm9, xmm10,
             xmm11, xmm12, xmm13, xmm14, xmm15,
 #endif
@@ -51,13 +51,19 @@ void Module::arch_compileStub(uintptr_t address)
     bytes.push_back(0xE0);  // r=4, rm=RAX
 }
 
-void Module::arch_patchStub(void * ptr, unsigned offset, uintptr_t address)
+void Module::arch_patchStub(void * ptr, uintptr_t address)
 {
     for(int i = 0; i < 8; ++i)
     {
         (2+(uint8_t*)ptr)[i] = (address & 0xff);
         address >>= 8;
     }
+}
+
+void Module::arch_patchNear(void * ptr, int32_t delta)
+{
+    auto addr = (uint32_t*) ptr;
+    *addr += delta;
 }
 
 void Proc::arch_emit(std::vector<uint8_t> & out)
