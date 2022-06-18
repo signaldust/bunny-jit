@@ -64,34 +64,32 @@ static uint8_t REG(int r)
     return 0;
 }
 
-#if 0
-
 // return the 4-bit Condition Code part of conditional ops
 uint8_t _CC(uint8_t opcode)
 {
     switch(opcode)
     {
-        case ops::jilt: return 0xC;
-        case ops::jige: return 0xD;
-        case ops::jigt: return 0xF;
-        case ops::jile: return 0xE;
+        case ops::jilt: return 0xB;
+        case ops::jige: return 0xA;
+        case ops::jigt: return 0xC;
+        case ops::jile: return 0xD;
 
-        // floating point conditions match unsigned(!)
-        case ops::jult: case ops::jdlt: case ops::jflt: return 0x2;
-        case ops::juge: case ops::jdge: case ops::jfge: return 0x3;
-        case ops::jugt: case ops::jdgt: case ops::jfgt: return 0x7;
-        case ops::jule: case ops::jdle: case ops::jfle: return 0x6;
+        // 0xE = always, 0xF = ???
 
-        case ops::jine: case ops::jdne: case ops::jfne: case ops::jnz: return 0x5;
-        case ops::jieq: case ops::jdeq: case ops::jfeq: case ops::jz:  return 0x4;
+        // FIXME: are floating point signed or unsigned on ARM?
+        case ops::jult: case ops::jdlt: case ops::jflt: return 0x3;
+        case ops::juge: case ops::jdge: case ops::jfge: return 0x2;
+        case ops::jugt: case ops::jdgt: case ops::jfgt: return 0x8;
+        case ops::jule: case ops::jdle: case ops::jfle: return 0x9;
+
+        case ops::jine: case ops::jdne: case ops::jfne: case ops::jnz: return 0x1;
+        case ops::jieq: case ops::jdeq: case ops::jfeq: case ops::jz:  return 0x0;
 
         default: break;
     }
     // silence warning if assert is nop
     BJIT_ASSERT(false); return 0;
 }
-
-#endif
 
 struct AsmArm64
 {
@@ -264,6 +262,9 @@ struct AsmArm64
 
     }
 
+    void CMPrr(int r0, int r1) { _rrr(0xEB000000, regs::sp, r0, r1); }
+    void TSTrr(int r0, int r1) { _rrr(0xEA00001F, regs::sp, r0, r1); }
+    
     void MOVrr(int r0, int r1) { _rrr(0xAA0003E0, r0, 0, r1); }
 
     void ADDrr(int r0, int r1, int r2) { _rrr(0x8B000000, r0, r1, r2); }

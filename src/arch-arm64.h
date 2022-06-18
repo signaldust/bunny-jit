@@ -35,9 +35,10 @@ namespace bjit
         _(x24), _(x25), _(x26), _(x27), _(x28), _(fp), _(lr), _(sp), \
         /* floating point */ \
         _(v0), _(v1), _(v2), _(v3), _(v4), _(v5), _(v6), _(v7), \
-        _(v8), _(v9), _(v10), _(v11), _(v12), _(v13), _(v14), _(v15), \
-        _(v16), _(v17), _(v18), _(v19), _(v20), _(v21), _(v22), _(v23), \
         _(v24), _(v25), _(v26), _(v27), _(v28), _(v29), _(v30), _(v31), \
+        _(v16), _(v17), _(v18), _(v19), _(v20), _(v21), _(v22), _(v23), \
+        /* callee-saved floats .. prefer them last */ \
+        _(v8), _(v9), _(v10), _(v11), _(v12), _(v13), _(v14), _(v15), \
         /* placeholder */ \
         _(none)
 
@@ -78,7 +79,7 @@ namespace bjit
             ;
 
         // Float register masks
-        static const RegMask mask_float
+        static const RegMask mask_float_volatile
             =R2Mask(v0)
             |R2Mask(v1)
             |R2Mask(v2)
@@ -87,15 +88,6 @@ namespace bjit
             |R2Mask(v5)
             |R2Mask(v6)
             |R2Mask(v7)
-
-            |R2Mask(v8)
-            |R2Mask(v9)
-            |R2Mask(v10)
-            |R2Mask(v11)
-            |R2Mask(v12)
-            |R2Mask(v13)
-            |R2Mask(v14)
-            |R2Mask(v15)
 
             |R2Mask(v16)
             |R2Mask(v17)
@@ -116,6 +108,20 @@ namespace bjit
             |R2Mask(v31)
             ;
 
+        // note v8 - v15 are preserved up to 64 bits
+        // so if we add vector ops, we might want to
+        // treat these as scalar only?
+        static const RegMask mask_float
+            = mask_float_volatile
+            |R2Mask(v8)
+            |R2Mask(v9)
+            |R2Mask(v10)
+            |R2Mask(v11)
+            |R2Mask(v12)
+            |R2Mask(v13)
+            |R2Mask(v14)
+            |R2Mask(v15);
+            
         // Caller saved (lost on function call)
         //
         // NOTE: We treat all xmm registers as volatile when calling functions.
@@ -141,9 +147,7 @@ namespace bjit
             |R2Mask(x15)
             |R2Mask(fp)
             |R2Mask(lr)
-            // AArch64 only promises to save anything up to 64-bits
-            // so simply treat all floating point registers as volatile
-            | mask_float
+            | mask_float_volatile
             ;
             
         const char * getName(int reg);

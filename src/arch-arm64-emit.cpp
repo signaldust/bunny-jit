@@ -9,12 +9,29 @@ using namespace bjit;
 
 void Module::arch_compileStub(uintptr_t address)
 {
-    BJIT_ASSERT(false);
+    // LDR x16, #8
+    bytes.push_back(0x50);
+    bytes.push_back(0x00);
+    bytes.push_back(0x00);
+    bytes.push_back(0x58);
+
+    // BR x16
+    bytes.push_back(0x00);
+    bytes.push_back(0x02);
+    bytes.push_back(0x1F);
+    bytes.push_back(0xD6);
+
+    for(int i = 0; i < 8; ++i)
+    {
+        bytes.push_back(address & 0xff);
+        address >>= 8;
+    }
 }
 
 void Module::arch_patchStub(void * ptr, uintptr_t address)
 {
-    BJIT_ASSERT(false);
+    // should be aligned
+    ((uint64_t*)ptr)[1] = address;
 }
 
 void Module::arch_patchNear(void * ptr, int32_t delta)
@@ -38,6 +55,8 @@ namespace bjit
             x19, x20, x21, x22, x23, x24,
             x25, x26, x27, x28,
 
+            v8, v9, v10, v11, v12, v13, v14, v15,
+            
             none
         };
     };
@@ -51,7 +70,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
     // figure out what we need to save
     std::vector<int>    savedRegs;
-    if(0) for(int i = 0; regs::calleeSaved[i] != regs::none; ++i)
+    for(int i = 0; regs::calleeSaved[i] != regs::none; ++i)
     {
         if(usedRegs & R2Mask(regs::calleeSaved[i]))
         {
@@ -62,15 +81,34 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     // create a stack frame (push fp, lr)
     // this only allows offset for up to 63 slots
     // so deal with ops::alloc and variable slots separately
-    a64.emit32(0xA9807BFD | ((0x7f & -(2+savedRegs.size())) << 15));
+    //
+    // this is not ideal.. but like whatever
+    int nPush = 2+savedRegs.size();
+    if(nPush&1) nPush += 1;
+    a64.emit32(0xA9807BFD | ((0x7f & -(nPush)) << 15));
 
     // mov fp, sp
     a64.emit32(0x910003fd);
     
     for(int i = 0; i < savedRegs.size(); ++i)
     {
-        // FIXME: check types, this is integer only
-        a64._mem(0xF9000000, savedRegs[i], regs::sp, 16 + i, 3);
+        if(R2Mask(savedRegs[i]) & regs::mask_int)
+            a64._mem(0xF9000000, savedRegs[i], regs::sp, 16 + 8*i, 3);
+        else if(R2Mask(savedRegs[i]) & regs::mask_float)
+            a64._mem(0xFD000000, savedRegs[i], regs::sp, 16 + 8*i, 3);
+        else BJIT_ASSERT(false);
+    }
+
+    // allocate space for slots and frame
+    BJIT_ASSERT(ops[0].opcode == ops::alloc);
+    unsigned    frameOffset = ((ops[0].imm32+0xf)&~0xf);
+    int frameBytes = 8*nSlots + frameOffset;
+
+    if(frameBytes)
+    {
+        // FIXME: we could usually fit immediate here :)
+        a64.MOVri(regs::x16, frameBytes);
+        a64.emit32(0xCB3063FF); // SUB sp,sp,x16
     }
 
     auto restoreFrame = [&]()
@@ -79,8 +117,11 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
         
         for(int i = 0; i < savedRegs.size(); ++i)
         {
-            // FIXME: check types, this is integer only
-            a64._mem(0xF9400000, savedRegs[i], regs::sp, 16 + i, 3);
+            if(R2Mask(savedRegs[i]) & regs::mask_int)
+                a64._mem(0xF9400000, savedRegs[i], regs::sp, 16 + 8*i, 3);
+            else if(R2Mask(savedRegs[i]) & regs::mask_float)
+                a64._mem(0xFD400000, savedRegs[i], regs::sp, 16 + 8*i, 3);
+            else BJIT_ASSERT(false);
         }
         
         a64.emit32(0xA8C07BFD | ((0x7f & (2+savedRegs.size())) << 15));
@@ -126,7 +167,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
         else
         {
             a64.addReloc(label);
-            a64.emit(0x14000000 | (0x3ffffff & -(out.size() >> 4)));
+            a64.emit32(0x14000000 | (0x3ffffff & -(out.size() >> 2)));
         }
         scheduleThreading();
     };
@@ -218,6 +259,81 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 doJump(i.label[0]);
                 break;
 
+            case ops::jilt:
+            case ops::jige:
+            case ops::jigt:
+            case ops::jile:
+
+            case ops::jult:
+            case ops::juge:
+            case ops::jugt:
+            case ops::jule:
+
+            case ops::jine:
+            case ops::jieq:
+                a64.CMPrr(ops[i.in[0]].reg, ops[i.in[1]].reg);
+                
+                a64.addReloc(i.label[0]);
+                a64.emit32(0x54000000
+                    | _CC(i.opcode)
+                    | ((0x7ffff & -(out.size()>>2))<<5));
+                
+                if(!blocks[i.label[0]].flags.codeDone)
+                {
+                    blocks[i.label[0]].flags.codeDone = true;
+                    todo.push_back(i.label[0]);
+                    scheduleThreading();
+                }
+                doJump(i.label[1]);
+                break;
+
+            case ops::jz:
+            case ops::jnz:
+                a64.TSTrr(ops[i.in[0]].reg, ops[i.in[0]].reg);
+                
+                a64.addReloc(i.label[0]);
+                a64.emit32(0x54000000
+                    | _CC(i.opcode)
+                    | ((0x7ffff & -(out.size()>>2))<<5));
+                
+                if(!blocks[i.label[0]].flags.codeDone)
+                {
+                    blocks[i.label[0]].flags.codeDone = true;
+                    todo.push_back(i.label[0]);
+                    scheduleThreading();
+                }
+                doJump(i.label[1]);
+                break;
+                
+            case ops::jiltI:
+            case ops::jigeI:
+            case ops::jigtI:
+            case ops::jileI:
+
+            case ops::jultI:
+            case ops::jugeI:
+            case ops::jugtI:
+            case ops::juleI:
+            
+            case ops::jineI:
+            case ops::jieqI:
+                a64.MOVri(regs::x16, (int32_t) i.imm32);
+                a64.CMPrr(ops[i.in[0]].reg, regs::x16);
+                
+                a64.addReloc(i.label[0]);
+                a64.emit32(0x54000000
+                    | _CC(i.opcode+ops::jilt-ops::jiltI)
+                    | ((0x7ffff & -(out.size()>>2))<<5));
+                
+                if(!blocks[i.label[0]].flags.codeDone)
+                {
+                    blocks[i.label[0]].flags.codeDone = true;
+                    todo.push_back(i.label[0]);
+                    scheduleThreading();
+                }
+                doJump(i.label[1]);
+                break;
+
             case ops::iretI:
                 a64.MOVri(regs::x0, i.imm32);
                 // fall through
@@ -302,6 +418,34 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.XORrr(i.reg, ops[i.in[0]].reg, regs::x16);
                 break;
 
+            case ops::ishl:
+                a64._rrr(0x9AC02000, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::ishlI:
+                {
+                    int shift = i.imm32 & 0x3f;
+                    a64._rrr(0xD3400000
+                        | ((0x3f & -shift) << 16) | ((0x3f - shift) << 10),
+                        i.reg, ops[i.in[0]].reg, regs::x0);
+                }
+                break;
+
+            case ops::ishr:
+                a64._rrr(0x9AC02800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::ishrI:
+                a64._rrr(0x9340FC00 | ((i.imm32 & 0x3f) << 16),
+                    i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+                
+            case ops::ushr:
+                a64._rrr(0x9AC02400, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::ushrI:
+                a64._rrr(0xD340FC00 | ((i.imm32 & 0x3f) << 16),
+                    i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+                
             // for floating point just encode here directly
             case ops::dadd:
                 a64._rrr(0x1E602800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
@@ -454,6 +598,22 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64._rrr(0x9E670000, i.reg, ops[i.in[0]].reg, 0);
                 break;
 
+            case ops::phi: break;   // this is just NOP here
+
+            case ops::reload:
+                BJIT_ASSERT(ops[i.in[0]].scc != noSCC);
+                if(i.flags.type == Op::_f64)
+                    a64._mem(0xFD400000, i.reg, regs::sp,
+                        frameOffset + 8*ops[i.in[0]].scc, 3);
+                else if(i.flags.type == Op::_f32)
+                    a64._mem(0xBD400000, i.reg, regs::sp,
+                        frameOffset + 8*ops[i.in[0]].scc, 2);
+                else if(i.flags.type == Op::_ptr)
+                    a64._mem(0xF9400000, i.reg, regs::sp,
+                        frameOffset + 8*ops[i.in[0]].scc, 3);
+                else BJIT_ASSERT(false);
+                break;
+
             case ops::rename:
                 if(i.reg == ops[i.in[0]].reg) break;
                 if(i.flags.type == Op::_ptr)
@@ -465,7 +625,11 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 else BJIT_ASSERT(false);
                 break;
 
-            default: BJIT_ASSERT(false);
+            default:
+                {
+                    printf("Unimplemented: %s\n", i.strOpcode());
+                    BJIT_ASSERT(false);
+                }
         }
         
         // if marked for spill, store to stack
@@ -494,8 +658,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     // should always be in multiples of 4 bytes
     BJIT_ASSERT(!(out.size() & 0x3));
     
-    // align to 8-bytes
-    if(out.size() & 0xf) a64.emit32(0xD503201F);
+    // align to 16-bytes
+    if(out.size() & 0xf) a64.emit32(0);
     
     // emit 64-bit point constants
     a64.blockOffsets[a64.rodata64_index] = out.size();
@@ -512,7 +676,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
         a64.emit32(bits);
     }
 
-    while(out.size() & 0xf) a64.emit32(0xD503201F);
+    // align to 16-bytes
+    while(out.size() & 0xf) a64.emit32(0);
 
     // for every relocation, ADD the block offset
     for(auto & r : a64.relocations)
