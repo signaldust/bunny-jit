@@ -85,7 +85,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     // this is not ideal.. but like whatever
     int nPush = 2+savedRegs.size();
     if(nPush&1) nPush += 1;
-    a64.emit32(0xA9807BFD | ((0x7f & -(nPush)) << 15));
+    a64.emit32(0xA9807BFD | ((0x7f & -nPush) << 15));
 
     // mov fp, sp
     a64.emit32(0x910003fd);
@@ -103,6 +103,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     BJIT_ASSERT(ops[0].opcode == ops::alloc);
     unsigned    frameOffset = ((ops[0].imm32+0xf)&~0xf);
     int frameBytes = 8*nSlots + frameOffset;
+    if(nSlots & 1) frameBytes += 8;
 
     if(frameBytes)
     {
@@ -124,7 +125,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             else BJIT_ASSERT(false);
         }
         
-        a64.emit32(0xA8C07BFD | ((0x7f & (2+savedRegs.size())) << 15));
+        a64.emit32(0xA8C07BFD | ((0x7f & nPush) << 15));
     };
 
     // block todo-stack
@@ -636,7 +637,17 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
         if(i.flags.spill)
         {
             BJIT_ASSERT(i.scc != noSCC);
-
+            
+            if(i.flags.type == Op::_f64)
+                a64._mem(0xFD000000, i.reg, regs::sp,
+                    frameOffset + 8*i.scc, 3);
+            else if(i.flags.type == Op::_f32)
+                a64._mem(0xBD000000, i.reg, regs::sp,
+                    frameOffset + 8*i.scc, 2);
+            else if(i.flags.type == Op::_ptr)
+                a64._mem(0xF9000000, i.reg, regs::sp,
+                    frameOffset + 8*i.scc, 3);
+            else BJIT_ASSERT(false);
         }
         
     };

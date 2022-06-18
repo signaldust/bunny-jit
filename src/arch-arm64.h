@@ -35,8 +35,8 @@ namespace bjit
         _(x24), _(x25), _(x26), _(x27), _(x28), _(fp), _(lr), _(sp), \
         /* floating point */ \
         _(v0), _(v1), _(v2), _(v3), _(v4), _(v5), _(v6), _(v7), \
-        _(v24), _(v25), _(v26), _(v27), _(v28), _(v29), _(v30), _(v31), \
         _(v16), _(v17), _(v18), _(v19), _(v20), _(v21), _(v22), _(v23), \
+        _(v24), _(v25), _(v26), _(v27), _(v28), _(v29), _(v30), _(v31), \
         /* callee-saved floats .. prefer them last */ \
         _(v8), _(v9), _(v10), _(v11), _(v12), _(v13), _(v14), _(v15), \
         /* placeholder */ \
@@ -74,8 +74,8 @@ namespace bjit
             |R2Mask(x24)
             |R2Mask(x25)
             |R2Mask(x26)
-            |R2Mask(x27)
-            |R2Mask(x28) //*/
+            |R2Mask(x27) //*/
+            |R2Mask(x28)
             ;
 
         // Float register masks

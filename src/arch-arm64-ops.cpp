@@ -81,16 +81,16 @@ RegMask Op::regsIn(int i)
         default: return regsMask(); // no special case -> same as output
 
         // indirect calls can theoretically take any GP register
-        // but we don't want to use x0-x7 used for passing arguments
+        // but we don't want to use x0-x8 used for passing arguments
+        // and we MUST have a caller saved register for tcallp
         //
-        // FIXME: should check how many integer arguments we have
+        // so practically it makes sense to use x9-x15
         case ops::icallp: case ops::dcallp:
         case ops::fcallp: case ops::tcallp:
-            return regs::mask_int &
-                ~(R2Mask(regs::x0) |R2Mask(regs::x1)
-                |R2Mask(regs::x2) |R2Mask(regs::x3)
-                |R2Mask(regs::x4) |R2Mask(regs::x5)
-                |R2Mask(regs::x6) |R2Mask(regs::x7));
+            return R2Mask(regs::x9)
+                |R2Mask(regs::x10) |R2Mask(regs::x11)
+                |R2Mask(regs::x12) |R2Mask(regs::x13)
+                |R2Mask(regs::x14) |R2Mask(regs::x15);
 
         // loads and stores allow stack pointer as their first argument
         // FIXME: we do NOT want to rename to RSP though :D
