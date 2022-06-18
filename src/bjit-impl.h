@@ -3,7 +3,20 @@
 
 #include "hash.h"
 #include "ir-ops.h"
-#include "arch-x64.h"   // FIXME: check for arch
+
+#ifdef __x86_64__
+# define BJIT_ARCH_SUPPORTED
+# include "arch-x64.h"   // FIXME: check for arch
+#endif
+
+#ifdef __aarch64__
+# define BJIT_ARCH_SUPPORTED
+# include "arch-arm64.h"
+#endif
+
+#ifndef BJIT_ARCH_SUPPORTED
+#error "Unsupported architecture.
+#endif
 
 namespace bjit
 {

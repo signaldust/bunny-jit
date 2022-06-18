@@ -60,7 +60,7 @@ uintptr_t Module::load(unsigned mmapSizeMin)
     for(auto & r : relocs)
     {
         BJIT_ASSERT(r.procIndex < offsets.size());
-        ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += offsets[r.procIndex];
+        arch_patchNear(r.codeOffset+(uint8_t*)exec_mem, offsets[r.procIndex]);
     }
 
 #ifdef BJIT_USE_MMAP
@@ -115,14 +115,14 @@ bool Module::patch()
         if(r.codeOffset < loadSize) continue;
         
         BJIT_ASSERT(r.procIndex < offsets.size());
-        ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += offsets[r.procIndex];
+        arch_patchNear(r.codeOffset+(uint8_t*)exec_mem, offsets[r.procIndex]);
     }
     loadSize = bytes.size();
 
     // do all pending stub-patches
     for(auto & p : stubPatches)
     {
-        arch_patchStub(exec_mem, offsets[p.procIndex], p.newAddress);
+        arch_patchStub(offsets[p.procIndex] + (uint8_t*)exec_mem, p.newAddress);
     }
     stubPatches.clear();
 
@@ -138,7 +138,8 @@ bool Module::patch()
             if(r.procIndex == p.oldTarget)
             {
                 r.procIndex = p.newTarget;
-                ((uint32_t*)(r.codeOffset+(uint8_t*)exec_mem))[0] += delta;
+                // relocate
+                arch_patchNear(r.codeOffset+(uint8_t*)exec_mem, delta);
             }
         }
     }

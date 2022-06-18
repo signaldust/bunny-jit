@@ -1,4 +1,6 @@
 
+#ifdef __x86_64__
+
 #include "bjit.h"
 
 using namespace bjit;
@@ -259,3 +261,5 @@ RegMask Op::regsLost()
         default: return 0;
     }
 }
+
+#endif

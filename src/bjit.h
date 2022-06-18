@@ -746,7 +746,7 @@ namespace bjit
         // the module for the changes to becomes active
         void patchStub(unsigned index, uintptr_t address)
         {
-            arch_patchStub(bytes.data(), offsets[index], address);
+            arch_patchStub(offsets[index] + bytes.data(), address);
             
             // store this for patch() to also patch live
             if(isLoaded()) stubPatches.emplace_back(PatchStub{index, address});
@@ -857,7 +857,8 @@ namespace bjit
         // in arch-XX-emit.cpp
         void arch_compileStub(uintptr_t address);
 
-        void arch_patchStub(void * ptr, unsigned offset, uintptr_t address);
+        void arch_patchStub(void * ptr, uintptr_t address);
+        void arch_patchNear(void * ptr, int32_t offset);
 
     };
 
