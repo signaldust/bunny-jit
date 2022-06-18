@@ -1,4 +1,5 @@
 
+#ifdef __x86_64__
 
 #include "bjit.h"
 #include "arch-x64-asm.h"
@@ -1128,3 +1129,5 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     }
     
 }
+
+#endif
