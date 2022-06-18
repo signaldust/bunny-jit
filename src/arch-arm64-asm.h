@@ -64,6 +64,8 @@ static uint8_t REG(int r)
     return 0;
 }
 
+#if 0
+
 // return the 4-bit Condition Code part of conditional ops
 uint8_t _CC(uint8_t opcode)
 {
@@ -88,6 +90,8 @@ uint8_t _CC(uint8_t opcode)
     // silence warning if assert is nop
     BJIT_ASSERT(false); return 0;
 }
+
+#endif
 
 struct AsmArm64
 {
@@ -198,6 +202,49 @@ struct AsmArm64
         return index*sizeof(__m128);
     }
 */
+
+    void MOVri(int r, int64_t imm64)
+    {
+        if(imm64 == (0xffff & imm64))
+        {
+            // MOVZ
+            emit32(0xD2800000 | REG(r) | ((0xffff & imm64) << 5));
+            return;
+        }
+
+        if(imm64 == ~(0xffff & ~imm64))
+        {
+            // MOVN
+            emit32(0x92800000 | REG(r) | ((0xffff & ~imm64) << 5));
+            return;
+        }
+
+        if(imm64 == (uint32_t) imm64)
+        {
+            // LDR pc-relative .. imm19
+            auto off = data32(imm64) >> 2;
+            emit32(0x18000000 | REG(r) | ((0x7ffff & off) << 5));
+            return;
+        }
+        
+        if(imm64 == (int32_t) imm64)
+        {
+            // LDR pc-relative .. imm19
+            auto off = data32(imm64) >> 2;
+            emit32(0x98000000 | REG(r) | ((0x7ffff & off) << 5));
+            return;
+        }
+
+        // general 64-bit LDR pc-relative .. imm19
+        auto off = data64(imm64) >> 2;
+        emit32(0x58000000 | REG(r) | ((0x7ffff & off) << 5));
+
+    }
+
+    void ADDri(int r0, int r1, int imm16)
+    {
+
+    }
 
 };
 
