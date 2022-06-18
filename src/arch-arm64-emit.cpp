@@ -6,6 +6,16 @@
 
 using namespace bjit;
 
+
+void Module::arch_compileStub(uintptr_t address)
+{
+}
+
+void Module::arch_patchStub(void * ptr, unsigned offset, uintptr_t address)
+{
+}
+
+
 void Proc::arch_emit(std::vector<uint8_t> & out)
 {
     for(auto & b : blocks) { b.flags.codeDone = false; }
@@ -101,6 +111,14 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
         switch(i.opcode)
         {
             case ops::alloc: break; // stack frame, nop
+            
+            case ops::iarg: // incoming arguments
+            case ops::farg: // incoming arguments
+            case ops::darg: break; // these are nops
+
+            case ops::ipass: // outgoing arguments
+            case ops::fpass: // outgoing arguments
+            case ops::dpass: break; // these are nops for now
 
             case ops::jmp:
                 doJump(i.label[0]);
@@ -192,12 +210,84 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.MOVri(regs::x16, (int32_t) i.imm32);
                 a64.XORrr(i.reg, ops[i.in[0]].reg, regs::x16);
                 break;
+
+            // for floating point just encode here directly
+            case ops::dadd:
+                a64._rrr(0x1E602800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::dsub:
+                a64._rrr(0x1E603800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::dneg:
+                a64._rrr(0x1E614000, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+            case ops::dmul:
+                a64._rrr(0x1E600800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::ddiv:
+                a64._rrr(0x1E601800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
             
+            case ops::fadd:
+                a64._rrr(0x1E202800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::fsub:
+                a64._rrr(0x1E203800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::fneg:
+                a64._rrr(0x1E214000, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+            case ops::fmul:
+                a64._rrr(0x1E200800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+            case ops::fdiv:
+                a64._rrr(0x1E201800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                break;
+
+            case ops::ci2f:
+                a64._rrr(0x1E220000, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+            case ops::cf2i:
+                a64._rrr(0x1E380000, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+                
+            case ops::ci2d:
+                a64._rrr(0x9E620000, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+            case ops::cd2i:
+                a64._rrr(0x9E780000, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+
+            case ops::cf2d:
+                a64._rrr(0x1E22C000, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+            case ops::cd2f:
+                a64._rrr(0x1E624000, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+                
+
+            case ops::bci2f:
+                a64._rrr(0x1E260000, i.reg, ops[i.in[0]].reg, 0);
+                break;
+            case ops::bcf2i:
+                a64._rrr(0x1E270000, i.reg, ops[i.in[0]].reg, 0);
+                break;
+                
+            case ops::bci2d:
+                a64._rrr(0x9E660000, i.reg, ops[i.in[0]].reg, 0);
+                break;
+            case ops::bcd2i:
+                a64._rrr(0x9E670000, i.reg, ops[i.in[0]].reg, 0);
+                break;
 
             case ops::rename:
                 if(i.reg == ops[i.in[0]].reg) break;
                 if(i.flags.type == Op::_ptr)
                     a64.MOVrr(i.reg, ops[i.in[0]].reg);
+                else if(i.flags.type == Op::_f32)
+                    a64._rrr(0x1E204000, i.reg, ops[i.in[0]].reg, 0);
+                else if(i.flags.type == Op::_f64)
+                    a64._rrr(0x1E604000, i.reg, ops[i.in[0]].reg, 0);
                 else BJIT_ASSERT(false);
                 break;
 
