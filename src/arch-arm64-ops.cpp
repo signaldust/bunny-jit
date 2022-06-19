@@ -194,7 +194,7 @@ RegMask Op::regsLost()
 
         case ops::icalln: case ops::fcalln: case ops::dcalln:
         case ops::icallp: case ops::fcallp: case ops::dcallp:
-            return regs::caller_saved;
+            return regs::caller_saved | R2Mask(regs::lr);
 
         default: return 0;
     }

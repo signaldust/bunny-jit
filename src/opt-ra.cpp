@@ -607,7 +607,7 @@ void Proc::allocRegs(bool unsafeOpt)
             }
 
             // clobbers - could try to save, but whatever
-            RegMask lost = op.regsLost();
+            RegMask lost = op.regsLost(); usedRegs |= lost;
             if(lost)
             {
                 RegMask notlost = ~lost;

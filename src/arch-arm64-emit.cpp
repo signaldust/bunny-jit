@@ -85,36 +85,47 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     // this is not ideal.. but like whatever
     int nPush = 2+savedRegs.size();
     if(nPush&1) nPush += 1;
-    a64.emit32(0xA9807BFD | ((0x7f & -nPush) << 15));
-
-    // mov fp, sp
-    a64.emit32(0x910003fd);
     
-    for(int i = 0; i < savedRegs.size(); ++i)
-    {
-        if(R2Mask(savedRegs[i]) & regs::mask_int)
-            a64._mem(0xF9000000, savedRegs[i], regs::sp, 16 + 8*i, 3);
-        else if(R2Mask(savedRegs[i]) & regs::mask_float)
-            a64._mem(0xFD000000, savedRegs[i], regs::sp, 16 + 8*i, 3);
-        else BJIT_ASSERT(false);
-    }
-
     // allocate space for slots and frame
     BJIT_ASSERT(ops[0].opcode == ops::alloc);
     unsigned    frameOffset = ((ops[0].imm32+0xf)&~0xf);
     int frameBytes = 8*nSlots + frameOffset;
     if(nSlots & 1) frameBytes += 8;
 
-    if(frameBytes)
+    // if we don't need to save anything, skip the stack frame
+    bool needFrame = frameBytes || savedRegs.size()
+        || (usedRegs & R2Mask(regs::lr));
+
+    if(needFrame)
     {
-        // FIXME: we could usually fit immediate here :)
-        a64.MOVri(regs::x16, frameBytes);
-        a64.emit32(0xCB3063FF); // SUB sp,sp,x16
+        a64.emit32(0xA9807BFD | ((0x7f & -nPush) << 15));
+    
+        // mov fp, sp
+        a64.emit32(0x910003fd);
+    
+        for(int i = 0; i < savedRegs.size(); ++i)
+        {
+            if(R2Mask(savedRegs[i]) & regs::mask_int)
+                a64._mem(0xF9000000, savedRegs[i], regs::sp, 16 + 8*i, 3);
+            else if(R2Mask(savedRegs[i]) & regs::mask_float)
+                a64._mem(0xFD000000, savedRegs[i], regs::sp, 16 + 8*i, 3);
+            else BJIT_ASSERT(false);
+        }
+        
+        if(frameBytes)
+        {
+            // FIXME: we could usually fit immediate here :)
+            a64.MOVri(regs::x16, frameBytes);
+            a64.emit32(0xCB3063FF); // SUB sp,sp,x16
+        }
     }
 
     auto restoreFrame = [&]()
     {
-        a64.emit32(0x910003BF);
+        if(!needFrame) return;
+
+        // mov sp, fp
+        if(frameBytes) a64.emit32(0x910003BF);
         
         for(int i = 0; i < savedRegs.size(); ++i)
         {
