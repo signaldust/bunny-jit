@@ -13,7 +13,7 @@ optimizations (for the time being, at least) and the focus right now is mostly o
 simplifying existing functionality and extending test-coverage to expose more issues.
 Feel free to experiment, but please expect to still find some serious bugs.*
 
-**Please don't use it for production yet.**
+**Please don't use it for production yet. Please contribute more tests first.**
 
 Features:
   * small and simple (by virtue of elegant design), yet tries to avoid being naive
