@@ -39,7 +39,8 @@ I suggest looking at the tests (eg. [`test_fib.cpp`](tests/test_fib.cpp) or
 [`test_sieve.cpp`](tests/test_sieve.cpp)) for examples of how to
 use the programming API, which is the primary focus of this library.
 Bunny-JIT comes with some sort of simple front-end language, but this is intended
-more for testing (and I guess example) than as a serious programming language.
+more for testing (and I guess example) than as a serious programming language and
+there is a pretty good chance that it'll eventually be retired/replaced.
 The test-driver `bin/bjit` parses this simple language from `stdin` and compiles
 it into native code, which is written to `out.bin` for disassembly purposes
 (eg. with `./dump-bin.sh` if you have `gobjdump` in path).
