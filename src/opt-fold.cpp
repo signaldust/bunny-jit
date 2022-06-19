@@ -274,9 +274,11 @@ bool Proc::opt_fold(bool unsafeOpt)
                         break;
                 }
                 
-                // fold conditions into jumps
+                // fold conditions into jumps, but with floating point
+                // only when unsafeOpt, since condition negations disregard NaNs
                 if((I(ops::jz) || I(ops::jnz)) && N0.nUse == 1
-                && (N0.opcode >= ops::ilt && N0.opcode - ops::ilt <= ops::jdne))
+                && (N0.opcode >= ops::ilt
+                && N0.opcode - ops::ilt <= (unsafeOpt ? ops::jine : ops::jfne)))
                 {
                     int negate = (op.opcode == ops::jz) ? 1 : 0;
                     op.opcode = negate ^ (N0.opcode + ops::jilt - ops::ilt);
