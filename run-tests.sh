@@ -7,6 +7,9 @@ bin/test_add_ii
 bin/test_add_ff
 bin/test_sub_ii # test parameter order, mostly
 
+bin/test_shift
+bin/test_divmod
+
 bin/test_ci2f_cf2i
 bin/test_sx_zx
 bin/test_load_store

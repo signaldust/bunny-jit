@@ -278,7 +278,7 @@ struct AsmArm64
     void UDIVrr(int r0, int r1, int r2) { _rrr(0x9AC00800, r0, r1, r2); }
 
     void MSUBrrr(int r0, int r1, int r2, int r3)
-    { _rrr(0x9B008000 | (REG(r0)<<10), r1, r2, r3); }
+    { _rrr(0x9B008000 | (REG(r3)<<10), r0, r1, r2); }
 
     // this uses EON with zero register
     void NOTr(int r0, int r1) { _rrr(0xCA3F0000, r0, r1, 0); }
