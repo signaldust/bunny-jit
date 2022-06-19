@@ -358,6 +358,54 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 }
                 doJump(i.label[1]);
                 break;
+                
+            case ops::ilt:
+            case ops::ige:
+            case ops::igt:
+            case ops::ile:
+
+            case ops::ult:
+            case ops::uge:
+            case ops::ugt:
+            case ops::ule:
+
+            case ops::ine:
+            case ops::ieq:
+                a64.CMPrr(ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._CSET^((_CC(i.opcode + ops::jilt - ops::ilt)) << 12),
+                    i.reg, regs::sp, regs::sp);
+                break;
+
+            case ops::iltI:
+            case ops::igeI:
+            case ops::igtI:
+            case ops::ileI:
+
+            case ops::ultI:
+            case ops::ugeI:
+            case ops::ugtI:
+            case ops::uleI:
+            
+            case ops::ineI:
+            case ops::ieqI:
+                if(i.imm32 == (0xfff & i.imm32))
+                {
+                    // SUBS immediate with zero output
+                    a64._rri12(0xF1000000, regs::sp, ops[i.in[0]].reg, i.imm32);
+                }
+                else if(-i.imm32 == (0xfff & -i.imm32))
+                {
+                    // ADDs -immediate with zero output
+                    a64._rri12(0xB1000000, regs::sp, ops[i.in[0]].reg, -i.imm32);
+                }
+                else
+                {
+                    a64.MOVri(regs::x16, (int32_t) i.imm32);
+                    a64.CMPrr(ops[i.in[0]].reg, regs::x16);
+                }
+                a64._rrr(a64._CSET^((_CC(i.opcode + ops::jilt - ops::iltI)) << 12),
+                    i.reg, regs::sp, regs::sp);
+                break;
 
             case ops::iretI:
                 a64.MOVri(regs::x0, i.imm32);

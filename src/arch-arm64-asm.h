@@ -270,6 +270,9 @@ struct AsmArm64
         _rrr(immop | (imm32 << 10), r0, r1, regs::x0);
     }
 
+    // NOTE: bit0 is set and needs to be invert, so XOR the condition code
+    static const uint32_t   _CSET   = 0x9A9F17E0;
+
     void CMPrr(int r0, int r1) { _rrr(0xEB000000, regs::sp, r0, r1); }
     void TSTrr(int r0, int r1) { _rrr(0xEA000000, regs::sp, r0, r1); }
     
