@@ -3,6 +3,8 @@
 
 namespace bjit
 {
+    // this is a hint for opt-ra
+    static const bool arch_explicit_output_regs = true;
 
     // we use this for types, etc
     typedef uint64_t    RegMask;
