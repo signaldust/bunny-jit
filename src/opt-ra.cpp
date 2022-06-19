@@ -600,7 +600,8 @@ void Proc::allocRegs(bool unsafeOpt)
                     if(regstate[ops[op.in[i]].reg] == op.in[i])
                     {
                         regstate[ops[op.in[i]].reg] = noVal;
-                        if(!i && !arch_explicit_output_regs)
+                        if(op.opcode == ops::rename
+                        || (!i && !arch_explicit_output_regs))
                             prefer = ops[op.in[i]].reg;
                     }
                 }
