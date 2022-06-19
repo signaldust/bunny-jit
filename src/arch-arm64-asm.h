@@ -70,17 +70,18 @@ uint8_t _CC(uint8_t opcode)
     switch(opcode)
     {
         case ops::jilt: return 0xB;
-        case ops::jige: return 0xA;
-        case ops::jigt: return 0xC;
-        case ops::jile: return 0xD;
+        case ops::jige: case ops::jdge: case ops::jfge: return 0xA;
+        case ops::jigt: case ops::jdgt: case ops::jfgt: return 0xC;
+        case ops::jile: case ops::jdle: case ops::jfle: return 0xD;
 
         // 0xE = always, 0xF = ???
 
-        // FIXME: are floating point signed or unsigned on ARM?
+        // on ARM using signed LT for floats also matches unordered
+        // where as using unsigned only allows proper match
         case ops::jult: case ops::jdlt: case ops::jflt: return 0x3;
-        case ops::juge: case ops::jdge: case ops::jfge: return 0x2;
-        case ops::jugt: case ops::jdgt: case ops::jfgt: return 0x8;
-        case ops::jule: case ops::jdle: case ops::jfle: return 0x9;
+        case ops::juge: return 0x2;
+        case ops::jugt: return 0x8;
+        case ops::jule: return 0x9;
 
         case ops::jine: case ops::jdne: case ops::jfne: case ops::jnz: return 0x1;
         case ops::jieq: case ops::jdeq: case ops::jfeq: case ops::jz:  return 0x0;
@@ -270,8 +271,14 @@ struct AsmArm64
         _rrr(immop | (imm32 << 10), r0, r1, regs::x0);
     }
 
+    // NOTE: bit0 is set and needs to be invert, so XOR the condition code
+    static const uint32_t   _CSET   = 0x9A9F17E0;
+
     void CMPrr(int r0, int r1) { _rrr(0xEB000000, regs::sp, r0, r1); }
     void TSTrr(int r0, int r1) { _rrr(0xEA000000, regs::sp, r0, r1); }
+
+    void FCMPss(int r0, int r1) { _rrr(0x1E202000, regs::x0, r0, r1); }
+    void FCMPdd(int r0, int r1) { _rrr(0x1E602000, regs::x0, r0, r1); }
     
     void MOVrr(int r0, int r1) { _rrr(0xAA0003E0, r0, 0, r1); }
 
