@@ -58,10 +58,7 @@ Bunnies are small and cute and will take over the world in the near future.
 Bunny-JIT is intended for situations where it is desirable to create some native code
 on the fly (eg. for performance reasons), but including something like LLVM would
 be a total overkill. Why add a gigabyte of dependencies, if you can get most of the
-high-value stuff with less than 10k lines of sparse C++? We're actually not even close
-to 10k lines yet (currently around 6k for the library itself, excluding blanks
-and comments, but including all the debug logs that are not compiled in by default;
-when enabled for debugging, the compiler can mostly explain what it did and why).
+high-value stuff with less than 10k lines of sparse C++?
 
 Our goal is not necessarily to produce the best possible code (you should probably 
 use LLVM for that), but rather to produce something that is good enough to make dynamic
@@ -78,7 +75,8 @@ This rules out optimizations such as loop-unrolling where profitability is not c
 
 It can also be used as a backend for custom languages. It might not be great for
 dynamic languages that rely heavily on memory optimizations (we don't optimize loads
-and stores), but even then it might serve as a decent prototype backend.
+and stores, except simple CSE on loads), but even then it might serve as a decent
+prototype backend.
 
 ## License?
 
@@ -601,16 +599,10 @@ C time: 442ms
 BJIT time: 478ms
 ```
 
-The exact times (obviously) vary from run to run, but the general idea is that in
-this silly benchmark, the code from Bunny-JIT is only about 10% slower. From
-the disassembly it is clear that this could be optimized further (and the some of
-this would be simple to do, like allow storing of immediates, etc), but given the
-size and complexity of Bunny-JIT vs. Clang/LLVM this isn't too bad, is it?
-
-You should expect Bunny-JIT to do significantly worse on code that relies heavily
-on optimizing memory access or code that can be effectively vectorized, but the
-basic idea is that it can typically do a somewhat reasonable job of optimizing
-simple scalar code.
+The exact times (obviously) vary from run to run (and the test might not be entirely
+accurate or fai), and you should expect Bunny-JIT to do significantly worse on code
+that relies heavily on optimizing memory access or code that can be effectively
+vectorized, but the basic idea is that it can typically output something reasonable.
 
 ## SSA?
 
