@@ -359,6 +359,52 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 doJump(i.label[1]);
                 break;
                 
+            case ops::jflt:
+            case ops::jfge:
+            case ops::jfgt:
+            case ops::jfle:
+
+            case ops::jfne:
+            case ops::jfeq:
+                a64.FCMPss(ops[i.in[0]].reg, ops[i.in[1]].reg);
+                
+                a64.addReloc(i.label[0]);
+                a64.emit32(0x54000000
+                    | _CC(i.opcode)
+                    | ((0x7ffff & -(out.size()>>2))<<5));
+                
+                if(!blocks[i.label[0]].flags.codeDone)
+                {
+                    blocks[i.label[0]].flags.codeDone = true;
+                    todo.push_back(i.label[0]);
+                    scheduleThreading();
+                }
+                doJump(i.label[1]);
+                break;
+                
+            case ops::jdlt:
+            case ops::jdge:
+            case ops::jdgt:
+            case ops::jdle:
+
+            case ops::jdne:
+            case ops::jdeq:
+                a64.FCMPdd(ops[i.in[0]].reg, ops[i.in[1]].reg);
+                
+                a64.addReloc(i.label[0]);
+                a64.emit32(0x54000000
+                    | _CC(i.opcode)
+                    | ((0x7ffff & -(out.size()>>2))<<5));
+                
+                if(!blocks[i.label[0]].flags.codeDone)
+                {
+                    blocks[i.label[0]].flags.codeDone = true;
+                    todo.push_back(i.label[0]);
+                    scheduleThreading();
+                }
+                doJump(i.label[1]);
+                break;
+                
             case ops::ilt:
             case ops::ige:
             case ops::igt:
@@ -404,6 +450,30 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                     a64.CMPrr(ops[i.in[0]].reg, regs::x16);
                 }
                 a64._rrr(a64._CSET^((_CC(i.opcode + ops::jilt - ops::iltI)) << 12),
+                    i.reg, regs::sp, regs::sp);
+                break;
+                
+            case ops::flt:
+            case ops::fge:
+            case ops::fgt:
+            case ops::fle:
+
+            case ops::fne:
+            case ops::feq:
+                a64.FCMPss(ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._CSET^((_CC(i.opcode + ops::jilt - ops::ilt)) << 12),
+                    i.reg, regs::sp, regs::sp);
+                break;
+                
+            case ops::dlt:
+            case ops::dge:
+            case ops::dgt:
+            case ops::dle:
+
+            case ops::dne:
+            case ops::deq:
+                a64.FCMPdd(ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._CSET^((_CC(i.opcode + ops::jilt - ops::ilt)) << 12),
                     i.reg, regs::sp, regs::sp);
                 break;
 
