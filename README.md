@@ -601,7 +601,7 @@ BJIT time: 478ms
 ```
 
 The exact times (obviously) vary from run to run (and the test might not be entirely
-accurate or fai), and you should expect Bunny-JIT to do significantly worse on code
+accurate or fair), and you should expect Bunny-JIT to do significantly worse on code
 that relies heavily on optimizing memory access or code that can be effectively
 vectorized, but the basic idea is that it can typically output something reasonable.
 
