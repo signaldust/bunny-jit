@@ -384,13 +384,15 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
 
             case ops::imod:
-                a64.SDIVrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
-                a64.MSUBrrr(i.reg, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                // FIXME: force distinct regs?
+                a64.SDIVrr(regs::x16, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64.MSUBrrr(i.reg, regs::x16, ops[i.in[1]].reg, ops[i.in[0]].reg);
                 break;
                 
             case ops::umod:
-                a64.UDIVrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
-                a64.MSUBrrr(i.reg, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                // FIXME: force distinct regs?
+                a64.UDIVrr(regs::x16, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64.MSUBrrr(i.reg, regs::x16, ops[i.in[1]].reg, ops[i.in[0]].reg);
                 break;
 
             case ops::inot: a64.NOTr(i.reg, ops[i.in[0]].reg); break;
