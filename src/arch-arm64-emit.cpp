@@ -318,8 +318,21 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             
             case ops::jineI:
             case ops::jieqI:
-                a64.MOVri(regs::x16, (int32_t) i.imm32);
-                a64.CMPrr(ops[i.in[0]].reg, regs::x16);
+                if(i.imm32 == (0xfff & i.imm32))
+                {
+                    // SUBS immediate with zero output
+                    a64._rri12(0xF1000000, regs::sp, ops[i.in[0]].reg, i.imm32);
+                }
+                else if(-i.imm32 == (0xfff & -i.imm32))
+                {
+                    // ADDs -immediate with zero output
+                    a64._rri12(0xB1000000, regs::sp, ops[i.in[0]].reg, -i.imm32);
+                }
+                else
+                {
+                    a64.MOVri(regs::x16, (int32_t) i.imm32);
+                    a64.CMPrr(ops[i.in[0]].reg, regs::x16);
+                }
                 
                 a64.addReloc(i.label[0]);
                 a64.emit32(0x54000000
@@ -346,79 +359,103 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
 
             case ops::iadd:
-                a64.ADDrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._ADD, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
 
             case ops::iaddI:
-                // use x16 (not currently allocated) as temporary
+                if(i.imm32 == (0xfff & i.imm32))
+                {
+                    // ADD with immediate
+                    a64._rri12(0x91000000, i.reg, ops[i.in[0]].reg, i.imm32);
+                    break;
+                }
+                if(-i.imm32 == (0xfff & -i.imm32))
+                {
+                    // SUB with -immediate
+                    a64._rri12(0xD1000000, i.reg, ops[i.in[0]].reg, -i.imm32);
+                    break;
+                }
+                // general: use x16 (not currently allocated) as temporary
                 a64.MOVri(regs::x16, (int32_t) i.imm32);
-                a64.ADDrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                a64._rrr(a64._ADD, i.reg, ops[i.in[0]].reg, regs::x16);
                 break;
                 
             case ops::isub:
-                a64.SUBrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._SUB, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
             case ops::isubI:
-                // use x16 (not currently allocated) as temporary
+                if(i.imm32 == (0xfff & i.imm32))
+                {
+                    // SUB with immediate
+                    a64._rri12(0xD1000000, i.reg, ops[i.in[0]].reg, i.imm32);
+                    break;
+                }
+                if(-i.imm32 == (0xfff & -i.imm32))
+                {
+                    // ADD with -immediate
+                    a64._rri12(0x91000000, i.reg, ops[i.in[0]].reg, -i.imm32);
+                    break;
+                }
+                // general: use x16 (not currently allocated) as temporary
                 a64.MOVri(regs::x16, (int32_t) i.imm32);
-                a64.SUBrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                a64._rrr(a64._SUB, i.reg, ops[i.in[0]].reg, regs::x16);
                 break;
 
             case ops::ineg: a64.NEGr(i.reg, ops[i.in[0]].reg); break;
                 
             case ops::imul:
-                a64.MULrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._MUL, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
             case ops::imulI:
                 // use x16 (not currently allocated) as temporary
                 a64.MOVri(regs::x16, (int32_t) i.imm32);
-                a64.MULrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                a64._rrr(a64._MUL, i.reg, ops[i.in[0]].reg, regs::x16);
                 break;
                 
             case ops::idiv:
-                a64.SDIVrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._SDIV, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
                 
             case ops::udiv:
-                a64.UDIVrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._UDIV, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
 
             case ops::imod:
                 // FIXME: force distinct regs?
-                a64.SDIVrr(regs::x16, ops[i.in[0]].reg, ops[i.in[1]].reg);
-                a64.MSUBrrr(i.reg, regs::x16, ops[i.in[1]].reg, ops[i.in[0]].reg);
+                a64._rrr(a64._SDIV, regs::x16, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64.MSUBrrrr(i.reg, regs::x16, ops[i.in[1]].reg, ops[i.in[0]].reg);
                 break;
                 
             case ops::umod:
                 // FIXME: force distinct regs?
-                a64.UDIVrr(regs::x16, ops[i.in[0]].reg, ops[i.in[1]].reg);
-                a64.MSUBrrr(i.reg, regs::x16, ops[i.in[1]].reg, ops[i.in[0]].reg);
+                a64._rrr(a64._UDIV, regs::x16, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64.MSUBrrrr(i.reg, regs::x16, ops[i.in[1]].reg, ops[i.in[0]].reg);
                 break;
 
             case ops::inot: a64.NOTr(i.reg, ops[i.in[0]].reg); break;
                 
             case ops::iand:
-                a64.ANDrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._AND, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
             case ops::iandI:
                 a64.MOVri(regs::x16, (int32_t) i.imm32);
-                a64.ANDrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                a64._rrr(a64._AND, i.reg, ops[i.in[0]].reg, regs::x16);
                 break;
                 
             case ops::ior:
-                a64.ORrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._OR, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
             case ops::iorI:
                 a64.MOVri(regs::x16, (int32_t) i.imm32);
-                a64.ORrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                a64._rrr(a64._OR, i.reg, ops[i.in[0]].reg, regs::x16);
                 break;
                 
             case ops::ixor:
-                a64.XORrr(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
+                a64._rrr(a64._XOR, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
             case ops::ixorI:
                 a64.MOVri(regs::x16, (int32_t) i.imm32);
-                a64.XORrr(i.reg, ops[i.in[0]].reg, regs::x16);
+                a64._rrr(a64._XOR, i.reg, ops[i.in[0]].reg, regs::x16);
                 break;
 
             case ops::ishl:

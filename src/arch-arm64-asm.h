@@ -247,7 +247,7 @@ struct AsmArm64
         {
             // need some magic
             MOVri(regs::x16, offset);
-            ADDrr(regs::x16, regs::x16, r1);
+            _rrr(_ADD, regs::x16, regs::x16, r1);
 
             r1 = regs::x16;
             offset = 0;
@@ -262,31 +262,39 @@ struct AsmArm64
 
     }
 
+    // ADD/SUB have 12-bit immediate versions
+    void _rri12(uint32_t immop, int r0, int r1, int32_t imm32)
+    {
+        BJIT_ASSERT(imm32 == (imm32 & 0xfff));
+
+        _rrr(immop | (imm32 << 10), r0, r1, regs::x0);
+    }
+
     void CMPrr(int r0, int r1) { _rrr(0xEB000000, regs::sp, r0, r1); }
-    void TSTrr(int r0, int r1) { _rrr(0xEA00001F, regs::sp, r0, r1); }
+    void TSTrr(int r0, int r1) { _rrr(0xEA000000, regs::sp, r0, r1); }
     
     void MOVrr(int r0, int r1) { _rrr(0xAA0003E0, r0, 0, r1); }
 
-    void ADDrr(int r0, int r1, int r2) { _rrr(0x8B000000, r0, r1, r2); }
-    void SUBrr(int r0, int r1, int r2) { _rrr(0xCB000000, r0, r1, r2); }
-
-    // SUB from zero reg
-    void NEGr(int r0, int r1) { SUBrr(r0, regs::sp, r1); }
+    static const uint32_t   _ADD    = 0x8B000000;
+    static const uint32_t   _SUB    = 0xCB000000;
     
-    void MULrr(int r0, int r1, int r2) { _rrr(0x9B007C00, r0, r1, r2); }
-    void SDIVrr(int r0, int r1, int r2) { _rrr(0x9AC00C00, r0, r1, r2); }
-    void UDIVrr(int r0, int r1, int r2) { _rrr(0x9AC00800, r0, r1, r2); }
+    // SUB from zero reg
+    void NEGr(int r0, int r1) { _rrr(_SUB, r0, regs::sp, r1); }
 
-    void MSUBrrr(int r0, int r1, int r2, int r3)
+    static const uint32_t   _MUL    = 0x9B007C00;
+    static const uint32_t   _SDIV   = 0x9AC00C00;
+    static const uint32_t   _UDIV   = 0x9AC00800;
+    
+    void MSUBrrrr(int r0, int r1, int r2, int r3)
     { _rrr(0x9B008000 | (REG(r3)<<10), r0, r1, r2); }
 
     // this uses EON with zero register
     void NOTr(int r0, int r1) { _rrr(0xCA3F0000, r0, r1, 0); }
-    
-    void ANDrr(int r0, int r1, int r2) { _rrr(0x8A000000, r0, r1, r2); }
-    void ORrr(int r0, int r1, int r2) { _rrr(0xAA000000, r0, r1, r2); }
-    void XORrr(int r0, int r1, int r2) { _rrr(0xCA000000, r0, r1, r2); }
-    
+
+    static const uint32_t   _AND    = 0x8A000000;
+    static const uint32_t   _OR     = 0xAA000000;
+    static const uint32_t   _XOR    = 0xCA000000;
+
 };
 
 }
