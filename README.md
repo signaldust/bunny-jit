@@ -1,8 +1,8 @@
 # Bunny-JIT
 
 This is a tiny optimising SSA-based JIT backend, currently targeting x64 and arm64
-(the latter is not nearly as well tested though; it might even be slightly incomplete).
-The [`Makefile`](#how-to-build) expects
+(the latter is not nearly as well tested though; it might even be slightly incomplete,
+but appears to work on macOS/M1). The [`Makefile`](#how-to-build) expects
 either Unix environment (and `libtool`) or Windows with `clang` (and `llvm-lib`)
 in path, but there is no real build magic (just compile everything in `src/` really).
 
