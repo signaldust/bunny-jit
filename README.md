@@ -342,7 +342,8 @@ the unsigned versions.
 
 While the compiler doesn't move loads across stores (or other side-effects) it can
 move them out of loops. If you need to prevent this (eg. for multi-threading reasons)
-then you can use `fence` to force a memory barrier.
+then you can use `fence` to force a memory barrier. On x64 this is a pure compiler
+fence (no code generated), but on Arm64 we do issue a full memory barrier.
 
 Internally we have additional instructions that the fold-engine will use (in the
 future the exact set might vary between platforms, so we rely on fold), but they
