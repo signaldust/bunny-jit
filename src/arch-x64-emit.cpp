@@ -1032,7 +1032,9 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::cd2f:
                 _CVTSD2SSxx(i.reg, ops[i.in[0]].reg);
                 break;
-                
+
+            case ops::fence: break; // just a compiler fence on x64
+            
             /* Pseudo-ops: these need to check value types */
             case ops::phi: break;   // this is just NOP here
             

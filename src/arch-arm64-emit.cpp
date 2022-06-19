@@ -767,6 +767,12 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64._rrr(0x9E670000, i.reg, ops[i.in[0]].reg, 0);
                 break;
 
+            case ops::fence:
+                // We issue DMB ISH = full barrier, inner shareable
+                // This is what clang seems to use as well..
+                a64.emit32(0xD5033BBF);
+                break;
+
             case ops::phi: break;   // this is just NOP here
 
             case ops::reload:
