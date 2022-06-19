@@ -6,8 +6,7 @@ Windows with `clang` (and `llvm-lib`) in path, but there is no real build magic
 (just compile everything in `src/` really).
 
 The arm64 backend is very new, so it might still have some issue (well, more issues
-than the x64 backend), but at least on macOS/M1 it seems to be passing the tests
-at least.
+than the x64 backend), but at least on macOS/M1 it seems to be passing the tests.
 
 *The project status right now is that I'm reasonably happy with the current set of
 optimizations (for the time being, at least) and the focus right now is mostly on
