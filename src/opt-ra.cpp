@@ -600,7 +600,8 @@ void Proc::allocRegs(bool unsafeOpt)
                     if(regstate[ops[op.in[i]].reg] == op.in[i])
                     {
                         regstate[ops[op.in[i]].reg] = noVal;
-                        if(!i) prefer = ops[op.in[i]].reg;
+                        if(!i && !arch_explicit_output_regs)
+                            prefer = ops[op.in[i]].reg;
                     }
                 }
             }
@@ -747,7 +748,9 @@ void Proc::allocRegs(bool unsafeOpt)
             RegMask mask = op.regsOut();
 
             // try to mask second operand if possible
-            if(op.nInputs()>1 && op.in[0] != op.in[1]
+            // if the ISA globs the first register
+            if(!arch_explicit_output_regs
+            && op.nInputs()>1 && op.in[0] != op.in[1]
             && (mask &~R2Mask(ops[op.in[1]].reg)))
                 mask &=~R2Mask(ops[op.in[1]].reg);
             

@@ -63,6 +63,8 @@ EDI/DI/BH/MM7/XMM7    111    C7   CF   D7   DF   E7   EF   F7   FF
 
 namespace bjit
 {
+    // this is a hint for opt-ra
+    static const bool arch_explicit_output_regs = false;
 
     // we use this for types, etc
     typedef uint64_t    RegMask;
