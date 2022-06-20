@@ -13,7 +13,7 @@
 #endif
 
 #ifdef __APPLE__
-#define MAP_ANONYMOUS MAP_ANON  // the joy of being different
+# define MAP_ANONYMOUS MAP_ANON  // the joy of being different
 #endif
 
 #include <cstring>
@@ -21,6 +21,16 @@
 #include "bjit.h"
 
 using namespace bjit;
+
+static void flush_cache(char * exec_mem, uint32_t mmapSize)
+{
+#if defined(__GNUC__) || defined(__clang__)
+    // flush icache with a "portable" builtin
+    __builtin___clear_cache(exec_mem, exec_mem + mmapSize);
+#elif defined(__aarch64__)
+#   warning arm64 i-cache might be left stale
+#endif
+}
 
 uintptr_t Module::load(unsigned mmapSizeMin)
 {
@@ -72,6 +82,9 @@ uintptr_t Module::load(unsigned mmapSizeMin)
         unload();
         return 0;
     }
+
+    flush_cache((char*)exec_mem, mmapSize);
+
 #endif
 #ifdef _WIN32
     // Note that VirtualProtect REQUIRES oldFlags to be a valid pointer!
@@ -148,6 +161,9 @@ bool Module::patch()
 #ifdef BJIT_USE_MMAP
     // return zero on success
     BJIT_ASSERT(!mprotect(exec_mem, mmapSize, PROT_READ | PROT_EXEC));
+
+    flush_cache((char*)exec_mem, mmapSize);
+    
 #endif
 #ifdef _WIN32
     // Note that VirtualProtect REQUIRES oldFlags to be a valid pointer!
