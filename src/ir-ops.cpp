@@ -47,9 +47,14 @@ bool bjit::impl::Op::hasF32() const
     return 0 != (opData[this->opcode].inputs & BJIT_F32);
 }
 
-bool bjit::impl::Op::hasMemTag() const
+bool bjit::impl::Op::hasMem() const
 {
     return (opData[this->opcode].inputs & BJIT_MEM);
+}
+
+bool bjit::impl::Op::hasMemTag() const
+{
+    return hasMem() && canCSE();
 }
 
 bool bjit::impl::Op::hasSideFX() const

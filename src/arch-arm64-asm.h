@@ -242,7 +242,6 @@ struct AsmArm64
 
     void _mem(uint32_t op, int r0, int r1, int32_t offset, int shift)
     {
-        // FIXME: should use the two reg mode
         if(offset < 0 || offset > (0x3ff << shift)
         || (offset & ~((~0u)<<shift)))
         {
@@ -255,6 +254,20 @@ struct AsmArm64
         }
 
         emit32(op | REG(r0) | (REG(r1)<<5) | (((offset>>shift)&0x1ff) << 10));
+    }
+    
+    void _mem2(uint32_t op, int r0, int r1, int r2, int32_t offset)
+    {
+        if(offset)
+        {
+            // need some magic
+            MOVri(regs::x16, offset);
+            _rrr(_ADD, regs::x16, regs::x16, r1);
+
+            r1 = regs::x16;
+        }
+
+        emit32(op | REG(r0) | (REG(r1)<<5) | (REG(r2) << 16));
     }
 
     void _rrr(uint32_t op, int r0, int r1, int r2)

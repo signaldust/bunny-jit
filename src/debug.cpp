@@ -70,6 +70,14 @@ void bjit::Proc::debugOp(uint16_t iop) const
                 if(ops[op.in[0]].opcode == ops::nop) BJIT_LOG(" <BAD:0>");
                 if(ops[op.in[1]].opcode == ops::nop) BJIT_LOG(" <BAD:1>");
                 break;
+            case 3: BJIT_LOG(" %s:%04x %s:%04x %s:%04x",
+                regNames[ops[op.in[0]].reg], op.in[0],
+                regNames[ops[op.in[1]].reg], op.in[1],
+                regNames[ops[op.in[2]].reg], op.in[2]);
+                if(ops[op.in[0]].opcode == ops::nop) BJIT_LOG(" <BAD:0>");
+                if(ops[op.in[1]].opcode == ops::nop) BJIT_LOG(" <BAD:1>");
+                if(ops[op.in[2]].opcode == ops::nop) BJIT_LOG(" <BAD:2>");
+                break;
             case 0: break;
             default: BJIT_ASSERT(false);
         }
@@ -80,8 +88,9 @@ void bjit::Proc::debugOp(uint16_t iop) const
     || op.opcode == ops::dcalln
     || op.opcode == ops::tcalln) BJIT_LOG(" near: %d", op.imm32);
     else if(op.hasImm32()) BJIT_LOG(" %+d", op.imm32);
+    else if(op.hasMem()) BJIT_LOG(" %d", op.off16);
 
-    if(op.hasMemTag()) BJIT_LOG(" mem(%04x)", op.in[1]);
+    if(op.hasMemTag()) BJIT_LOG(" mem(%04x)", op.memtag);
     
     if(op.hasI64()) BJIT_LOG(" i64:%" PRId64, op.i64);
     if(op.hasF32()) BJIT_LOG(" f32:%.8e", op.f32);

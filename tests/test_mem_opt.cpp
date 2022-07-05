@@ -12,7 +12,7 @@ int main()
         auto a = pr.iadd(pr.li32(pr.env[0],0), pr.li32(pr.env[0],0));
 
         // this should break CSE on loads
-        pr.si32(pr.env[0], 0, pr.lci(1));
+        pr.si32(pr.lci(1), pr.env[0], 0);
 
         pr.iret(pr.iadd(a, pr.li32(pr.env[0],0)));
 
@@ -26,7 +26,7 @@ int main()
         auto a = pr.iadd(pr.li32(pr.env[0],0), pr.li32(pr.env[0],0));
 
         // this should break CSE on loads
-        pr.si32(pr.env[0], 0, pr.lci(1));
+        pr.si32(pr.lci(1), pr.env[0], 0);
 
         pr.iret(pr.iadd(a, pr.li32(pr.env[0],0)));
 

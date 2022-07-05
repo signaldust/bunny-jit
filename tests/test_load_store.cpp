@@ -113,37 +113,37 @@ int main()
 
     {
         bjit::Proc      proc(0, "ii");
-        proc.si8(proc.env[0], offsetof(TestData,i8), proc.env[1]);
+        proc.si8(proc.env[1], proc.env[0], offsetof(TestData,i8));
         proc.iret(proc.lci(0));
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "ii");
-        proc.si16(proc.env[0], offsetof(TestData,i16), proc.env[1]);
+        proc.si16(proc.env[1], proc.env[0], offsetof(TestData,i16));
         proc.iret(proc.lci(0));
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "ii");
-        proc.si32(proc.env[0], offsetof(TestData,i32), proc.env[1]);
+        proc.si32(proc.env[1], proc.env[0], offsetof(TestData,i32));
         proc.iret(proc.lci(0));
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "ii");
-        proc.si64(proc.env[0], offsetof(TestData,i64), proc.env[1]);
+        proc.si64(proc.env[1], proc.env[0], offsetof(TestData,i64));
         proc.iret(proc.lci(0));
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "if");
-        proc.sf32(proc.env[0], offsetof(TestData,f32), proc.env[1]);
+        proc.sf32(proc.env[1], proc.env[0], offsetof(TestData,f32));
         proc.iret(proc.lci(0));
         module.compile(proc);
     }
     {
         bjit::Proc      proc(0, "id");
-        proc.sf64(proc.env[0], offsetof(TestData,f64), proc.env[1]);
+        proc.sf64(proc.env[1], proc.env[0], offsetof(TestData,f64));
         proc.iret(proc.lci(0));
         module.compile(proc);
     }

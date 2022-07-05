@@ -31,7 +31,7 @@ void Proc::rebuild_memtags(bool unsafeOpt)
 
             if(ops[c].hasMemTag())
             {
-                ops[c].in[1] = memtag;
+                ops[c].memtag = memtag;
             }
         }
 
@@ -40,6 +40,8 @@ void Proc::rebuild_memtags(bool unsafeOpt)
     }
 
     // iterate incoming tags, should usually converge in 2-3 rounds
+    //
+    // FIXME: This is borken, because of iteration order?
     bool progress = true;
     while(progress)
     {
@@ -134,7 +136,7 @@ bool Proc::opt_cse(bool unsafeOpt)
             if(!op.canCSE() || (!unsafeOpt && op.hasSideFX())) continue;
 
             // update memtag to that of block if we need one
-            if(op.hasMemTag() && op.in[1] == noVal) op.in[1] = blocks[b].memtag;
+            if(op.hasMemTag() && op.memtag == noVal) op.memtag = blocks[b].memtag;
 
             // always try to hoist first?
             // walk up the idom chain
@@ -157,7 +159,7 @@ bool Proc::opt_cse(bool unsafeOpt)
                 // if this is a load, then don't hoist into a block
                 // with a different memory tag
                 if(op.hasMemTag()
-                && blocks[blocks[mblock].idom].memout != op.in[1]) break;
+                && blocks[blocks[mblock].idom].memout != op.memtag) break;
 
                 // if we're not the pdom of the idom, our idom branches
                 // if the current block has more than one incoming edge
@@ -275,6 +277,10 @@ bool Proc::opt_cse(bool unsafeOpt)
         if(op.nInputs() >= 2
         && ops[op.in[1]].opcode == ops::phi
         && ops[op.in[1]].block == op.block) hasPhi = true;
+        if(op.nInputs() >= 3
+        && ops[op.in[2]].opcode == ops::phi
+        && ops[op.in[2]].block == op.block) hasPhi = true;
+        BJIT_ASSERT(op.nInputs() < 4);
 
         if(!hasPhi) return;
         
@@ -491,7 +497,7 @@ bool Proc::opt_cse(bool unsafeOpt)
             if(cse_debug) BJIT_LOG("GOOD: move to CCD:%d", ccd);
             if(op0.hasMemTag())
             {
-                BJIT_ASSERT(op0.in[1] == blocks[ccd].memout);
+                BJIT_ASSERT(op0.memtag == blocks[ccd].memout);
             }
         
             // NOTE: We do a lazy clear of the original position

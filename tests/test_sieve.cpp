@@ -71,7 +71,7 @@ int main()
         pr.emitLabel(lb0);
         
             // *(flags + i) = 1
-            pr.si8(pr.iadd(pr.env[_flags], pr.env[_i]), 0, pr.lci(1));
+            pr.si8(pr.lci(1), pr.iadd(pr.env[_flags], pr.env[_i]), 0);
             // ++i
             pr.env[_i] = pr.iadd(pr.env[_i], pr.lci(1));
             pr.jmp(ls0);
@@ -118,7 +118,7 @@ int main()
                 pr.emitLabel(lb2);
         
                     // flags[k] = false;
-                    pr.si8(pr.iadd(pr.env[_flags], pr.env[_k]), 0, pr.lci(0));
+                    pr.si8(pr.lci(0), pr.iadd(pr.env[_flags], pr.env[_k]), 0);
 
                     // k = k + prime
                     pr.env[_k] = pr.iadd(pr.env[_k], pr.env[_prime]);
@@ -164,11 +164,11 @@ int main()
 
     BJIT_ASSERT(sieve(data, sizeof(data)) == proc(data, sizeof(data)));
 
-    printf("Iterating 100 times...\n");
+    printf("Iterating 1000 times...\n");
     {
         auto start = getTimeMs();
 
-        for(int i = 0; i < 100; ++i)
+        for(int i = 0; i < 1000; ++i)
         {
             sieve(data, sizeof(data));
         }
@@ -179,7 +179,7 @@ int main()
     {
         auto start = getTimeMs();
 
-        for(int i = 0; i < 100; ++i)
+        for(int i = 0; i < 1000; ++i)
         {
             proc(data, sizeof(data));
         }
