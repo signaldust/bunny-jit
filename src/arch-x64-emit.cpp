@@ -1028,7 +1028,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
             
             case ops::s2i8:
-                _store_i8(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                _store2_i8(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
                 break;
             case ops::s2i16:
                 _store2_i16(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);

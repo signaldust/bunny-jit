@@ -120,9 +120,11 @@ RegMask Op::regsIn(int i)
         case ops::lu8: case ops::lu16: case ops::lu32:
         case ops::lf32: case ops::lf64:
         case ops::si8: case ops::si16: case ops::si32: case ops::si64:
+        case ops::s2i8: case ops::s2i16: case ops::s2i32: case ops::s2i64:
             return regs::mask_int | (i ? R2Mask(regs::rsp) : 0);
         case ops::sf32: case ops::sf64:
-            return i ? ((regs::mask_int) | R2Mask(regs::rsp) : regs::mask_float);
+        case ops::s2f32: case ops::s2f64:
+            return i ? ((regs::mask_int) | R2Mask(regs::rsp)) : regs::mask_float;
 
         // allow iadd and iaddI to take RSP too, saves moves if we use LEA
         case ops::iadd: case ops::iaddI:

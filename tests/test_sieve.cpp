@@ -3,6 +3,7 @@
 
 #ifdef _WIN32
 #pragma comment(lib,"winmm.lib")
+#include <windows.h>
 static inline unsigned getTimeMs()
 {
 	return timeGetTime();

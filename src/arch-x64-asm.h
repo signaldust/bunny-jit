@@ -278,7 +278,7 @@ struct AsmX64
         if(!offset) offsetMode = 0;
         if(offsetMode && (offset >= -128 && offset <= 127)) { offsetMode = 1; }
     
-        if((0x7 & r1) == REG(regs::rbp) && !scale
+        if((0x7 & r1) == REG(regs::rbp)
         && (0x7 & r2) != REG(regs::rsp)) std::swap(r1, r2);
         
         if(!offsetMode && (0x7 & r1) == REG(regs::rbp)) offsetMode = 1; // disp8
@@ -288,7 +288,7 @@ struct AsmX64
         _OP(op0, op1, op2);
 
         _ModRM(offsetMode, r0, 4);  //  4 = SIB
-        _SIB(r1, r2, 1);    // scale = 1
+        _SIB(r1, r2, 0);    // scale = 0
         emitOffset(offset, offsetMode);
     }
 
