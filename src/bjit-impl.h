@@ -44,8 +44,12 @@ namespace bjit
                 uint64_t    u64;
                 double      f64;
                 
+                uint16_t    in[3];
+                
                 // imm + two values
                 struct {
+                    uint32_t    __in_pad;
+                    
                     union
                     {
                         float       f32;
@@ -59,9 +63,14 @@ namespace bjit
                             uint16_t    indexType;
                             uint16_t    indexTotal;
                         };
+
+                        struct
+                        {
+                            // this will alias on in[2] (for stores)
+                            uint16_t    memtag;
+                            uint16_t    off16;
+                        };
                     };
-                    // 16-bits is likely enough?
-                    uint16_t    in[2];
                 };
     
             };
@@ -70,10 +79,6 @@ namespace bjit
             // NOTE: packing is sensitive (also relative to above)
             union
             {
-                // NOTE: We let ssc alias on in[2] so that
-                // ops without output can have 3 inputs
-                //
-                // We use this for call arguments, possibly stores in the future
                 struct
                 {
                     uint16_t    scc;    // stack congruence class
@@ -83,7 +88,7 @@ namespace bjit
                 // jumps need labels
                 uint16_t    label[2];
             };
-    
+            
             uint16_t    index;  // index in ops[] array (ie. backref)
             uint16_t    block;  // block in which the op currently lives
             
@@ -136,6 +141,7 @@ namespace bjit
             bool    hasF32()        const;
             bool    hasF64()        const;
 
+            bool    hasMem()        const;  // aka. isLoad() / isStore()
             bool    hasMemTag()     const;  // aka. isLoad()?
     
             void    makeNOP() { opcode = ops::nop; u64 = ~0ull; }
@@ -177,10 +183,12 @@ namespace bjit
                 }
                 else
                 {
-                    imm32 = (op.hasImm32()||op.hasF32()) ? op.imm32 : 0;
+                    imm32 = (op.hasMemTag() || op.hasImm32() || op.hasF32())
+                        ? op.imm32 : 0;
                     in[0] = op.nInputs() >= 1 ? op.in[0] : noVal;
-                    in[1] = (op.hasMemTag() || op.nInputs() >= 2)
-                        ? op.in[1] : noVal;
+                    in[1] = op.nInputs() >= 2 ? op.in[1] : noVal;
+
+                    BJIT_ASSERT(op.nInputs() <= 2);
                 }
             }
         
@@ -218,8 +226,11 @@ namespace bjit
                 {
                     switch(n)
                     {
+                    case 3: if(op.in[2] == r.src) op.in[2] = r.dst;
                     case 2: if(op.in[1] == r.src) op.in[1] = r.dst;
                     case 1: if(op.in[0] == r.src) op.in[0] = r.dst;
+                    case 0: break;
+                    default: BJIT_ASSERT(false);
                     }
                 }
                 return op;

@@ -248,8 +248,6 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.emit32(0xD61F0000 | (REG(ops[i.in[0]].reg)<<5));
                 break;
 
-            // FIXME:
-            // bjit::Module needs architecture specific patching logic!
             case ops::icalln:
             case ops::fcalln:
             case ops::dcalln:
@@ -301,12 +299,25 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
 
             case ops::jz:
             case ops::jnz:
-                a64.TSTrr(ops[i.in[0]].reg, ops[i.in[0]].reg);
+
+            #if 0
+                //a64.TSTrr(ops[i.in[0]].reg, ops[i.in[0]].reg);
+
+                // compare immediate seems fine too..
+                a64._rri12(0xF1000000, regs::sp, ops[i.in[0]].reg, 0);
                 
                 a64.addReloc(i.label[0]);
                 a64.emit32(0x54000000
                     | _CC(i.opcode)
                     | ((0x7ffff & -(out.size()>>2))<<5));
+            #else
+                // CBZ / CBNZ - prefer smaller code?
+                a64.addReloc(i.label[0]);
+                a64.emit32(
+                    (i.opcode == ops::jz ? 0xB4000000 : 0xB5000000)
+                    | REG(ops[i.in[0]].reg)
+                    | ((0x7ffff & -(out.size()>>2))<<5));
+            #endif
                 
                 if(!blocks[i.label[0]].flags.codeDone)
                 {
@@ -683,55 +694,105 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
                 
             case ops::li8:
-                a64._mem(0x39800000, i.reg, ops[i.in[0]].reg, i.imm32, 0);
+                a64._mem(0x39800000, i.reg, ops[i.in[0]].reg, i.off16, 0);
                 break;
             case ops::li16:
-                a64._mem(0x79800000, i.reg, ops[i.in[0]].reg, i.imm32, 1);
+                a64._mem(0x79800000, i.reg, ops[i.in[0]].reg, i.off16, 1);
                 break;
             case ops::li32:
-                a64._mem(0xB9800000, i.reg, ops[i.in[0]].reg, i.imm32, 2);
+                a64._mem(0xB9800000, i.reg, ops[i.in[0]].reg, i.off16, 2);
                 break;
             case ops::li64:
-                a64._mem(0xF9400000, i.reg, ops[i.in[0]].reg, i.imm32, 3);
+                a64._mem(0xF9400000, i.reg, ops[i.in[0]].reg, i.off16, 3);
                 break;
 
             case ops::lu8:
-                a64._mem(0x39400000, i.reg, ops[i.in[0]].reg, i.imm32, 0);
+                a64._mem(0x39400000, i.reg, ops[i.in[0]].reg, i.off16, 0);
                 break;
             case ops::lu16:
-                a64._mem(0x79400000, i.reg, ops[i.in[0]].reg, i.imm32, 1);
+                a64._mem(0x79400000, i.reg, ops[i.in[0]].reg, i.off16, 1);
                 break;
             case ops::lu32:
-                a64._mem(0xB9400000, i.reg, ops[i.in[0]].reg, i.imm32, 2);
+                a64._mem(0xB9400000, i.reg, ops[i.in[0]].reg, i.off16, 2);
                 break;
 
             case ops::lf32:
-                a64._mem(0xBD400000, i.reg, ops[i.in[0]].reg, i.imm32, 2);
+                a64._mem(0xBD400000, i.reg, ops[i.in[0]].reg, i.off16, 2);
                 break;
             case ops::lf64:
-                a64._mem(0xFD400000, i.reg, ops[i.in[0]].reg, i.imm32, 3);
+                a64._mem(0xFD400000, i.reg, ops[i.in[0]].reg, i.off16, 3);
                 break;
                 
             case ops::si8:
-                a64._mem(0x39000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 0);
+                a64._mem(0x39000000, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16, 0);
                 break;
             case ops::si16:
-                a64._mem(0x79000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 1);
+                a64._mem(0x79000000, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16, 1);
                 break;
             case ops::si32:
-                a64._mem(0xB9000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 2);
+                a64._mem(0xB9000000, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16, 2);
                 break;
             case ops::si64:
-                a64._mem(0xF9000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 3);
+                a64._mem(0xF9000000, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16, 3);
                 break;
 
             case ops::sf32:
-                a64._mem(0xBD000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 2);
+                a64._mem(0xBD000000, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16, 2);
                 break;
             case ops::sf64:
-                a64._mem(0xFD000000, ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32, 3);
+                a64._mem(0xFD000000, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16, 3);
                 break;
 
+            case ops::l2i8:
+                a64._mem2(0x38A06800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2i16:
+                a64._mem2(0x78A06800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2i32:
+                a64._mem2(0xB8A06800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2i64:
+                a64._mem2(0xF8606800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+
+            case ops::l2u8:
+                a64._mem2(0x38606800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2u16:
+                a64._mem2(0x78606800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2u32:
+                a64._mem2(0xB8606800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+
+            case ops::l2f32:
+                a64._mem2(0xBC606800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2f64:
+                a64._mem2(0xFC606800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+                
+            case ops::s2i8:
+                a64._mem2(0x38206800, ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2i16:
+                a64._mem2(0x78206800, ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2i32:
+                a64._mem2(0xB8206800, ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2i64:
+                a64._mem2(0xF8206800, ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+
+            case ops::s2f32:
+                a64._mem2(0xBC206800, ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2f64:
+                a64._mem2(0xFC206800, ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+                
             case ops::ci2f:
                 a64._rrr(0x1E220000, i.reg, ops[i.in[0]].reg, regs::x0);
                 break;

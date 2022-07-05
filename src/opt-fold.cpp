@@ -11,14 +11,17 @@ using namespace bjit;
 // match operands
 #define I0(x) (op.nInputs() >= 1 && ops[op.in[0]].opcode == x)
 #define I1(x) (op.nInputs() >= 2 && ops[op.in[1]].opcode == x)
+#define I2(x) (op.nInputs() >= 3 && ops[op.in[2]].opcode == x)
 
 // check for constants
 #define C0 (op.nInputs() >= 1 && (I0(ops::lci) || I0(ops::lcf) || I0(ops::lcd)))
 #define C1 (op.nInputs() >= 2 && (I1(ops::lci) || I1(ops::lcf) || I1(ops::lcd)))
+#define C2 (op.nInputs() >= 3 && (I2(ops::lci) || I2(ops::lcf) || I2(ops::lcd)))
 
 // fetch operands
 #define N0 ops[op.in[0]]
 #define N1 ops[op.in[1]]
+#define N2 ops[op.in[2]]
 
 /*
 
@@ -607,7 +610,88 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.makeNOP();
                     continue;
                 }
-    
+
+                // merge iaddI into loads?
+                if(false && op.hasMem() && op.hasOutput()
+                && I0(ops::iaddI) && N0.nUse == 1
+                && (op.off16 + N0.imm32) == uint16_t(op.off16 + N0.imm32))
+                {
+                    op.off16 += N0.imm32;
+                    op.in[0] = N0.in[0];
+                    progress = true;
+                }
+                if(false && op.hasMem() && op.hasOutput()
+                && I0(ops::isubI) && N0.nUse == 1
+                && (op.off16 - N0.imm32) == uint16_t(op.off16 - N0.imm32))
+                {
+                    op.off16 -= N0.imm32;
+                    op.in[0] = N0.in[0];
+                    progress = true;
+                }
+
+                // second operand or store?
+                if(false && op.hasMem() && op.nInputs() >= 2
+                && I1(ops::iaddI) && N1.nUse == 1
+                && (op.off16 + N1.imm32) == uint16_t(op.off16 + N1.imm32))
+                {
+                    op.off16 += N1.imm32;
+                    op.in[1] = N1.in[0];
+                    progress = true;
+                }
+                if(false && op.hasMem() && op.nInputs() >= 2
+                && I1(ops::isubI) && N1.nUse == 1
+                && (op.off16 - N1.imm32) == uint16_t(op.off16 - N1.imm32))
+                {
+                    op.off16 -= N1.imm32;
+                    op.in[1] = N1.in[0];
+                    progress = true;
+                }
+
+                // third operand on 2-reg store?
+                if(false && op.hasMem() && op.nInputs() >= 3
+                && I2(ops::iaddI) && N2.nUse == 1
+                && (op.off16 + N2.imm32) == uint16_t(op.off16 + N2.imm32))
+                {
+                    debugOp(bc);
+                    op.off16 += N2.imm32;
+                    op.in[2] = N2.in[0];
+                    debugOp(bc);
+                    progress = true;
+                }
+                if(false && op.hasMem() && op.nInputs() >= 3
+                && I1(ops::isubI) && N2.nUse == 1
+                && (op.off16 - N2.imm32) == uint16_t(op.off16 - N2.imm32))
+                {
+                    op.off16 -= N2.imm32;
+                    op.in[1] = N2.in[0];
+                    progress = true;
+                }
+
+                // merge iadd into 1-reg loads?
+                if(op.hasMem() && op.hasOutput() && op.nInputs() == 1
+                && I0(ops::iadd) && N0.nUse == 1)
+                {
+                    op.opcode += ops::l2i8 - ops::li8;
+
+                    op.in[1] = N0.in[1];
+                    op.in[0] = N0.in[0];
+                    progress = true;
+                }
+                
+                // merge iadd into 1-reg stores?
+                if(op.hasMem() && !op.hasOutput() && op.nInputs() == 2
+                && I1(ops::iadd) && N1.nUse == 1)
+                {
+                    debugOp(op.in[1]);
+                    debugOp(bc);
+                    op.opcode += ops::s2i8 - ops::si8;
+
+                    op.in[2] = N1.in[1];
+                    op.in[1] = N1.in[0];
+                    debugOp(bc);
+                    progress = true;
+                }
+                
                 if(C0)
                 switch(op.opcode)
                 {

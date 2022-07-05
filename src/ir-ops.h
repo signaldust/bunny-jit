@@ -15,7 +15,7 @@
 #define BJIT_NOMOVE 0x40    // must be in the beginning of a block
 
 // input flags (lowest 2 bits are nInputs)
-#define BJIT_MEM    0x08    // in[1] holds memory version
+#define BJIT_MEM    0x08    // offset16 + memtag
 #define BJIT_IMM32  0x10    // has imm32 operand
 #define BJIT_I64    0x20    // has 64-bit integer constant
 #define BJIT_F64    0x40    // has double constant
@@ -141,9 +141,7 @@
     _(isub, BJIT_CSE+1, 2), \
     _(ineg, BJIT_CSE+1, 1), \
     _(imul, BJIT_CSE+1, 2), \
-    /* don't CSE divisions for now, because we don't want to */ \
-    /* move exceptions to the other side of a load or store  */ \
-    /* FIXME: is this a case where should accept UB? */ \
+    /* division by zero is a "side-effect" */ \
     _(idiv, BJIT_SIDEFX+BJIT_CSE+1, 2), \
     _(imod, BJIT_SIDEFX+BJIT_CSE+1, 2), \
     /* unsigned integer arithmetic */ \
@@ -209,24 +207,45 @@
     /* memory loads: load out <- [in0+offset] */ \
     /* integer variants: sign-extended */ \
     /* treat as potentially causing side-effects */ \
-    _(li8,  BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
-    _(li16, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
-    _(li32, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
-    _(li64, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
+    _(li8,  BJIT_CSE+1, 1+BJIT_MEM), \
+    _(li16, BJIT_CSE+1, 1+BJIT_MEM), \
+    _(li32, BJIT_CSE+1, 1+BJIT_MEM), \
+    _(li64, BJIT_CSE+1, 1+BJIT_MEM), \
     /* unsigned variants (zero-extend) */ \
-    _(lu8,  BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
-    _(lu16, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
-    _(lu32, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
+    _(lu8,  BJIT_CSE+1, 1+BJIT_MEM), \
+    _(lu16, BJIT_CSE+1, 1+BJIT_MEM), \
+    _(lu32, BJIT_CSE+1, 1+BJIT_MEM), \
+    /* float */ \
+    _(lf32, BJIT_CSE+1, 1+BJIT_MEM), \
+    _(lf64, BJIT_CSE+1, 1+BJIT_MEM), \
+    /* two reg versions - NOTE: must be in same order! */ \
+    _(l2i8,  BJIT_CSE+1, 2+BJIT_MEM), \
+    _(l2i16, BJIT_CSE+1, 2+BJIT_MEM), \
+    _(l2i32, BJIT_CSE+1, 2+BJIT_MEM), \
+    _(l2i64, BJIT_CSE+1, 2+BJIT_MEM), \
+    /* unsigned variants (zero-extend) */ \
+    _(l2u8,  BJIT_CSE+1, 2+BJIT_MEM), \
+    _(l2u16, BJIT_CSE+1, 2+BJIT_MEM), \
+    _(l2u32, BJIT_CSE+1, 2+BJIT_MEM), \
+    /* float */ \
+    _(l2f32, BJIT_CSE+1, 2+BJIT_MEM), \
+    _(l2f64, BJIT_CSE+1, 2+BJIT_MEM), \
     /* memory stores: store [in0+offset] <- in1 */ \
-    _(si8,  0, 2+BJIT_IMM32), \
-    _(si16, 0, 2+BJIT_IMM32), \
-    _(si32, 0, 2+BJIT_IMM32), \
-    _(si64, 0, 2+BJIT_IMM32), \
-    /* floating point load and store */ \
-    _(lf32, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
-    _(lf64, BJIT_CSE+1, 1+BJIT_IMM32+BJIT_MEM), \
-    _(sf32, 0, 2+BJIT_IMM32), \
-    _(sf64, 0, 2+BJIT_IMM32), \
+    _(si8,  0, 2+BJIT_MEM), \
+    _(si16, 0, 2+BJIT_MEM), \
+    _(si32, 0, 2+BJIT_MEM), \
+    _(si64, 0, 2+BJIT_MEM), \
+    /* floating point */ \
+    _(sf32, 0, 2+BJIT_MEM), \
+    _(sf64, 0, 2+BJIT_MEM), \
+    /* two reg versions - NOTE: must be in same order!  */ \
+    _(s2i8,  0, 3+BJIT_MEM), \
+    _(s2i16, 0, 3+BJIT_MEM), \
+    _(s2i32, 0, 3+BJIT_MEM), \
+    _(s2i64, 0, 3+BJIT_MEM), \
+    /* floating point */ \
+    _(s2f32, 0, 3+BJIT_MEM), \
+    _(s2f64, 0, 3+BJIT_MEM), \
     /* procedure arguments */ \
     _(iarg, 1+BJIT_NOMOVE, 0), \
     _(farg, 1+BJIT_NOMOVE, 0), \

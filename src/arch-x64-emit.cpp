@@ -951,51 +951,99 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::u32: _MOVZX_32(i.reg, ops[i.in[0]].reg); break;
 
             case ops::li8:
-                _load_i8(i.reg, ops[i.in[0]].reg, i.imm32);
+                _load_i8(i.reg, ops[i.in[0]].reg, i.off16);
                 break;
             case ops::li16:
-                _load_i16(i.reg, ops[i.in[0]].reg, i.imm32);
+                _load_i16(i.reg, ops[i.in[0]].reg, i.off16);
                 break;
             case ops::li32:
-                _load_i32(i.reg, ops[i.in[0]].reg, i.imm32);
+                _load_i32(i.reg, ops[i.in[0]].reg, i.off16);
                 break;
             case ops::li64:
-                _load_i64(i.reg, ops[i.in[0]].reg, i.imm32);
+                _load_i64(i.reg, ops[i.in[0]].reg, i.off16);
                 break;
 
             case ops::lu8:
-                _load_u8(i.reg, ops[i.in[0]].reg, i.imm32);
+                _load_u8(i.reg, ops[i.in[0]].reg, i.off16);
                 break;
             case ops::lu16:
-                _load_u16(i.reg, ops[i.in[0]].reg, i.imm32);
+                _load_u16(i.reg, ops[i.in[0]].reg, i.off16);
                 break;
             case ops::lu32:
-                _load_u32(i.reg, ops[i.in[0]].reg, i.imm32);
+                _load_u32(i.reg, ops[i.in[0]].reg, i.off16);
                 break;
             case ops::lf32:
-                _load_f32(i.reg, ops[i.in[0]].reg, i.imm32);
+                _load_f32(i.reg, ops[i.in[0]].reg, i.off16);
                 break;
             case ops::lf64:
-                _load_f64(i.reg, ops[i.in[0]].reg, i.imm32);
+                _load_f64(i.reg, ops[i.in[0]].reg, i.off16);
                 break;
             
             case ops::si8:
-                _store_i8(ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32);
+                _store_i8(ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
                 break;
             case ops::si16:
-                _store_i16(ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32);
+                _store_i16(ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
                 break;
             case ops::si32:
-                _store_i32(ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32);
+                _store_i32(ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
                 break;
             case ops::si64:
-                _store_i64(ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32);
+                _store_i64(ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
                 break;
             case ops::sf32:
-                _store_f32(ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32);
+                _store_f32(ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
                 break;
             case ops::sf64:
-                _store_f64(ops[i.in[1]].reg, ops[i.in[0]].reg, i.imm32);
+                _store_f64(ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+                
+            case ops::l2i8:
+                _load2_i8(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2i16:
+                _load2_i16(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2i32:
+                _load2_i32(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2i64:
+                _load2_i64(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+
+            case ops::l2u8:
+                _load2_u8(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2u16:
+                _load2_u16(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2u32:
+                _load2_u32(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2f32:
+                _load2_f32(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2f64:
+                _load2_f64(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            
+            case ops::s2i8:
+                _store2_i8(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2i16:
+                _store2_i16(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2i32:
+                _store2_i32(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2i64:
+                _store2_i64(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2f32:
+                _store2_f32(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2f64:
+                _store2_f64(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
                 break;
 
             case ops::ci2d:

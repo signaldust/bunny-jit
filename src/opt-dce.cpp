@@ -44,16 +44,17 @@ void Proc::opt_dce(bool unsafeOpt)
             
                 if(deadTail)
                 {
-                    ops[i].opcode = ops::nop;
-                    ops[i].in[0] = noVal;
-                    ops[i].in[1] = noVal;
+                    ops[i].makeNOP();
                     continue;
                 }
             
                 switch(ops[i].nInputs())
                 {
+                    case 3: ++ops[ops[i].in[2]].nUse;
                     case 2: ++ops[ops[i].in[1]].nUse;
                     case 1: ++ops[ops[i].in[0]].nUse;
+                    case 0: break;
+                    default: BJIT_ASSERT(false);
                 }
                 
                 // only need to look at last op
@@ -248,13 +249,16 @@ void Proc::opt_dce(bool unsafeOpt)
 
                 switch(op.nInputs())
                 {
+                case 3: --ops[op.in[2]].nUse;
                 case 2: --ops[op.in[1]].nUse;
                 case 1: --ops[op.in[0]].nUse;
-                default:
+                case 0:
                     op.opcode = ops::nop;
                     op.in[0] = noVal;
                     op.in[1] = noVal;
                     progress = true;
+                    break;
+                default: BJIT_ASSERT(false);
                 }
             }
 
@@ -308,8 +312,11 @@ void Proc::findUsesBlock(int b, bool inOnly, bool localOnly)
 
         switch(op.nInputs())
         {
+        case 3: ++ops[op.in[2]].nUse;
         case 2: ++ops[op.in[1]].nUse;
         case 1: ++ops[op.in[0]].nUse;
+        case 0: break;
+        default: BJIT_ASSERT(false);
         }
 
         // for ops that define values, set nUse to zero

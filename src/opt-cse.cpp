@@ -31,7 +31,7 @@ void Proc::rebuild_memtags(bool unsafeOpt)
 
             if(ops[c].hasMemTag())
             {
-                ops[c].in[1] = memtag;
+                ops[c].memtag = memtag;
             }
         }
 
@@ -39,53 +39,46 @@ void Proc::rebuild_memtags(bool unsafeOpt)
         blocks[b].memout = memtag;
     }
 
-    // iterate incoming tags, should usually converge in 2-3 rounds
+    // iterate incoming tags - converges in a few rounds
     bool progress = true;
     while(progress)
     {
         progress = false;
         for(auto b : live)
         {
-            // did we already pick unique tag for this block?
-            if(blocks[b].memtag != noVal
-            && ops[blocks[b].memtag].block == b) continue;
-            
+            uint16_t memtag = noVal;
+
             for(auto cf : blocks[b].comeFrom)
             {
-                // does the incoming edge have a tag?
+                // if incoming edge doesn't have a tag, skip
                 if(blocks[cf].memout == noVal) continue;
-                
-                // do tags already match?
-                if(blocks[cf].memout == blocks[b].memtag) continue;
 
-                // does this block have a tag?
-                if(blocks[b].memtag == noVal)
+                // if this matches existing tag, skip
+                if(blocks[cf].memout == memtag) continue;
+
+                // if we don't have a tag, copy
+                if(memtag == noVal)
                 {
-                    blocks[b].memtag = blocks[cf].memout;
-                    // pass to output unless we have something better
-                    if(blocks[b].memout == noVal)
-                    {
-                        blocks[b].memout = blocks[b].memtag;
-                        progress = true;
-                    }
+                    memtag = blocks[cf].memout;
                 }
                 else
                 {
-                    // incoming tags don't match, pick a unique one
-                    // we'll pick the last op in the block (jump, return)
-                    // as this isn't going to be moved or removed
-                    blocks[b].memtag = blocks[b].code.back();
-                    
-                    // if we have an output tag that's from another block
-                    // then we need to update that as well; otherwise we have
-                    // local sideFX and should keep the existing out tag
-                    if(ops[blocks[b].memout].block != b)
-                    {
-                        blocks[b].memout = blocks[b].memtag;
-                        progress = true;
-                    }
+                    // tags don't match, bail out
+                    memtag = blocks[b].code.back();
+                    break;
                 }
             }
+
+            // if we updated tags, then repeat
+            if(blocks[b].memtag != memtag) progress = true;
+
+            // if this block is pass-thru, keep it pass-thru
+            if(blocks[b].memtag == blocks[b].memout)
+            {
+                blocks[b].memout = memtag;
+            }
+
+            blocks[b].memtag = memtag;
         }
     }
 }
@@ -134,7 +127,7 @@ bool Proc::opt_cse(bool unsafeOpt)
             if(!op.canCSE() || (!unsafeOpt && op.hasSideFX())) continue;
 
             // update memtag to that of block if we need one
-            if(op.hasMemTag() && op.in[1] == noVal) op.in[1] = blocks[b].memtag;
+            if(op.hasMemTag() && op.memtag == noVal) op.memtag = blocks[b].memtag;
 
             // always try to hoist first?
             // walk up the idom chain
@@ -157,7 +150,7 @@ bool Proc::opt_cse(bool unsafeOpt)
                 // if this is a load, then don't hoist into a block
                 // with a different memory tag
                 if(op.hasMemTag()
-                && blocks[blocks[mblock].idom].memout != op.in[1]) break;
+                && blocks[blocks[mblock].idom].memout != op.memtag) break;
 
                 // if we're not the pdom of the idom, our idom branches
                 // if the current block has more than one incoming edge
@@ -275,6 +268,10 @@ bool Proc::opt_cse(bool unsafeOpt)
         if(op.nInputs() >= 2
         && ops[op.in[1]].opcode == ops::phi
         && ops[op.in[1]].block == op.block) hasPhi = true;
+        if(op.nInputs() >= 3
+        && ops[op.in[2]].opcode == ops::phi
+        && ops[op.in[2]].block == op.block) hasPhi = true;
+        BJIT_ASSERT(op.nInputs() < 4);
 
         if(!hasPhi) return;
         
@@ -491,7 +488,7 @@ bool Proc::opt_cse(bool unsafeOpt)
             if(cse_debug) BJIT_LOG("GOOD: move to CCD:%d", ccd);
             if(op0.hasMemTag())
             {
-                BJIT_ASSERT(op0.in[1] == blocks[ccd].memout);
+                BJIT_ASSERT(op0.memtag == blocks[ccd].memout);
             }
         
             // NOTE: We do a lazy clear of the original position

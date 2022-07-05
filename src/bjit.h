@@ -370,18 +370,18 @@ namespace bjit
 
         // loads take pointer+offset
 #define BJIT_LOAD(x, t) \
-    Value x(Value v0, int32_t imm32) { \
+    Value x(Value v0, uint16_t off16) { \
         auto i = addOp(ops::x, Op::t); \
         ops[i].in[0] = v0.index; BJIT_ASSERT(ops[v0.index].flags.type == Op::_ptr); \
-        ops[i].imm32 = imm32; return Value{i}; }
+        ops[i].off16 = off16; ops[i].memtag = noVal; return Value{i}; }
 
         // stores take pointer+offset and value to store
 #define BJIT_STORE(x, t) \
-    void x(Value ptr, int32_t imm32, Value val) { \
+    void x(Value val, Value ptr, uint16_t off16) { \
         auto i = addOp(ops::x, Op::_none); \
-        ops[i].in[0] = ptr.index; BJIT_ASSERT(ops[ptr.index].flags.type == Op::_ptr); \
-        ops[i].in[1] = val.index; BJIT_ASSERT(ops[val.index].flags.type == Op::t); \
-        ops[i].imm32 = imm32; }
+        ops[i].in[0] = val.index; BJIT_ASSERT(ops[val.index].flags.type == Op::t); \
+        ops[i].in[1] = ptr.index; BJIT_ASSERT(ops[ptr.index].flags.type == Op::_ptr); \
+        ops[i].off16 = off16; }
 
         BJIT_LOAD(li8, _ptr); BJIT_LOAD(li16, _ptr);
         BJIT_LOAD(li32, _ptr); BJIT_LOAD(li64, _ptr);
@@ -798,7 +798,7 @@ namespace bjit
 
         // returns Proc index
         // levelOpt: 0:DCE, 1:all-safe, 2:all, see Proc::compile
-        int compile(Proc & proc, unsigned levelOpt = 1)
+        int compile(Proc & proc, unsigned levelOpt = 2)
         {
             int index = offsets.size();
             offsets.push_back(bytes.size());

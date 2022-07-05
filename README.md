@@ -15,6 +15,8 @@ Feel free to experiment, but please expect to still find some serious bugs.*
 
 **Please don't use it for production yet. Please contribute more tests first.**
 
+**Warning: API changes loads/stores take off16 and stores now take value first.**
+
 Features:
   * small and simple (by virtue of elegant design), yet tries to avoid being naive
   * portable<sup>1</sup> C++11 without dependencies (other than STL)
@@ -330,12 +332,12 @@ versions of arithmetic operations
 
 `u8 a`, `u16 a` and `u32 a` can be used to zero-extend the low 8/16/32 bits
 
-Loads follow the form `lXX ptr imm32` where `ptr` is integer SSA value and `imm32`
-is an immediate offset (eg. for field offsets). The variants defined are 
+Loads follow the form `lXX ptr off16` where `ptr` is integer SSA value and `off16`
+is an unsigned immediate offset (eg. for field offsets). The variants defined are 
 `li8/16/32/64`, `lu8/16/32` and `lf32/64`. The integer `i` variants sign-extend
 while the `u` variants zero-extend.
 
-Stores follow the form `sXX ptr imm32 value` where `ptr` and `imm32` are like loads
+Stores follow the form `sXX value ptr off16` where `ptr` and `imm32` are like loads
 while `value` is the SSA value to store. Variants are like loads, but without
 the unsigned versions.
 
