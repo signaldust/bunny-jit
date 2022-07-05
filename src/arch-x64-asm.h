@@ -269,6 +269,29 @@ struct AsmX64
         if(disp8) emit(0);
     }
 
+    // this encodes r, [r+r+offset] cases
+    void _RRM(int w, int r0, int r1, int r2, int offset,
+        int op0, int op1 = -1, int op2 = -1)
+    {
+        // check if we need to encode offset
+        int offsetMode = 2;     // disp32
+        if(!offset) offsetMode = 0;
+        if(offsetMode && (offset >= -128 && offset <= 127)) { offsetMode = 1; }
+    
+        if((0x7 & r1) == REG(regs::rbp) && !scale
+        && (0x7 & r2) != REG(regs::rsp)) std::swap(r1, r2);
+        
+        if(!offsetMode && (0x7 & r1) == REG(regs::rbp)) offsetMode = 1; // disp8
+    
+        _PREFIX(op0, op1, op2);
+        _REX(w, r0, r1, r2);
+        _OP(op0, op1, op2);
+
+        _ModRM(offsetMode, r0, 4);  //  4 = SIB
+        _SIB(r1, r2, 1);    // scale = 1
+        emitOffset(offset, offsetMode);
+    }
+
     void emitOffset(int offset, int offsetMode)
     {
         switch(offsetMode)
@@ -545,6 +568,34 @@ struct AsmX64
 #define _store_f32(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0xF3, 0x0F, 0x11)
 #define _store_f64(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0xF2, 0x0F, 0x11)
 #define _store_f128(r, ptr, off)   a64._RM(0, REG(r), REG(ptr), off, 0x0F, 0x29)
+
+// explicit sizes for memory ops - signed loads, MOVSX for sign-extend
+// these need REX.W to sign-extend all the way
+#define _load2_i64(r, r1, r2, off)  a64._RRM(1, REG(r), REG(r1), REG(r2), off, 0x8B)
+#define _load2_i32(r, r1, r2, off)  a64._RRM(1, REG(r), REG(r1), REG(r2), off, 0x63)
+#define _load2_i16(r, r1, r2, off)  a64._RRM(1, REG(r), REG(r1), REG(r2), off, 0x0F, 0xBF)
+#define _load2_i8(r, r1, r2, off)   a64._RRM(1, REG(r), REG(r1), REG(r2), off, 0x0F, 0xBE)
+
+// unsigned loads - 32bits is just non-wide regular load, rest are MOVZX
+// NOTE: using REX.W for the 16/8 bit MOVZX doesn't really make a difference
+#define _load2_u32(r, r1, r2, off)  a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0x8B)
+#define _load2_u16(r, r1, r2, off)  a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0x0F, 0xB7)
+#define _load2_u8(r, r1, r2, off)   a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0x0F, 0xB6)
+
+#define _load2_f32(r, r1, r2, off)   a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0xF3, 0x0F, 0x10)
+#define _load2_f64(r, r1, r2, off)   a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0xF2, 0x0F, 0x10)
+#define _load2_f128(r, r1, r2, off)   a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0x0F, 0x28)
+
+// integer stores - only 64bits needs REX.W here, opsize prefix for 16bit
+// for 8bit we force REX-prefix for RSP/RBP/RDI/RSI
+#define _store2_i64(r, r1, r2, off) a64._RRM(1, REG(r), REG(r1), REG(r2), off, 0x89)
+#define _store2_i32(r, r1, r2, off) a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0x89)
+#define _store2_i16(r, r1, r2, off) a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0x66, 0x89)
+#define _store2_i8(r, r1, r2, off)  a64._RRM(2, REG(r), REG(r1), REG(r2), off, 0x88)
+
+#define _store2_f32(r, r1, r2, off)   a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0xF3, 0x0F, 0x11)
+#define _store2_f64(r, r1, r2, off)   a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0xF2, 0x0F, 0x11)
+#define _store2_f128(r, r1, r2, off)   a64._RRM(0, REG(r), REG(r1), REG(r2), off, 0x0F, 0x29)
 
 
 }

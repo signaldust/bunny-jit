@@ -997,6 +997,54 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::sf64:
                 _store_f64(ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
                 break;
+                
+            case ops::l2i8:
+                _load2_i8(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2i16:
+                _load2_i16(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2i32:
+                _load2_i32(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2i64:
+                _load2_i64(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+
+            case ops::l2u8:
+                _load2_u8(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2u16:
+                _load2_u16(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2u32:
+                _load2_u32(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2f32:
+                _load2_f32(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            case ops::l2f64:
+                _load2_f64(i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg, i.off16);
+                break;
+            
+            case ops::s2i8:
+                _store_i8(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2i16:
+                _store2_i16(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2i32:
+                _store2_i32(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2i64:
+                _store2_i64(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2f32:
+                _store2_f32(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
+            case ops::s2f64:
+                _store2_f64(ops[i.in[0]].reg, ops[i.in[1]].reg, ops[i.in[2]].reg, i.off16);
+                break;
 
             case ops::ci2d:
                 _CVTSI2SDxr(i.reg, ops[i.in[0]].reg);
