@@ -421,7 +421,7 @@ bool Proc::opt_jump()
                     if(val.in[1] == a.phi)
                     {
                         // other operand must dominate PHI
-                        for(auto & d : blocks[b].dom)
+                        for(auto & d : blocks[blocks[b].idom].dom)
                         {
                             if(ops[val.in[0]].block != d) continue;
                             phi.iv = a.val;
@@ -432,7 +432,7 @@ bool Proc::opt_jump()
                     else if(val.in[0] == a.phi)
                     {
                         // other operand must dominate PHI
-                        for(auto & d : blocks[b].dom)
+                        for(auto & d : blocks[blocks[b].idom].dom)
                         {
                             if(ops[val.in[1]].block != d) continue;
                             phi.iv = a.val;
