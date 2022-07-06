@@ -192,11 +192,15 @@ bool Proc::opt_cse(bool unsafeOpt)
                 blocks[mblock].code.push_back(op.index);
                 while(k--)
                 {
-                    // don't move past anything with sideFX
+                    // don't move past anything that can't move (phi, alloc)
                     // but DO move past jumps
                     if(blocks[mblock].code[k] != noVal
                     && ops[blocks[mblock].code[k]].opcode > ops::jmp
                     && !ops[blocks[mblock].code[k]].canMove()) break;
+                    
+                    // sanity check that we don't move loads past sideFX
+                    if(op.hasMemTag() &&
+                    ops[blocks[mblock].code[k]].hasSideFX()) break;
                     
                     // sanity check that we don't move past inputs
                     bool canMove = true;
@@ -208,15 +212,12 @@ bool Proc::opt_cse(bool unsafeOpt)
                     }
                     if(!canMove) break;
 
-                    // sanity check that we don't move loads past sideFX
-                    if(op.hasMemTag() &&
-                    ops[blocks[mblock].code[k]].hasSideFX()) break;
-
                     // move
                     std::swap(blocks[mblock].code[k],
                         blocks[mblock].code[k+1]);
                 }
-            } else if(cse_debug)
+            }
+            else if(cse_debug)
                 BJIT_LOG("\ncan't move %04x from %d", op.index, b);
                  
 

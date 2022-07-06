@@ -64,6 +64,9 @@ namespace bjit
 
 void Proc::arch_emit(std::vector<uint8_t> & out)
 {
+
+    rebuild_dom();
+    
     for(auto & b : blocks) { b.flags.codeDone = false; }
 
     AsmArm64 a64(out, blocks.size());
@@ -198,24 +201,16 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             
             bool done0 = blocks[i.label[0]].flags.codeDone;
             bool done1 = blocks[i.label[1]].flags.codeDone;
-
-            auto & j0 = ops[blocks[i.label[0]].code.back()];
-            auto & j1 = ops[blocks[i.label[1]].code.back()];
             
-            if(!done0 && !done1)
-            {
-                if(j0.opcode == ops::jmp
-                && blocks[j0.label[0]].flags.codeDone) done0 = true;
-                if(j1.opcode == ops::jmp
-                && blocks[j1.label[0]].flags.codeDone) done1 = true;
-            }
+            // this seems to be the winner rule in general
+            if(blocks[i.label[1]].pdom == i.label[0]) swap = true;
+            else if(blocks[i.label[0]].pdom == i.label[1]) swap = false;
+            else if(blocks[i.label[0]].pdom == i.label[1]) swap = false;
+            else if(blocks[i.block].pdom == i.label[1]) swap = true;
 
             if(done1 && !done0) swap = true;
-
-            // if either ends with a return, then use that first
-            if(j0.opcode > ops::jmp) swap = false;
-            if(j1.opcode > ops::jmp) swap = true;
-
+            if(done0 && !done1) swap = false;
+            
             if(swap)
             {
                 i.opcode ^= 1;
@@ -905,7 +900,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     BJIT_ASSERT(!(out.size() & 0x3));
     
     // align to 16-bytes
-    if(out.size() & 0xf) a64.emit32(0);
+    while(out.size() & 0xf) a64.emit32(0);
     
     // emit 64-bit point constants
     a64.blockOffsets[a64.rodata64_index] = out.size();
