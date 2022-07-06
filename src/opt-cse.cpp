@@ -136,6 +136,8 @@ bool Proc::opt_cse(bool unsafeOpt)
             // try to find a better block, but don't if we just sunk this
             // if this is not sunken and we hoist it into a branching block
             // then next SINK pass will break a critical edge for us
+            //
+            // don't bother if it's a constant
             if(!op.flags.no_opt) while(mblock)
             {
                 bool done = false;
@@ -158,7 +160,7 @@ bool Proc::opt_cse(bool unsafeOpt)
                 //
                 // ignore this condition for ops with no inputs (ie. constants)
                 // since we can always rematerialize these cheap
-                if(op.nInputs() && blocks[blocks[mblock].idom].pdom != mblock)
+                if( blocks[blocks[mblock].idom].pdom != mblock)
                 {
                     if(blocks[mblock].comeFrom.size() > 1)
                     {

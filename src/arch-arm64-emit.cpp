@@ -184,7 +184,6 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             a64.addReloc(label);
             a64.emit32(0x14000000 | (0x3ffffff & -(out.size() >> 2)));
         }
-        scheduleThreading();
     };
 
     auto emitOp = [&](Op & i)
