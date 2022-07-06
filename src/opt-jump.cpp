@@ -406,22 +406,50 @@ bool Proc::opt_jump()
 
         for(auto & a : blocks[b].alts)
         {
+            if(a.src == blocks[b].idom) continue;
+            
             auto & val = ops[a.val];
-            if(val.block == blocks[b].idom) continue;
-
             auto & phi = ops[a.phi];
             if(val.opcode == ops::phi) { phi.iv = noVal; continue; }
             
             if(phi.iv == noVal) continue;
             if(phi.iv != a.phi) { phi.iv = noVal; continue; }
 
-            switch(ops[a.val].nInputs())
+            switch(val.nInputs())
             {
                 case 2:
-                    if(ops[a.val].in[1] == a.phi) phi.iv = a.val;
+                    if(val.in[1] == a.phi)
+                    {
+                        // other operand must dominate PHI
+                        for(auto & d : blocks[b].dom)
+                        {
+                            if(ops[val.in[0]].block != d) continue;
+                            phi.iv = a.val;
+                            break;
+                        }
+                        if(phi.iv != a.val) phi.iv = noVal;
+                    }
+                    else if(val.in[0] == a.phi)
+                    {
+                        // other operand must dominate PHI
+                        for(auto & d : blocks[b].dom)
+                        {
+                            if(ops[val.in[1]].block != d) continue;
+                            phi.iv = a.val;
+                            break;
+                        }
+                        if(phi.iv != a.val) phi.iv = noVal;
+                    }
+                    break;
                 case 1:
-                    if(ops[a.val].in[0] == a.phi) phi.iv = a.val;
-                default: break;
+                    if(val.in[0] == a.phi) phi.iv = a.val;
+                    break;
+                    
+                default:
+                    // if this is not one-op or two-op then
+                    // it's almost certainly not a valid IV
+                    phi.iv = noVal;
+                    break;
             }
 
         }
@@ -432,6 +460,6 @@ bool Proc::opt_jump()
         }
         
     }
-    
+
     return progress;
 }
