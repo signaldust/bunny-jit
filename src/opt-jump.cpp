@@ -336,6 +336,13 @@ bool Proc::opt_jump()
             continue;
         }
 
+        // if second branch is pdom, swap so DFS runs on loops first
+        if(op.opcode < ops::jmp && blocks[b].pdom == op.label[1])
+        {
+            op.opcode ^= 1;
+            std::swap(op.label[0], op.label[1]);
+        }
+
         if(op.flags.no_opt)
         {
             continue;

@@ -160,7 +160,7 @@ bool Proc::opt_cse(bool unsafeOpt)
                 //
                 // ignore this condition for ops with no inputs (ie. constants)
                 // since we can always rematerialize these cheap
-                if( blocks[blocks[mblock].idom].pdom != mblock)
+                if(op.nInputs() && blocks[blocks[mblock].idom].pdom != mblock)
                 {
                     if(blocks[mblock].comeFrom.size() > 1)
                     {

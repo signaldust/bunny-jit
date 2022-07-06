@@ -31,7 +31,7 @@ void Proc::allocRegs(bool unsafeOpt)
         todo.pop_back();
 
         auto & jmp = ops[blocks[b].code.back()];
-        
+
         if(jmp.opcode <= ops::jmp)
         for(int k = 0; k < 2; ++k)
         {
@@ -47,7 +47,6 @@ void Proc::allocRegs(bool unsafeOpt)
     }
 
     // rebuild the other stuff
-    rebuild_cfg();
     rebuild_dom();
     rebuild_livein();
 
