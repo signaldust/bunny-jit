@@ -172,12 +172,14 @@
     _(dadd, BJIT_CSE+1, 2), \
     _(dsub, BJIT_CSE+1, 2), \
     _(dneg, BJIT_CSE+1, 1), \
+    _(dabs, BJIT_CSE+1, 1), \
     _(dmul, BJIT_CSE+1, 2), \
     _(ddiv, BJIT_CSE+1, 2), \
     /* float arithmetic */ \
     _(fadd, BJIT_CSE+1, 2), \
     _(fsub, BJIT_CSE+1, 2), \
     _(fneg, BJIT_CSE+1, 1), \
+    _(fabs, BJIT_CSE+1, 1), \
     _(fmul, BJIT_CSE+1, 2), \
     _(fdiv, BJIT_CSE+1, 2), \
     /* type conversions */ \

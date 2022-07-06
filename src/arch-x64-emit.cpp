@@ -68,6 +68,8 @@ void Module::arch_patchNear(void * ptr, int32_t delta)
 
 void Proc::arch_emit(std::vector<uint8_t> & out)
 {
+    rebuild_dom();
+    
     for(auto & b : blocks) { b.flags.codeDone = false; }
 
     AsmX64 a64(out, blocks.size());
@@ -177,24 +179,16 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             
             bool done0 = blocks[i.label[0]].flags.codeDone;
             bool done1 = blocks[i.label[1]].flags.codeDone;
-
-            auto & j0 = ops[blocks[i.label[0]].code.back()];
-            auto & j1 = ops[blocks[i.label[1]].code.back()];
             
-            if(!done0 && !done1)
-            {
-                if(j0.opcode == ops::jmp
-                && blocks[j0.label[0]].flags.codeDone) done0 = true;
-                if(j1.opcode == ops::jmp
-                && blocks[j1.label[0]].flags.codeDone) done1 = true;
-            }
+            // this seems to be the winner rule in general
+            if(blocks[i.label[1]].pdom == i.label[0]) swap = true;
+            else if(blocks[i.label[0]].pdom == i.label[1]) swap = false;
+            else if(blocks[i.label[0]].pdom == i.label[1]) swap = false;
+            else if(blocks[i.block].pdom == i.label[1]) swap = true;
 
             if(done1 && !done0) swap = true;
-
-            // if either ends with a return, then use that first
-            if(j0.opcode > ops::jmp) swap = false;
-            if(j1.opcode > ops::jmp) swap = true;
-
+            if(done0 && !done1) swap = false;
+            
             if(swap)
             {
                 i.opcode ^= 1;
@@ -801,12 +795,26 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(i.reg == ops[i.in[0]].reg)
                 {
                     uint64_t signBit = ((uint64_t)1)<<63;
-                    _XORPSri(i.reg, _mm_set1_epi64x(signBit));
+                    _XORPSxi(i.reg, _mm_set1_epi64x(signBit));
                 }
                 else
                 {
-                    _XORPSrr(i.reg, i.reg);
+                    _XORPSxx(i.reg, i.reg);
                     _SUBSDxx(i.reg, ops[i.in[0]].reg);
+                }
+                break;
+                
+            case ops::dabs:
+                if(i.reg == ops[i.in[0]].reg)
+                {
+                    uint64_t signBit = ((uint64_t)1)<<63;
+                    _ANDPSxi(i.reg, _mm_set1_epi64x(~signBit));
+                }
+                else
+                {
+                    uint64_t signBit = ((uint64_t)1)<<63;
+                    _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                    _ANDPSxi(i.reg, _mm_set1_epi64x(~signBit));
                 }
                 break;
 
@@ -872,12 +880,26 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(i.reg == ops[i.in[0]].reg)
                 {
                     uint32_t signBit = ((uint32_t)1)<<31;
-                    _XORPSri(i.reg, _mm_set1_epi32(signBit));
+                    _XORPSxi(i.reg, _mm_set1_epi32(signBit));
                 }
                 else
                 {
-                    _XORPSrr(i.reg, i.reg);
+                    _XORPSxx(i.reg, i.reg);
                     _SUBSSxx(i.reg, ops[i.in[0]].reg);
+                }
+                break;
+                
+            case ops::fabs:
+                if(i.reg == ops[i.in[0]].reg)
+                {
+                    uint32_t signBit = ((uint32_t)1)<<31;
+                    _ANDPSxi(i.reg, _mm_set1_epi32(~signBit));
+                }
+                else
+                {
+                    uint32_t signBit = ((uint32_t)1)<<31;
+                    _MOVSSxx(i.reg, ops[i.in[0]].reg);
+                    _ANDPSxi(i.reg, _mm_set1_epi32(~signBit));
                 }
                 break;
 
@@ -923,7 +945,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::lcf:
                 if(0 != i.f32)
                 {
-                    _XORPSrr(i.reg, i.reg);
+                    _XORPSxx(i.reg, i.reg);
                 }
                 else
                 {
@@ -934,7 +956,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::lcd:
                 if(i.f64 == 0.0)
                 {
-                    _XORPSrr(i.reg, i.reg);
+                    _XORPSxx(i.reg, i.reg);
                 }
                 else
                 {

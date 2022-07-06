@@ -318,6 +318,8 @@ versions of arithmetic operations
 `dadd a b`, `dsub a b`, `dmul a b`, `ddiv a b` and `dneg a` are double-float
 versions of arithmetic operations
 
+`fabs` and `dabs` compute single- and double-precision absolute value
+
 `cf2i a` converts singles to integers while `ci2f a` converts integers to singles
 
 `cf2d a` converts singles to doubles while `cd2f a` converts doubles to singles

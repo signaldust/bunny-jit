@@ -631,6 +631,9 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::dneg:
                 a64._rrr(0x1E614000, i.reg, ops[i.in[0]].reg, regs::x0);
                 break;
+            case ops::dabs:
+                a64._rrr(0x1E60C000, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
             case ops::dmul:
                 a64._rrr(0x1E600800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
@@ -646,6 +649,9 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 break;
             case ops::fneg:
                 a64._rrr(0x1E214000, i.reg, ops[i.in[0]].reg, regs::x0);
+                break;
+            case ops::fabs:
+                a64._rrr(0x1E20C000, i.reg, ops[i.in[0]].reg, regs::x0);
                 break;
             case ops::fmul:
                 a64._rrr(0x1E200800, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
