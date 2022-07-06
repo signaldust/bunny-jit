@@ -542,7 +542,7 @@ void Proc::allocRegs(bool unsafeOpt)
                     // we don't try to deal with renames here, we'll just give up
                     // if the inputs are not in their original locations anymore
                     if(rop.canCSE() && !rop.hasSideFX()
-                    && (!rop.hasMemTag() || rop.in[1] == memtag))
+                    && (!rop.hasMemTag() || rop.memtag == memtag))
                     {
                         canRemat = true;
                         // check input validity
@@ -754,9 +754,9 @@ void Proc::allocRegs(bool unsafeOpt)
             && op.nInputs()>1 && op.in[0] != op.in[1]
             && (mask &~R2Mask(ops[op.in[1]].reg)))
                 mask &=~R2Mask(ops[op.in[1]].reg);
-            
+
             op.reg = findBest(mask, prefer, c+1);
-            
+
             BJIT_ASSERT(op.reg < regs::nregs);
             regstate[op.reg] = op.index; // blocks[b].code[c];
             usedRegsBlock |= R2Mask(op.reg);
@@ -905,7 +905,7 @@ void Proc::allocRegs(bool unsafeOpt)
                 {
                     if(tregs[t] == noVal) continue;
                     if(sregs[t] == tregs[t]) continue;
-    
+
                     for(int s = 0; s < regs::nregs; ++s)
                     {
                         // can we move without overwriting
@@ -927,7 +927,7 @@ void Proc::allocRegs(bool unsafeOpt)
                             tregs[t] = rr;
                             sregs[t] = tregs[t];
                             sregs[s] = noVal;
-    
+
                             std::swap(rr, blocks[out].code.back());
                             blocks[out].code.push_back(rr);
                             done = false;
@@ -1021,7 +1021,7 @@ void Proc::allocRegs(bool unsafeOpt)
                     // as there's no sideFX in shuffle blocks
                     if(rop.canCSE() && !rop.hasSideFX()
                     && (R2Mask(t) & rop.regsOut())
-                    && (!rop.hasMemTag() || rop.in[1] == blocks[b].memout))
+                    && (!rop.hasMemTag() || rop.memtag == blocks[b].memout))
                     {
                         canRemat = true;
                         // check input validity
