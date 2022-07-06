@@ -10,6 +10,9 @@ CFLAGS += -Wall -Werror -Wfloat-conversion -Wno-unused-function
 # C++ specific flags
 CXXFLAGS := -std=c++11 -fno-exceptions
 
+# this is just so local.make can add flags
+LINKFLAGS :=
+
 # if local.make exists, then include it for local configuration
 -include local.make
 
@@ -30,11 +33,11 @@ ifeq ($(OS),Windows_NT)
     LIBRARY := $(BJIT_BUILDDIR)/$(TARGET).lib
 
     MAKEDIR := win\mkdir-p.bat
-    BJIT_LINKLIB ?= llvm-lib /out:$(LIBRARY)
+    BJIT_LINKLIB ?= llvm-lib $(LINKFLAGS) /out:$(LIBRARY)
     CLEANALL := win\rm-rf.bat $(BJIT_BUILDDIR) && win\rm-rf.bat $(BJIT_BINDIR)
 
     # Link flags
-    BJIT_LINKFLAGS ?= $(LIBRARY)
+    BJIT_LINKFLAGS ?= $(LINKFLAGS) $(LIBRARY)
 
     CFLAGS += -D_CRT_SECURE_NO_WARNINGS
     
@@ -43,7 +46,7 @@ ifeq ($(OS),Windows_NT)
 else
     LIBRARY := $(BJIT_BUILDDIR)/$(TARGET).a
 
-    BJIT_LINKFLAGS ?= $(LIBRARY) -lc++
+    BJIT_LINKFLAGS ?= $(LINKFLAGS) $(LIBRARY) -lc++
 
     MAKEDIR := mkdir -p
     CLEANALL := rm -rf $(BJIT_BUILDDIR) $(BJIT_BINDIR)

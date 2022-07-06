@@ -527,8 +527,10 @@ struct AsmX64
 #define _DIVSDxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data64f(c), 0xF2, 0x0F, 0x5E)
 
 // this is one byte shorter than XORPD, which does the same thing
-#define _XORPSrr(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0x0F, 0x57)
-#define _XORPSri(r0, c)     a64._RM(0, REG(r0), RIP, a64.data128(c), 0x0F, 0x57)
+#define _XORPSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0x0F, 0x57)
+#define _XORPSxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data128(c), 0x0F, 0x57)
+
+#define _ANDPSxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data128(c), 0x0F, 0x54)
 
 // treat as smaller and sign-extend (same as loads, just _RR)
 // these need REX.W to sign-extend all the way
