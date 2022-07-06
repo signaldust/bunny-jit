@@ -169,6 +169,7 @@ bool Proc::opt_jump_be(uint16_t b)
 
             // setup the new phi
             ops[fixBlock.code[iPhi]].phiIndex = fixBlock.args.size();
+            ops[fixBlock.code[iPhi]].iv = noVal;
             fixBlock.args.emplace_back(impl::Phi(fixBlock.code[iPhi]));
 
             // add alternatives, they are in our rename map
@@ -395,6 +396,42 @@ bool Proc::opt_jump()
     // we really need this here because it cleans up
     // any stale phis, so DCE doesn't get confused
     rebuild_cfg();
+    opt_dce();
+
+    // detect IVs
+    rebuild_dom();
+    for(auto & b : live)
+    {
+        for(auto & p : blocks[b].args) ops[p.phiop].iv = p.phiop;
+
+        for(auto & a : blocks[b].alts)
+        {
+            auto & val = ops[a.val];
+            if(val.block == blocks[b].idom) continue;
+
+            auto & phi = ops[a.phi];
+            if(val.opcode == ops::phi) { phi.iv = noVal; continue; }
+            
+            if(phi.iv == noVal) continue;
+            if(phi.iv != a.phi) { phi.iv = noVal; continue; }
+
+            switch(ops[a.val].nInputs())
+            {
+                case 2:
+                    if(ops[a.val].in[1] == a.phi) phi.iv = a.val;
+                case 1:
+                    if(ops[a.val].in[0] == a.phi) phi.iv = a.val;
+                default: break;
+            }
+
+        }
+
+        for(auto & p : blocks[b].args)
+        {
+            if(ops[p.phiop].iv == p.phiop) ops[p.phiop].iv = noVal;
+        }
+        
+    }
     
     return progress;
 }

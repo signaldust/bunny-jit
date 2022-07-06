@@ -69,6 +69,7 @@ void Proc::allocRegs(bool unsafeOpt)
             
             blocks[b].code[i] = newOp(ops::phi, op.flags.type, b);
             ops[blocks[b].code[i]].phiIndex = blocks[b].args.size();
+            ops[blocks[b].code[i]].iv = noVal;
             ops[blocks[b].code[i]].scc = op.scc;
             blocks[b].args.emplace_back(impl::Phi(blocks[b].code[i]));
 

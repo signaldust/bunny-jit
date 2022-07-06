@@ -106,6 +106,8 @@ void bjit::Proc::debugOp(uint16_t iop) const
             else 
                 BJIT_LOG(" L%d:[----]:%04x", a.src, a.val);
         }
+
+        if(op.iv != noVal) BJIT_LOG(" IV:%04x", op.iv);
     }
 
     if(op.opcode == ops::iarg || op.opcode == ops::farg || op.opcode == ops::darg)
