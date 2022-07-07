@@ -126,15 +126,47 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     todo.push_back(0);
     blocks[0].flags.codeDone = true;
 
-    // this checks if todo-stack top ends in
+    auto threadJump = [&](unsigned label) -> unsigned
+    {
+        // otherwise see if we can thread
+        bool progress = true;
+        while(progress)
+        {
+            progress = false;
+            for(auto c : blocks[label].code)
+            {
+                // if this is a simple phi, skip
+                if(ops[c].opcode == ops::phi && !ops[c].flags.spill)
+                    continue;
+    
+                if(ops[c].opcode == ops::jmp)
+                {
+                    label = ops[c].label[0];
+                    progress = true;
+                }
+                break;
+            }
+        }
+
+        return label;
+    };
+    
+    // schedules a block and checks if it ends in
     // unconditional jump to unscheduled block
     // we put such blocks below stack top
     //
     // this should place one shuffle just before it's target block
-    auto scheduleThreading = [&]()
+    auto scheduleBlock = [&](unsigned label)
     {
-        if(!todo.size()) return;
+        label = threadJump(label);
         
+        if(blocks[label].flags.codeDone) return;
+
+        blocks[label].flags.codeDone = true;
+        todo.push_back(label);
+        
+        if(!todo.size()) return;
+
         auto & b = blocks[todo.back()];
         auto & j = ops[b.code.back()];
         if(j.opcode == ops::jmp && !blocks[j.label[0]].flags.codeDone)
@@ -151,6 +183,9 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
         // if we'll emit this block next
         // there's no need to generate jmp
         if(todo.size() && todo.back() == label) return;
+
+        label = threadJump(label);
+        
         if(!blocks[label].flags.codeDone)
         {
             blocks[label].flags.codeDone = true;
@@ -265,12 +300,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.addReloc(i.label[0]);
                 a64.emit32(-4-out.size());
                 // schedule target
-                if(!blocks[i.label[0]].flags.codeDone)
-                {
-                    blocks[i.label[0]].flags.codeDone = true;
-                    todo.push_back(i.label[0]);
-                    scheduleThreading();
-                }
+                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
 
@@ -283,12 +313,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.addReloc(i.label[0]);
                 a64.emit32(-4-out.size());
                 // schedule target
-                if(!blocks[i.label[0]].flags.codeDone)
-                {
-                    blocks[i.label[0]].flags.codeDone = true;
-                    todo.push_back(i.label[0]);
-                    scheduleThreading();
-                }
+                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
 
@@ -313,12 +338,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.addReloc(i.label[0]);
                 a64.emit32(-4-out.size());
                 // schedule target
-                if(!blocks[i.label[0]].flags.codeDone)
-                {
-                    blocks[i.label[0]].flags.codeDone = true;
-                    todo.push_back(i.label[0]);
-                    scheduleThreading();
-                }
+                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
                             
@@ -337,12 +357,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.addReloc(i.label[0]);
                 a64.emit32(-4-out.size());
                 // schedule target
-                if(!blocks[i.label[0]].flags.codeDone)
-                {
-                    blocks[i.label[0]].flags.codeDone = true;
-                    todo.push_back(i.label[0]);
-                    scheduleThreading();
-                }
+                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
 
@@ -361,12 +376,7 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.addReloc(i.label[0]);
                 a64.emit32(-4-out.size());
                 // schedule target
-                if(!blocks[i.label[0]].flags.codeDone)
-                {
-                    blocks[i.label[0]].flags.codeDone = true;
-                    todo.push_back(i.label[0]);
-                    scheduleThreading();
-                }
+                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
                 
