@@ -63,26 +63,34 @@ void Proc::opt_dce(bool unsafeOpt)
                 {
                     if(k && ops[i].opcode == ops::jmp) break;
 
-                    while(blocks[ops[i].label[k]].code[0] != noVal
-                    && ops[blocks[ops[i].label[k]].code[0]].opcode == ops::jmp
-                    && i != blocks[ops[i].label[k]].code[0])    // check infinite
+                    while(true)
                     {
-                        auto target = ops[blocks[ops[i].label[k]].code[0]].label[0];
+                        auto & kc = blocks[ops[i].label[k]].code;
+                        auto tjmp = noVal;
 
-                        // don't thread conditional jumps into blocks with phis
-                        // if the target block is already our other label
-                        // and the two blocks pass different values to any phi
-                        //
-                        // we need the extra block for shuffles and checking here
-                        // saves CSE from having to add explicit renames
-                        if(ops[i].opcode < ops::jmp && target == ops[i].label[k^1]
-                        && ops[blocks[target].code[0]].opcode == ops::phi)
+                        // skip over phis
+                        for(int i = 0; i < kc.size(); ++i)
+                        {
+                            tjmp = kc[i];
+                            if(tjmp == noVal || ops[tjmp].opcode != ops::phi)
+                                break;
+                        }
+
+                        // can we thread this?
+                        if(tjmp == noVal || i == tjmp
+                        || ops[tjmp].opcode != ops::jmp) break;
+
+                        auto target = ops[tjmp].label[0];
+
+                        // if we are jumping into a block with phis then
+                        // validate that a blocks isn't there for shuffle
+                        if(ops[blocks[target].code[0]].opcode == ops::phi)
                         {
                             bool bad = false;
 
                             // clear temps
                             for(auto & a : blocks[target].args) a.tmp = noVal;
-
+                            
                             // find relevant alternatives
                             auto & args = blocks[target].args;
                             for(auto & a : blocks[target].alts)
@@ -91,12 +99,43 @@ void Proc::opt_dce(bool unsafeOpt)
                                 if(a.src != ops[i].block
                                 && a.src != ops[i].label[k]) continue;
 
+                                auto val = a.val;
+
+                                // resolve local phis
+                                if(ops[val].opcode == ops::phi
+                                && ops[val].block == a.src)
+                                {
+                                    bool good = false;
+                                    for(auto & s : blocks[a.src].alts)
+                                    {
+                                        if(s.phi != val) continue;
+                                        if(s.src != b) continue;
+                                        val = s.val;
+                                        good = true;
+                                        break;
+                                    }
+                                    BJIT_ASSERT(good);
+                                }
+                                
+                                // check for duplicate
+                                for(auto & s : blocks[target].alts)
+                                {
+                                    if(a.phi == s.phi && b == s.src)
+                                    {
+                                        if(s.val == val) continue;
+
+                                        // seems this block exists for shuffle
+                                        bad = true;
+                                        break;
+                                    }
+                                }
+
                                 // if we've not seen it, store tmp
                                 if(args[ops[a.phi].phiIndex].tmp == noVal)
                                 {
-                                    args[ops[a.phi].phiIndex].tmp = a.val;
+                                    args[ops[a.phi].phiIndex].tmp = val;
                                 }
-                                else if(args[ops[a.phi].phiIndex].tmp != a.val)
+                                else if(args[ops[a.phi].phiIndex].tmp != val)
                                 {
                                     bad = true;
                                     break;
@@ -107,11 +146,40 @@ void Proc::opt_dce(bool unsafeOpt)
                         }
                         
                         // patch target phis
-                        for(auto & s : blocks[target].alts)
+                        for(auto & a : blocks[target].alts)
                         {
-                            if(s.src == ops[i].label[k])
+                            if(a.src == ops[i].label[k])
                             {
-                                blocks[target].newAlt(s.phi, b, s.val);
+                                auto val = a.val;
+
+                                // resolve local phis
+                                if(ops[val].opcode == ops::phi
+                                && ops[val].block == a.src)
+                                {
+                                    bool good = false;
+                                    for(auto & s : blocks[a.src].alts)
+                                    {
+                                        if(s.phi != val) continue;
+                                        if(s.src != b) continue;
+                                        val = s.val;
+                                        good = true;
+                                        break;
+                                    }
+                                    BJIT_ASSERT(good);
+                                }
+
+                                // check for duplicate
+                                bool dedup = false;
+                                for(auto & s : blocks[target].alts)
+                                {
+                                    if(a.phi == s.phi && b == s.src)
+                                    {
+                                        BJIT_ASSERT(s.val == val);
+                                        dedup = true;
+                                    }
+                                }
+
+                                if(!dedup) blocks[target].newAlt(a.phi, b, val);
                             }
                         }
                         
@@ -200,6 +268,7 @@ void Proc::opt_dce(bool unsafeOpt)
                 for(int k = 0; k < ops[i].nInputs(); ++k)
                 {
                     auto & phi = ops[ops[i].in[k]];
+
                     if(phi.opcode != ops::phi) continue;
 
                     auto src = blocks[phi.block].args[phi.phiIndex].tmp;
@@ -253,9 +322,7 @@ void Proc::opt_dce(bool unsafeOpt)
                 case 2: --ops[op.in[1]].nUse;
                 case 1: --ops[op.in[0]].nUse;
                 case 0:
-                    op.opcode = ops::nop;
-                    op.in[0] = noVal;
-                    op.in[1] = noVal;
+                    op.makeNOP();
                     progress = true;
                     break;
                 default: BJIT_ASSERT(false);
