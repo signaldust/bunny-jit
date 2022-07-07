@@ -1438,6 +1438,8 @@ void Proc::findSCC()
         int nSCC = sccUsed.size();
         
         auto c = blocks[b].code.back();
+
+        auto p = blocks[b].code.size() - 1;
         
         if(ops[c].opcode <= ops::jmp)
         for(int k = 0; k < 2; ++k)
@@ -1458,8 +1460,8 @@ void Proc::findSCC()
                     ops[rr].scc = nSCC++;
                     ops[rr].in[0] = s.val; s.val = rr;
 
-                    std::swap(rr, blocks[b].code.back());
-                    blocks[b].code.push_back(rr);
+                    // this should usually result in a better order?
+                    blocks[b].code.insert(blocks[b].code.begin() + p, rr);
                 }
             }
         }
