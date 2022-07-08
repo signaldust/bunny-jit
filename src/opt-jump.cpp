@@ -398,51 +398,68 @@ bool Proc::opt_jump()
     rebuild_cfg();
     opt_dce();
 
+    return progress;
+}
+
+void Proc::find_ivs()
+{
     // detect IVs
     rebuild_dom();
     for(auto & b : live)
     {
         for(auto & p : blocks[b].args) ops[p.phiop].iv = p.phiop;
 
+        auto findSource = [&](uint16_t val) -> uint16_t
+        {
+            while(ops[val].opcode == ops::rename)
+            {
+                val = ops[val].in[0];
+            }
+            return val;
+        };
+
         for(auto & a : blocks[b].alts)
         {
             if(a.src == blocks[b].idom) continue;
-            
-            auto & val = ops[a.val];
+
+            auto avs = findSource(a.val);
+            auto & val = ops[avs];
             auto & phi = ops[a.phi];
+
+            if(phi.iv == avs) continue;
             if(val.opcode == ops::phi) { phi.iv = noVal; continue; }
-            
+
             if(phi.iv == noVal) continue;
             if(phi.iv != a.phi) { phi.iv = noVal; continue; }
 
             switch(val.nInputs())
             {
                 case 2:
-                    if(val.in[1] == a.phi)
+                    if(findSource(val.in[1]) == a.phi)
                     {
                         // other operand must dominate PHI
                         for(auto & d : blocks[blocks[b].idom].dom)
                         {
                             if(ops[val.in[0]].block != d) continue;
-                            phi.iv = a.val;
+                            phi.iv = avs;
                             break;
                         }
-                        if(phi.iv != a.val) phi.iv = noVal;
+                        if(phi.iv != avs) phi.iv = noVal;
                     }
-                    else if(val.in[0] == a.phi)
+                    else if(findSource(val.in[0]) == a.phi)
                     {
                         // other operand must dominate PHI
                         for(auto & d : blocks[blocks[b].idom].dom)
                         {
                             if(ops[val.in[1]].block != d) continue;
-                            phi.iv = a.val;
+                            phi.iv = avs;
                             break;
                         }
-                        if(phi.iv != a.val) phi.iv = noVal;
+                        if(phi.iv != avs) phi.iv = noVal;
                     }
                     break;
                 case 1:
-                    if(val.in[0] == a.phi) phi.iv = a.val;
+                    if(findSource(val.in[0]) == a.phi) phi.iv = avs;
                     break;
                     
                 default:
@@ -461,5 +478,4 @@ bool Proc::opt_jump()
         
     }
 
-    return progress;
 }

@@ -649,6 +649,7 @@ namespace bjit
         // opt-jump.cpp
         bool opt_jump_be(uint16_t b);
         bool opt_jump();
+        void find_ivs();
 
         // opt-cse.cpp
         void rebuild_memtags(bool unsafeOpt);
