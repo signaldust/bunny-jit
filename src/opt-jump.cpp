@@ -169,6 +169,7 @@ bool Proc::opt_jump_be(uint16_t b)
 
             // setup the new phi
             ops[fixBlock.code[iPhi]].phiIndex = fixBlock.args.size();
+            ops[fixBlock.code[iPhi]].iv = noVal;
             fixBlock.args.emplace_back(impl::Phi(fixBlock.code[iPhi]));
 
             // add alternatives, they are in our rename map
@@ -336,6 +337,13 @@ bool Proc::opt_jump()
             continue;
         }
 
+        // if second branch is pdom, swap so DFS runs on loops first
+        if(op.opcode < ops::jmp && blocks[b].pdom == op.label[1])
+        {
+            op.opcode ^= 1;
+            std::swap(op.label[0], op.label[1]);
+        }
+
         if(op.flags.no_opt)
         {
             continue;
@@ -388,6 +396,86 @@ bool Proc::opt_jump()
     // we really need this here because it cleans up
     // any stale phis, so DCE doesn't get confused
     rebuild_cfg();
-    
+    opt_dce();
+
     return progress;
+}
+
+void Proc::find_ivs()
+{
+    // detect IVs
+    rebuild_dom();
+    for(auto & b : live)
+    {
+        for(auto & p : blocks[b].args) ops[p.phiop].iv = p.phiop;
+
+        auto findSource = [&](uint16_t val) -> uint16_t
+        {
+            while(ops[val].opcode == ops::rename)
+            {
+                val = ops[val].in[0];
+            }
+            return val;
+        };
+
+        for(auto & a : blocks[b].alts)
+        {
+            if(a.src == blocks[b].idom) continue;
+
+            auto avs = findSource(a.val);
+            auto & val = ops[avs];
+            auto & phi = ops[a.phi];
+
+            if(phi.iv == avs) continue;
+            if(val.opcode == ops::phi) { phi.iv = noVal; continue; }
+
+            if(phi.iv == noVal) continue;
+            if(phi.iv != a.phi) { phi.iv = noVal; continue; }
+
+            switch(val.nInputs())
+            {
+                case 2:
+                    if(findSource(val.in[1]) == a.phi)
+                    {
+                        // other operand must dominate PHI
+                        for(auto & d : blocks[blocks[b].idom].dom)
+                        {
+                            if(ops[val.in[0]].block != d) continue;
+                            phi.iv = avs;
+                            break;
+                        }
+                        if(phi.iv != avs) phi.iv = noVal;
+                    }
+                    else if(findSource(val.in[0]) == a.phi)
+                    {
+                        // other operand must dominate PHI
+                        for(auto & d : blocks[blocks[b].idom].dom)
+                        {
+                            if(ops[val.in[1]].block != d) continue;
+                            phi.iv = avs;
+                            break;
+                        }
+                        if(phi.iv != avs) phi.iv = noVal;
+                    }
+                    break;
+                case 1:
+                    if(findSource(val.in[0]) == a.phi) phi.iv = avs;
+                    break;
+                    
+                default:
+                    // if this is not one-op or two-op then
+                    // it's almost certainly not a valid IV
+                    phi.iv = noVal;
+                    break;
+            }
+
+        }
+
+        for(auto & p : blocks[b].args)
+        {
+            if(ops[p.phiop].iv == p.phiop) ops[p.phiop].iv = noVal;
+        }
+        
+    }
+
 }

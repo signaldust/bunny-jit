@@ -56,7 +56,12 @@ namespace bjit
 
                         // this must be signed!
                         int32_t     imm32;
-                        uint32_t    phiIndex;
+
+                        struct
+                        {
+                            uint16_t    phiIndex;
+                            uint16_t    iv;
+                        };
                         
                         struct  // used by arguments
                         {

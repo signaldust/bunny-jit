@@ -15,6 +15,7 @@ void Proc::allocRegs(bool unsafeOpt)
     // explicitly do one DCE so non-optimized builds work
     opt_dce();
     findSCC();
+    find_ivs();
 
     // save a DCE pass by rebuilding live manually
     // this is needed to get SCC shuffle blocks in correct order
@@ -31,7 +32,7 @@ void Proc::allocRegs(bool unsafeOpt)
         todo.pop_back();
 
         auto & jmp = ops[blocks[b].code.back()];
-        
+
         if(jmp.opcode <= ops::jmp)
         for(int k = 0; k < 2; ++k)
         {
@@ -47,7 +48,6 @@ void Proc::allocRegs(bool unsafeOpt)
     }
 
     // rebuild the other stuff
-    rebuild_cfg();
     rebuild_dom();
     rebuild_livein();
 
@@ -70,6 +70,7 @@ void Proc::allocRegs(bool unsafeOpt)
             
             blocks[b].code[i] = newOp(ops::phi, op.flags.type, b);
             ops[blocks[b].code[i]].phiIndex = blocks[b].args.size();
+            ops[blocks[b].code[i]].iv = noVal;
             ops[blocks[b].code[i]].scc = op.scc;
             blocks[b].args.emplace_back(impl::Phi(blocks[b].code[i]));
 
@@ -355,15 +356,59 @@ void Proc::allocRegs(bool unsafeOpt)
             // copy - we'll fix this below if necessary
             codeOut.push_back(blocks[b].code[c]);
 
+            // try to keep IVs in the correct register
+            for(int i = op.nInputs(); i--;)
+            {
+                auto & a = ops[op.in[i]];
+
+                // sanity check other inputs
+                bool bad = false;
+                for(int j = i; j--;)
+                {
+                    if(op.in[j] != op.in[i]) continue;
+                    bad = true;
+                }
+                
+                if(!bad && a.opcode == ops::phi && a.iv == op.index
+                && a.nUse > 1 && regstate[a.reg] == a.index)
+                {
+                    auto s = findBest(a.regsMask(), regs::nregs, c+1, a.index);
+
+                    // if we can't find a good reg, then bail out
+                    if(s == regs::nregs || s == a.reg) break;
+
+                    if(ra_debug) BJIT_LOG("; saving IV %04x (%s -> %s) \n",
+                            a.index, regName(a.reg), regName(s));
+                    uint16_t sr = newOp(ops::rename, a.flags.type, b);
+                    
+                    ops[sr].in[0] = a.index;
+                    ops[sr].reg = s;
+                    ops[sr].scc = a.scc;
+                    regstate[s] = sr;
+                    usedRegsBlock |= R2Mask(s);
+
+                    ops[sr].nUse = a.nUse - 1;
+                    a.nUse = 1;
+                    
+                    rename.add(a.index, sr);
+                    // do NOT rename this op
+                    if(ra_debug) debugOp(sr);
+                    
+                    std::swap(codeOut.back(), sr);
+                    codeOut.push_back(sr);
+                }
+            }
+
             int prefer = regs::nregs;
             // Do we have the inputs we need?
             for(int i = 0; i < op.nInputs(); ++i)
             {
                 auto mask = op.regsIn(i);
 
-                // avoid putting second operand in the same register as first
-                if(i && (op.in[0] != op.in[1]))
-                    mask &=~R2Mask(ops[op.in[0]].reg);
+                // avoid putting multiple inputs in the same register
+                for(int j = i; j--;)
+                    if(op.in[i] != op.in[j])
+                        mask &=~R2Mask(ops[op.in[j]].reg);
 
                 // if this is a local phi, then try to patch?
                 if(ops[op.in[i]].opcode == ops::phi
@@ -441,7 +486,7 @@ void Proc::allocRegs(bool unsafeOpt)
                             ops[sr].reg = s;
                             ops[sr].scc = ops[regstate[r]].scc;
                             regstate[s] = sr;
-                            usedRegsBlock |= R2Mask(sr);
+                            usedRegsBlock |= R2Mask(s);
 
                             ops[sr].nUse = ops[regstate[r]].nUse;
                             
@@ -1438,6 +1483,8 @@ void Proc::findSCC()
         int nSCC = sccUsed.size();
         
         auto c = blocks[b].code.back();
+
+        auto p = blocks[b].code.size() - 1;
         
         if(ops[c].opcode <= ops::jmp)
         for(int k = 0; k < 2; ++k)
@@ -1458,8 +1505,8 @@ void Proc::findSCC()
                     ops[rr].scc = nSCC++;
                     ops[rr].in[0] = s.val; s.val = rr;
 
-                    std::swap(rr, blocks[b].code.back());
-                    blocks[b].code.push_back(rr);
+                    // this should usually result in a better order?
+                    blocks[b].code.insert(blocks[b].code.begin() + p, rr);
                 }
             }
         }

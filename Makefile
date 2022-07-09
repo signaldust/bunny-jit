@@ -51,6 +51,11 @@ else
     MAKEDIR := mkdir -p
     CLEANALL := rm -rf $(BJIT_BUILDDIR) $(BJIT_BINDIR)
     BJIT_LINKLIB ?= libtool -static -o $(LIBRARY)
+
+    ifeq ($(shell uname),Darwin)
+        BJIT_LINKLIB += -no_warning_for_no_symbols
+    endif
+    
 endif
 
 # this works with clang on Windows too

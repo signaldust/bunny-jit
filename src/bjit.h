@@ -119,6 +119,7 @@ namespace bjit
                 auto phi = addOp(ops::phi, ops[env[i].index].flags.type, label);
                 blocks[label].args[i].phiop = phi;
                 ops[phi].phiIndex = i;
+                ops[phi].iv = noVal;
             }
             
             return Label{label};
@@ -456,7 +457,7 @@ namespace bjit
                 if(repeat) opt_dce();
 
                 // always check jumps, this is relatively cheap
-                if(opt_jump()) { repeat = true; opt_dce(); }
+                if(opt_jump()) { repeat = true; }
             }
 
             // this should not currently enable further optimization
@@ -648,6 +649,7 @@ namespace bjit
         // opt-jump.cpp
         bool opt_jump_be(uint16_t b);
         bool opt_jump();
+        void find_ivs();
 
         // opt-cse.cpp
         void rebuild_memtags(bool unsafeOpt);

@@ -136,6 +136,8 @@ bool Proc::opt_cse(bool unsafeOpt)
             // try to find a better block, but don't if we just sunk this
             // if this is not sunken and we hoist it into a branching block
             // then next SINK pass will break a critical edge for us
+            //
+            // don't bother if it's a constant
             if(!op.flags.no_opt) while(mblock)
             {
                 bool done = false;
@@ -413,23 +415,25 @@ bool Proc::opt_cse(bool unsafeOpt)
         // we need to sanity check phis and post-doms
         bool bad = false;
         
-        // check post-dominator condition
-        for(int i = b0 ; i; i = blocks[i].idom)
+        // check post-dominator conditions, unless one block is ccd
+        if(b0 != ccd && b1 != ccd)
         {
-            // NOTE: DCE checks phis, so don't worry
-            if(ccd == blocks[i].idom) break; // this is fine
-            if(blocks[blocks[i].idom].pdom != i) bad = true;
-            if(bad) break;
-        }
-
-        // check post-dominator condition
-        if(!bad)
-        for(int i = b1; i; i = blocks[i].idom)
-        {
-            // NOTE: DCE checks phis, so don't worry
-            if(ccd == blocks[i].idom) break; // this is fine
-            if(blocks[blocks[i].idom].pdom != i) bad = true;
-            if(bad) break;
+            for(int i = b0 ; i; i = blocks[i].idom)
+            {
+                // NOTE: DCE checks phis, so don't worry
+                if(ccd == blocks[i].idom) break; // this is fine
+                if(blocks[blocks[i].idom].pdom != i) bad = true;
+                if(bad) break;
+            }
+    
+            if(!bad)
+            for(int i = b1; i; i = blocks[i].idom)
+            {
+                // NOTE: DCE checks phis, so don't worry
+                if(ccd == blocks[i].idom) break; // this is fine
+                if(blocks[blocks[i].idom].pdom != i) bad = true;
+                if(bad) break;
+            }
         }
 
         if(bad) { if(cse_debug) BJIT_LOG("BAD"); return false; }
