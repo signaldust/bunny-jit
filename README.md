@@ -551,61 +551,48 @@ Bunny-JIT currently compiles it into this native code:
 
 ```
    0:	48 83 ec 08                                     	sub    rsp,0x8
-   4:	b8 02 00 00 00                                  	mov    eax,0x2
-   9:	33 c9                                           	xor    ecx,ecx
+   4:	33 c0                                           	xor    eax,eax
+   6:	b9 02 00 00 00                                  	mov    ecx,0x2
    b:	48 83 fe 00                                     	cmp    rsi,0x0
-   f:	0f 8e 21 00 00 00                               	jle    0x36
+   f:	0f 8e 19 00 00 00                               	jle    0x2e
   15:	ba 01 00 00 00                                  	mov    edx,0x1
-  1a:	4c 8b c1                                        	mov    r8,rcx
-  1d:	4d 8d 0c 38                                     	lea    r9,[r8+rdi*1]
-  21:	41 88 11                                        	mov    BYTE PTR [r9],dl
-  24:	49 83 c0 01                                     	add    r8,0x1
-  28:	4c 3b c6                                        	cmp    r8,rsi
-  2b:	0f 8d 05 00 00 00                               	jge    0x36
-  31:	e9 e7 ff ff ff                                  	jmp    0x1d
-  36:	48 83 fe 02                                     	cmp    rsi,0x2
-  3a:	0f 8e 5d 00 00 00                               	jle    0x9d
-  40:	48 8d 50 01                                     	lea    rdx,[rax+0x1]
-  44:	4c 8d 04 38                                     	lea    r8,[rax+rdi*1]
-  48:	4d 0f be 00                                     	movsx  r8,BYTE PTR [r8]
-  4c:	4d 85 c0                                        	test   r8,r8
-  4f:	0f 84 2f 00 00 00                               	je     0x84
-  55:	48 83 c1 01                                     	add    rcx,0x1
-  59:	4c 8d 40 01                                     	lea    r8,[rax+0x1]
-  5d:	49 03 c0                                        	add    rax,r8
-  60:	48 3b c6                                        	cmp    rax,rsi
-  63:	0f 8d 1b 00 00 00                               	jge    0x84
-  69:	45 33 c9                                        	xor    r9d,r9d
-  6c:	4c 8d 14 38                                     	lea    r10,[rax+rdi*1]
-  70:	45 88 0a                                        	mov    BYTE PTR [r10],r9b
-  73:	49 03 c0                                        	add    rax,r8
-  76:	48 3b c6                                        	cmp    rax,rsi
-  79:	0f 8d 05 00 00 00                               	jge    0x84
-  7f:	e9 e8 ff ff ff                                  	jmp    0x6c
-  84:	48 3b d6                                        	cmp    rdx,rsi
-  87:	0f 8d 08 00 00 00                               	jge    0x95
-  8d:	48 8b c2                                        	mov    rax,rdx
-  90:	e9 ab ff ff ff                                  	jmp    0x40
-  95:	48 8b c1                                        	mov    rax,rcx
-  98:	e9 03 00 00 00                                  	jmp    0xa0
-  9d:	48 8b c1                                        	mov    rax,rcx
-  a0:	48 83 c4 08                                     	add    rsp,0x8
-  a4:	c3                                              	ret
+  1a:	4c 8b c0                                        	mov    r8,rax
+  1d:	41 88 14 38                                     	mov    BYTE PTR [r8+rdi*1],dl
+  21:	49 83 c0 01                                     	add    r8,0x1
+  25:	4c 3b c6                                        	cmp    r8,rsi
+  28:	0f 8c ef ff ff ff                               	jl     0x1d
+  2e:	48 83 fe 02                                     	cmp    rsi,0x2
+  32:	0f 8e 4e 00 00 00                               	jle    0x86
+  38:	48 8b d0                                        	mov    rdx,rax
+  3b:	4c 8b c1                                        	mov    r8,rcx
+  3e:	48 83 c1 01                                     	add    rcx,0x1
+  42:	4d 0f be 0c 38                                  	movsx  r9,BYTE PTR [r8+rdi*1]
+  47:	4d 85 c9                                        	test   r9,r9
+  4a:	0f 85 11 00 00 00                               	jne    0x61
+  50:	48 3b ce                                        	cmp    rcx,rsi
+  53:	0f 8c e2 ff ff ff                               	jl     0x3b
+  59:	48 8b c2                                        	mov    rax,rdx
+  5c:	e9 25 00 00 00                                  	jmp    0x86
+  61:	48 83 c2 01                                     	add    rdx,0x1
+  65:	4c 03 c1                                        	add    r8,rcx
+  68:	4c 3b c6                                        	cmp    r8,rsi
+  6b:	0f 8d df ff ff ff                               	jge    0x50
+  71:	41 88 04 38                                     	mov    BYTE PTR [r8+rdi*1],al
+  75:	4c 03 c1                                        	add    r8,rcx
+  78:	4c 3b c6                                        	cmp    r8,rsi
+  7b:	0f 8c f0 ff ff ff                               	jl     0x71
+  81:	e9 ca ff ff ff                                  	jmp    0x50
+  86:	48 83 c4 08                                     	add    rsp,0x8
+  8a:	c3                                              	ret    
+  8b:	90                                              	nop
+  8c:	90                                              	nop
+  8d:	90                                              	nop
+  8e:	90                                              	nop
+  8f:	90                                              	nop
 ```
 
-Comparing with `clang -Ofast` (somewhat old version) on my laptop, running both
-of these on an array of 819000 bytes, we get something like this:
-
-```
-C-sieve: 65333 primes
-BJIT-sieve: 65333 primes
-Iterating 100 times...
-C time: 442ms
-BJIT time: 478ms
-```
-
-The exact times (obviously) vary from run to run (and the test might not be entirely
-accurate or fair), and you should expect Bunny-JIT to do significantly worse on code
+Compared with `clang -Ofast` this silly test typically runs around 10-20% slower.
+You should expect Bunny-JIT to do significantly worse on code
 that relies heavily on optimizing memory access or code that can be effectively
 vectorized, but the basic idea is that it can typically output something reasonable.
 
