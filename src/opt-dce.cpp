@@ -68,6 +68,12 @@ void Proc::opt_dce(bool unsafeOpt)
                         auto & kc = blocks[ops[i].label[k]].code;
                         auto tjmp = noVal;
 
+                        // threading conditional jumps into phi-blocks currently
+                        // cause problems with IV detection, which then hurts
+                        // register allocation.. so just don't do it..
+                        if(ops[i].opcode < ops::jmp
+                        && ops[kc[0]].opcode == ops::phi) break;
+
                         // skip over phis
                         for(int i = 0; i < kc.size(); ++i)
                         {
@@ -84,6 +90,7 @@ void Proc::opt_dce(bool unsafeOpt)
 
                         // if we are jumping into a block with phis then
                         // validate that a blocks isn't there for shuffle
+                        
                         if(ops[blocks[target].code[0]].opcode == ops::phi)
                         {
                             bool bad = false;
@@ -114,7 +121,9 @@ void Proc::opt_dce(bool unsafeOpt)
                                         good = true;
                                         break;
                                     }
-                                    BJIT_ASSERT(good);
+                                    // FIXME: figure out why we might not
+                                    // sometimes find a suitable alt?
+                                    if(!good) { bad = true; break; }
                                 }
                                 
                                 // check for duplicate
