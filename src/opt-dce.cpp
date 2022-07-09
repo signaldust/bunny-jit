@@ -72,7 +72,7 @@ void Proc::opt_dce(bool unsafeOpt)
                         // cause problems with IV detection, which then hurts
                         // register allocation.. so just don't do it..
                         if(ops[i].opcode < ops::jmp
-                        && ops[kc[0]].opcode == ops::phi) break;
+                        && (kc[0] == noVal || ops[kc[0]].opcode == ops::phi)) break;
 
                         // skip over phis
                         for(int i = 0; i < kc.size(); ++i)
