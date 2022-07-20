@@ -339,7 +339,7 @@ is an unsigned immediate offset (eg. for field offsets). The variants defined ar
 `li8/16/32/64`, `lu8/16/32` and `lf32/64`. The integer `i` variants sign-extend
 while the `u` variants zero-extend.
 
-Stores follow the form `sXX value ptr off16` where `ptr` and `imm32` are like loads
+Stores follow the form `sXX value ptr off16` where `ptr` and `off16` are like loads
 while `value` is the SSA value to store. Variants are like loads, but without
 the unsigned versions.
 
