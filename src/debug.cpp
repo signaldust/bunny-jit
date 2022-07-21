@@ -132,7 +132,8 @@ void bjit::Proc::debug() const
         {
             BJIT_LOG("L%d:", b);
             for(auto s : blocks[b].comeFrom) BJIT_LOG(" <L%d", s);
-            BJIT_LOG("\n; Dom: L%d,", blocks[b].idom);
+            BJIT_LOG("\n; IDom: L%d (nDom: %d),",
+                blocks[b].idom, (int)blocks[b].dom.size());
             if(blocks[b].pdom != noVal) BJIT_LOG(" PDom: L%d", blocks[b].pdom);
             else BJIT_LOG(" PDom: exit");
             //BJIT_LOG("\n; "); for(auto s : blocks[b].dom) BJIT_LOG(" ^L%d", s);

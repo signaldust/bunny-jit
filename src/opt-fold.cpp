@@ -23,14 +23,23 @@ using namespace bjit;
 #define N1 ops[op.in[1]]
 #define N2 ops[op.in[2]]
 
+// shortcut for NDOM
+#define NDOM(x) blocks[ops[x].block].dom.size()
+
 /*
 
-We try to avoid any folding here that isn't guaranteed to be profitable.
+We try to only do folding here that is either directly profitable, or
+likely to enable further optimizations down the line.
+
+We further try to avoid any folding that would be a pessimisation if
+such the speculative further optimizations fail to materialize.
 
 */
 bool Proc::opt_fold(bool unsafeOpt)
 {
     //debug();
+
+    rebuild_dom();  // need this for intelligent reassoc
 
     BJIT_ASSERT(live.size());   // should have at least one DCE pass done
 
@@ -95,10 +104,15 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::fadd: case ops::fmul:
                     case ops::dadd: case ops::dmul:
                     case ops::iand: case ops::ior: case ops::ixor:
-                        if(op.in[0] < op.in[1])
                         {
-                            std::swap(op.in[0], op.in[1]);
-                            progress = true;
+                            int ndom0 = NDOM(op.in[0]);
+                            int ndom1 = NDOM(op.in[1]);
+                            if(ndom0 > ndom1
+                            || (ndom0 == ndom1 && op.in[0] > op.in[1]))
+                            {
+                                std::swap(op.in[0], op.in[1]);
+                                progress = true;
+                            }
                         }
                         break;
                         
@@ -107,11 +121,16 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::flt: case ops::fge: case ops::fgt: case ops::fle:
                     case ops::dlt: case ops::dge: case ops::dgt: case ops::dle:
                         // (xor 2) relative to ilt swaps operands
-                        if(op.in[0] < op.in[1])
                         {
-                            op.opcode = ops::ilt + (2^(op.opcode-ops::ilt));
-                            std::swap(op.in[0], op.in[1]);
-                            progress = true;
+                            int ndom0 = NDOM(op.in[0]);
+                            int ndom1 = NDOM(op.in[1]);
+                            if(ndom0 > ndom1
+                            || (ndom0 == ndom1 && op.in[0] > op.in[1]))
+                            {
+                                op.opcode = ops::ilt + (2^(op.opcode-ops::ilt));
+                                std::swap(op.in[0], op.in[1]);
+                                progress = true;
+                            }
                         }
                         break;
 
@@ -167,7 +186,7 @@ bool Proc::opt_fold(bool unsafeOpt)
     
                 // simplify ieqI/ineI into inverted test when possible
                 // don't bother if there are other uses
-                if((I(ops::ieqI) || I(ops::ineI)) && !op.i64 && N0.nUse == 1)
+                if((I(ops::ieqI) || I(ops::ineI)) && !op.imm32 && N0.nUse == 1)
                 {
                     switch(N0.opcode)
                     {
@@ -348,7 +367,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 }
                 
                 // a * -1 -> -a
-                if(I(ops::imulI) && -1 == op.i64)
+                if(I(ops::imulI) && -1 == op.imm32)
                 {
                     op.opcode = ops::ineg; progress = true;
                 }
@@ -538,7 +557,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 // (a<<n)<<m = (a<<(n+m)), happens from adds/muls
                 if(I(ops::ishlI) && I0(ops::ishlI))
                 {
-                    int shift = op.imm32 + N0.imm32;
+                    int shift = (op.imm32%64) + (N0.imm32%64);
                     // we need this rule, because (mod 64)
                     if(shift >= 64)
                     {
@@ -553,8 +572,270 @@ bool Proc::opt_fold(bool unsafeOpt)
                     progress = true;
                 }
 
+                // (a>>n)>>m = (a>>(n+m)) - signed
+                if(I(ops::ishrI) && I0(ops::ishrI))
+                {
+                    int shift = (op.imm32%64) + (N0.imm32%64);
+                    
+                    // we need this rule, because (mod 64)
+                    // for signed we still need to keep the signbit
+                    // so we'll simply cap the shift at maximum
+                    if(shift >= 64) shift = 63;
+                    
+                    op.in[0] = N0.in[0];
+                    op.imm32 = shift;
+                    progress = true;
+                }
+                
+                // (a>>n)>>m = (a>>(n+m)) - unsigned
+                if(I(ops::ushrI) && I0(ops::ushrI))
+                {
+                    int shift = (op.imm32%64) + (N0.imm32%64);
+                    // we need this rule, because (mod 64)
+                    if(shift >= 64)
+                    {
+                        op.opcode = ops::lci;
+                        op.i64 = 0;
+                    }
+                    else
+                    {
+                        op.in[0] = N0.in[0];
+                        op.imm32 = shift;
+                    }
+                    progress = true;
+                }
+
+                // reassoc (a+b)+c as (a+c)+b where c is constant
+                //
+                if(I(ops::iaddI) && I0(ops::iadd) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::iadd;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::iaddI;
+                    progress = true;
+                }
+                
+                // reassoc (a+b)-c as (a-c)+b where c is constant
+                if(I(ops::isubI) && I0(ops::iadd) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::iadd;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::isubI;
+                    progress = true;
+                }
+                
+                // reassoc (a-b)+c as (a+c)-b where c is constant
+                if(I(ops::iaddI) && I0(ops::isub) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::isub;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::iaddI;
+                    progress = true;
+                }
+                
+                // reassoc (a-b)-c as (a-c)-b where c is constant
+                if(I(ops::isubI) && I0(ops::isub) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::isub;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::isubI;
+                    progress = true;
+                }
+
+                // reassoc (a*b)*c as (a*c)*b where c is constant
+                //
+                if(I(ops::imulI) && I0(ops::imul) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::imul;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::imulI;
+                    progress = true;
+                }
+
+                // reassoc (a+b)+c as (a+c)+b where c.ndom < b.ndom
+                //
+                if(I(ops::iadd) && I0(ops::iadd) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[1]))
+                {
+                    std::swap(op.in[1], N0.in[1]);
+                    progress = true;
+                }
+                // reassoc (a+b)+c as (c+b)+a where c.ndom < a.ndom
+                //
+                if(I(ops::iadd) && I0(ops::iadd) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                {
+                    std::swap(op.in[1], N0.in[0]);
+                    progress = true;
+                }
+                // reassoc a+(b+c) as b+(a+c) where a.ndom < b.ndom
+                //
+                if(I(ops::iadd) && I1(ops::iadd) && N1.nUse == 1
+                && NDOM(op.in[0]) < NDOM(N1.in[0]))
+                {
+                    std::swap(op.in[0], N1.in[0]);
+                    progress = true;
+                }
+                // reassoc a+(b+c) as c+(a+b) where a.ndom < c.ndom
+                //
+                if(I(ops::iadd) && I1(ops::iadd) && N1.nUse == 1
+                && NDOM(op.in[0]) < NDOM(N1.in[1]))
+                {
+                    std::swap(op.in[0], N1.in[1]);
+                    progress = true;
+                }
+                
+                // reassoc (a+b)-c as (a-c)+b where c.ndom < b.ndom
+                //
+                if(I(ops::isub) && I0(ops::iadd) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[1]))
+                {
+                    std::swap(op.opcode, N0.opcode);
+                    std::swap(op.in[1], N0.in[1]);
+                    progress = true;
+                }
+
+                // reassoc (a+b)-c as (b-c)+a where c.ndom < a.ndom
+                //
+                if(I(ops::isub) && I0(ops::iadd) && N0.nUse == 1
+                && NDOM(op.in[1]) > NDOM(N0.in[0]))
+                {
+                    std::swap(op.opcode, N0.opcode);
+                    std::swap(op.in[1], N0.in[0]);
+                    progress = true;
+                }
+                // reassoc (a+b)-c as (a-c)+b where c.ndom < b.ndom
+                if(I(ops::isub) && I0(ops::iadd) && N0.nUse == 1
+                && NDOM(op.in[1]) > NDOM(N0.in[1]))
+                {
+                    std::swap(op.opcode, N0.opcode);
+                    std::swap(op.in[1], N0.in[1]);
+                    progress = true;
+                }
+                
+                // reassoc (a-b)+c as (a+c)-b where c.ndom < b.ndom
+                //
+                if(I(ops::iadd) && I0(ops::isub) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[1]))
+                {
+                    std::swap(op.opcode, N0.opcode);
+                    std::swap(op.in[1], N0.in[1]);
+                    progress = true;
+                }
+                // reassoc (a-b)+c as (c-b)+a where c.ndom < a.ndom
+                //
+                if(I(ops::iadd) && I0(ops::isub) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                {
+                    std::swap(op.in[1], N0.in[0]);
+                    progress = true;
+                }
+                
+                // reassoc (a-b)-c as (a-c)-b where c.ndom < b.ndom
+                //
+                if(I(ops::isub) && I0(ops::isub) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[1]))
+                {
+                    std::swap(op.in[1], N0.in[1]);
+                    progress = true;
+                }
+                
+                // reassoc (a*b)*c as (a*c)*b where b.ndom < c.ndom
+                //
+                if(I(ops::imul) && I0(ops::imul) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[1]))
+                {
+                    std::swap(op.in[1], N0.in[1]);
+                    progress = true;
+                }
+                // reassoc (a*b)*c as (c*b)*a where c.ndom < a.ndom
+                //
+                if(I(ops::imul) && I0(ops::imul) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                {
+                    std::swap(op.in[1], N0.in[0]);
+                    progress = true;
+                }
+                // reassoc a*(b*c) as b*(a*c) where a.ndom < b.ndom
+                //
+                if(I(ops::imul) && I1(ops::imul) && N1.nUse == 1
+                && NDOM(op.in[0]) < NDOM(N1.in[0]))
+                {
+                    std::swap(op.in[0], N1.in[0]);
+                    progress = true;
+                }
+                // reassoc a*(b*c) as c*(a*b) where a.ndom < c.ndom
+                //
+                if(I(ops::imul) && I1(ops::imul) && N1.nUse == 1
+                && NDOM(op.in[0]) < NDOM(N1.in[1]))
+                {
+                    std::swap(op.in[0], N1.in[1]);
+                    progress = true;
+                }
+                
+
+                // reassoc (a+b)<<c as (a<<c)+(b<<c) when b,c are constants
+                // this way [n+1], [n+2] etc can CSE the shift
+                // we'll rewrite in place, so only do it when (a+b) is not used
+                if(I(ops::ishlI) && I0(ops::iaddI) && N0.nUse == 1)
+                {
+                    int shift = (op.imm32%64);
+                    int64_t imm = N0.imm32 << shift;
+                    if(imm == (int32_t) imm)
+                    {
+                        N0.opcode = ops::ishlI;
+                        N0.imm32 = shift;
+                        
+                        op.opcode = ops::iaddI;
+                        op.imm32 = imm;
+                        progress = true;
+                    }
+                }
+
+                // same as above, but (a-b)<<c -> (a<<c)-(b<<c)
+                if(I(ops::ishlI) && I0(ops::isubI) && N0.nUse == 1)
+                {
+                    int shift = (op.imm32%64);
+                    int64_t imm = N0.imm32 << shift;
+                    if(imm == (int32_t) imm)
+                    {
+                        N0.opcode = ops::ishlI;
+                        N0.imm32 = shift;
+                        
+                        op.opcode = ops::isubI;
+                        op.imm32 = imm;
+                        progress = true;
+                    }
+                }
+                
                 // shift by zero is always a NOP
-                if((I(ops::ishlI) || I(ops::ishrI) || I(ops::ushrI)) && !op.imm32)
+                if((I(ops::ishlI) || I(ops::ishrI) || I(ops::ushrI))
+                && !(op.imm32 % 64))
                 {
                     rename.add(op.index, op.in[0]);
                     op.makeNOP();

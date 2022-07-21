@@ -701,8 +701,8 @@ SCCP although we can't handle the cases where a branch must be taken for the
 branch condition to ever choose that branch. I'm not entirely convinced this
 would really be worth the trouble.
 
-Invariants: Folding does not use any properties of CFG and does not rewrite CFG.
-It only relies on the SSA invariant that definitions always dominate uses.
+Invariants: Folding does not rewrite CFG, dominators are used for reassoc only
+and it only relies on the SSA invariant that definitions always dominate uses.
 
 The `opt_cse` pass does two things: it first tries to hoist operations up the
 dominator chain to the earliest block where all inputs are available, unless
