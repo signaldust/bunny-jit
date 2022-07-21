@@ -103,7 +103,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::fadd: case ops::fmul:
                     case ops::dadd: case ops::dmul:
                     case ops::iand: case ops::ior: case ops::ixor:
-                        if(op.in[0] < op.in[1])
+                        if(op.in[0] > op.in[1])
                         {
                             std::swap(op.in[0], op.in[1]);
                             progress = true;
@@ -115,7 +115,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::flt: case ops::fge: case ops::fgt: case ops::fle:
                     case ops::dlt: case ops::dge: case ops::dgt: case ops::dle:
                         // (xor 2) relative to ilt swaps operands
-                        if(op.in[0] < op.in[1])
+                        if(op.in[0] > op.in[1])
                         {
                             op.opcode = ops::ilt + (2^(op.opcode-ops::ilt));
                             std::swap(op.in[0], op.in[1]);
@@ -591,6 +591,78 @@ bool Proc::opt_fold(bool unsafeOpt)
                         op.in[0] = N0.in[0];
                         op.imm32 = shift;
                     }
+                    progress = true;
+                }
+
+                // reassoc (a+b)+c as (a+c)+b where c is constant
+                //
+                if(I(ops::iaddI) && I0(ops::iadd) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::iadd;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::iaddI;
+                    progress = true;
+                }
+                
+                // reassoc (a+b)-c as (a-c)+b where c is constant
+                if(I(ops::isubI) && I0(ops::iadd) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::iadd;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::isubI;
+                    progress = true;
+                }
+                
+                // reassoc (a-b)+c as (a+c)-b where c is constant
+                if(I(ops::iaddI) && I0(ops::isub) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::isub;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::iaddI;
+                    progress = true;
+                }
+                
+                // reassoc (a-b)-c as (a-c)-b where c is constant
+                if(I(ops::isubI) && I0(ops::isub) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::isub;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::isubI;
+                    progress = true;
+                }
+
+                // reassoc (a*b)*c as (a*c)*b where c is constant
+                //
+                if(I(ops::imulI) && I0(ops::imul) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::imul;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::imulI;
                     progress = true;
                 }
 
