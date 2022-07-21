@@ -77,12 +77,14 @@ namespace bjit
         // List of registers for register allocator
         // These should be in preference order
         //
-        // FIXME: order is not necessarily ideal
+        // FIXME: order is not necessarily ideal, but basic idea is that
+        // we want caller-saved first (ideally avoid creating stack frame)
+        // and opt-ra supposedly understands that they get globbered by calls
         //
 #define BJIT_REGS(_) \
         /* caller saved (rsi & rdi callee saved on win32) */ \
-        _(rax), _(rsi), _(rdi), _(rcx), _(rdx), \
-         _(r8), _(r9), _(r10), _(r11), \
+        _(rax), _(rcx), _(rdx), \
+         _(r8), _(r9), _(r10), _(r11), _(rsi), _(rdi), \
         /* callee saved */ \
         _(rbx), _(rbp), _(r12), _(r13), _(r14), _(r15), _(rsp), \
         /* floating point */ \
