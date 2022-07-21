@@ -93,14 +93,6 @@ bool Proc::opt_fold(bool unsafeOpt)
                 || ops[op.in[1]].opcode != op.opcode
                 || N1.index != op.index);
 
-                // FIXME: the first thing we should do here is reassociate
-                //
-                // Basically we want to first collect sub-trees, then we want
-                // to sort the values by dominators and then reassoc such that
-                // values that can be computed earlier go together (allow LICM)
-                // and otherwise we want to schedule as a tree to reduce latency.
-                
-
                 // for associative operations and comparisons where neither
                 // operand is constant, sort operands to improve CSE
                 if(!C0 && !C1)
