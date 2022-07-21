@@ -68,8 +68,12 @@ bool bjit::impl::Op::canCSE() const
     return (opData[this->opcode].outputs & BJIT_CSE);
 }
 
-
 bool bjit::impl::Op::canMove() const
 {
     return !(opData[this->opcode].outputs & BJIT_NOMOVE);
+}
+
+bool bjit::impl::Op::anyOutReg() const
+{
+    return (opData[this->opcode].outputs & BJIT_ANYREG);
 }

@@ -795,7 +795,7 @@ void Proc::allocRegs(bool unsafeOpt)
 
             // try to mask second operand if possible
             // if the ISA globs the first register
-            if(!arch_explicit_output_regs
+            if(!arch_explicit_output_regs && !op.anyOutReg()
             && op.nInputs()>1 && op.in[0] != op.in[1]
             && (mask &~R2Mask(ops[op.in[1]].reg)))
                 mask &=~R2Mask(ops[op.in[1]].reg);

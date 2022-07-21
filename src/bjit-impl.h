@@ -148,6 +148,8 @@ namespace bjit
 
             bool    hasMem()        const;  // aka. isLoad() / isStore()
             bool    hasMemTag()     const;  // aka. isLoad()?
+
+            bool    anyOutReg()     const;
     
             void    makeNOP() { opcode = ops::nop; u64 = ~0ull; }
         };
