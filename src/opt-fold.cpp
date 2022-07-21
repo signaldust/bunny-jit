@@ -693,9 +693,21 @@ bool Proc::opt_fold(bool unsafeOpt)
                     std::swap(op.in[1], N0.in[0]);
                     progress = true;
                 }
+                if(I(ops::iadd) && I0(ops::iaddI) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                {
+                    std::swap(op.in[1], N0.in[0]);
+                    progress = true;
+                }
                 // reassoc a+(b+c) as b+(a+c) where a.ndom < b.ndom
                 //
                 if(I(ops::iadd) && I1(ops::iadd) && N1.nUse == 1
+                && NDOM(op.in[0]) < NDOM(N1.in[0]))
+                {
+                    std::swap(op.in[0], N1.in[0]);
+                    progress = true;
+                }
+                if(I(ops::iadd) && I1(ops::iaddI) && N1.nUse == 1
                 && NDOM(op.in[0]) < NDOM(N1.in[0]))
                 {
                     std::swap(op.in[0], N1.in[0]);
@@ -719,14 +731,13 @@ bool Proc::opt_fold(bool unsafeOpt)
                     std::swap(op.in[1], N0.in[1]);
                     progress = true;
                 }
-
                 // reassoc (a+b)-c as (b-c)+a where c.ndom < a.ndom
-                //
                 if(I(ops::isub) && I0(ops::iadd) && N0.nUse == 1
                 && NDOM(op.in[1]) > NDOM(N0.in[0]))
                 {
                     std::swap(op.opcode, N0.opcode);
                     std::swap(op.in[1], N0.in[0]);
+                    std::swap(N0.in[0], N0.in[1]);
                     progress = true;
                 }
                 // reassoc (a+b)-c as (a-c)+b where c.ndom < b.ndom
@@ -764,7 +775,24 @@ bool Proc::opt_fold(bool unsafeOpt)
                     std::swap(op.in[1], N0.in[1]);
                     progress = true;
                 }
-                
+                // reassoc (a-b)-c as a-(c+b) where c.ndom < a.ndom
+                //
+                if(I(ops::isub) && I0(ops::isub) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                {
+                    std::swap(op.in[1], N0.in[0]);  // (c-b)-a  = invalid
+                    std::swap(op.in[0], op.in[1]);  // a-(c-b)  = invalid
+                    N0.opcode = ops::iadd;          // a-(c+b)  = valid
+                    progress = true;
+                }
+                if(I(ops::isub) && I0(ops::isubI) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                {
+                    std::swap(op.in[1], N0.in[0]);  // (c-b)-a  = invalid
+                    std::swap(op.in[0], op.in[1]);  // a-(c-b)  = invalid
+                    N0.opcode = ops::iaddI;         // a-(c+b)  = valid
+                    progress = true;
+                }                
                 // reassoc (a*b)*c as (a*c)*b where b.ndom < c.ndom
                 //
                 if(I(ops::imul) && I0(ops::imul) && N0.nUse == 1
@@ -781,9 +809,21 @@ bool Proc::opt_fold(bool unsafeOpt)
                     std::swap(op.in[1], N0.in[0]);
                     progress = true;
                 }
+                if(I(ops::imul) && I0(ops::imulI) && N0.nUse == 1
+                && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                {
+                    std::swap(op.in[1], N0.in[0]);
+                    progress = true;
+                }
                 // reassoc a*(b*c) as b*(a*c) where a.ndom < b.ndom
                 //
                 if(I(ops::imul) && I1(ops::imul) && N1.nUse == 1
+                && NDOM(op.in[0]) < NDOM(N1.in[0]))
+                {
+                    std::swap(op.in[0], N1.in[0]);
+                    progress = true;
+                }
+                if(I(ops::imul) && I1(ops::imulI) && N1.nUse == 1
                 && NDOM(op.in[0]) < NDOM(N1.in[0]))
                 {
                     std::swap(op.in[0], N1.in[0]);
@@ -797,7 +837,6 @@ bool Proc::opt_fold(bool unsafeOpt)
                     std::swap(op.in[0], N1.in[1]);
                     progress = true;
                 }
-                
 
                 // reassoc (a+b)<<c as (a<<c)+(b<<c) when b,c are constants
                 // this way [n+1], [n+2] etc can CSE the shift
