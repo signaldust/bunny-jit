@@ -454,7 +454,7 @@ namespace bjit
                 if(opt_cse(unsafeOpt)) repeat = true;
 
                 // if we only made progress, then cleanup
-                if(repeat) opt_dce();
+                if(repeat) opt_dce(unsafeOpt);
 
                 // always check jumps, this is relatively cheap
                 if(opt_jump()) { repeat = true; }

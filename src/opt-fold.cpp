@@ -84,6 +84,14 @@ bool Proc::opt_fold(bool unsafeOpt)
                 || ops[op.in[1]].opcode != op.opcode
                 || N1.index != op.index);
 
+                // FIXME: the first thing we should do here is reassociate
+                //
+                // Basically we want to first collect sub-trees, then we want
+                // to sort the values by dominators and then reassoc such that
+                // values that can be computed earlier go together (allow LICM)
+                // and otherwise we want to schedule as a tree to reduce latency.
+                
+
                 // for associative operations and comparisons where neither
                 // operand is constant, sort operands to improve CSE
                 if(!C0 && !C1)
@@ -167,7 +175,7 @@ bool Proc::opt_fold(bool unsafeOpt)
     
                 // simplify ieqI/ineI into inverted test when possible
                 // don't bother if there are other uses
-                if((I(ops::ieqI) || I(ops::ineI)) && !op.i64 && N0.nUse == 1)
+                if((I(ops::ieqI) || I(ops::ineI)) && !op.imm32 && N0.nUse == 1)
                 {
                     switch(N0.opcode)
                     {
@@ -348,7 +356,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 }
                 
                 // a * -1 -> -a
-                if(I(ops::imulI) && -1 == op.i64)
+                if(I(ops::imulI) && -1 == op.imm32)
                 {
                     op.opcode = ops::ineg; progress = true;
                 }
@@ -538,7 +546,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 // (a<<n)<<m = (a<<(n+m)), happens from adds/muls
                 if(I(ops::ishlI) && I0(ops::ishlI))
                 {
-                    int shift = op.imm32 + N0.imm32;
+                    int shift = (op.imm32%64) + (N0.imm32%64);
                     // we need this rule, because (mod 64)
                     if(shift >= 64)
                     {
@@ -553,8 +561,76 @@ bool Proc::opt_fold(bool unsafeOpt)
                     progress = true;
                 }
 
+                // (a>>n)>>m = (a>>(n+m)) - signed
+                if(I(ops::ishrI) && I0(ops::ishrI))
+                {
+                    int shift = (op.imm32%64) + (N0.imm32%64);
+                    
+                    // we need this rule, because (mod 64)
+                    // for signed we still need to keep the signbit
+                    // so we'll simply cap the shift at maximum
+                    if(shift >= 64) shift = 63;
+                    
+                    op.in[0] = N0.in[0];
+                    op.imm32 = shift;
+                    progress = true;
+                }
+                
+                // (a>>n)>>m = (a>>(n+m)) - unsigned
+                if(I(ops::ushrI) && I0(ops::ushrI))
+                {
+                    int shift = (op.imm32%64) + (N0.imm32%64);
+                    // we need this rule, because (mod 64)
+                    if(shift >= 64)
+                    {
+                        op.opcode = ops::lci;
+                        op.i64 = 0;
+                    }
+                    else
+                    {
+                        op.in[0] = N0.in[0];
+                        op.imm32 = shift;
+                    }
+                    progress = true;
+                }
+
+                // reassoc (a+b)<<c as (a<<c)+(b<<c) when b,c are constants
+                // this way [n+1], [n+2] etc can CSE the shift
+                // we'll rewrite in place, so only do it when (a+b) is not used
+                if(I(ops::ishlI) && I0(ops::iaddI) && N0.nUse == 1)
+                {
+                    int shift = (op.imm32%64);
+                    int64_t imm = N0.imm32 << shift;
+                    if(imm == (int32_t) imm)
+                    {
+                        N0.opcode = ops::ishlI;
+                        N0.imm32 = shift;
+                        
+                        op.opcode = ops::iaddI;
+                        op.imm32 = imm;
+                        progress = true;
+                    }
+                }
+
+                // same as above, but (a-b)<<c -> (a<<c)-(b<<c)
+                if(I(ops::ishlI) && I0(ops::isubI) && N0.nUse == 1)
+                {
+                    int shift = (op.imm32%64);
+                    int64_t imm = N0.imm32 << shift;
+                    if(imm == (int32_t) imm)
+                    {
+                        N0.opcode = ops::ishlI;
+                        N0.imm32 = shift;
+                        
+                        op.opcode = ops::isubI;
+                        op.imm32 = imm;
+                        progress = true;
+                    }
+                }
+                
                 // shift by zero is always a NOP
-                if((I(ops::ishlI) || I(ops::ishrI) || I(ops::ushrI)) && !op.imm32)
+                if((I(ops::ishlI) || I(ops::ishrI) || I(ops::ushrI))
+                && !(op.imm32 % 64))
                 {
                     rename.add(op.index, op.in[0]);
                     op.makeNOP();
