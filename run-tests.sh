@@ -59,6 +59,10 @@ cat << END | bin/bjit
 y := 2/0; x := 1; while(1) { x = x+1; if ((y+x+y) < (y+10+y)) continue; break; }
 END
 
+cat << END | bin/bjit
+y := 2/0; z := 3/0; x := 1; while(1) { x = x+1; if (((y+x)+(x+z)) < ((y+10)+(z+10))) continue; break; }
+END
+
 bin/test_sieve
 
 echo "Looks like it didn't crash, at least... ;-)"
