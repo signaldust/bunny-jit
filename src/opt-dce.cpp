@@ -435,7 +435,7 @@ void Proc::rebuild_livein()
                 // is this a variable that we need?
                 if(!ops[i].hasOutput() || !ops[i].nUse) continue;
 
-                //BJIT_LOG(" v%04x live in %d\n", i, live[b]);
+                BJIT_LOG(" v%04x live in %d\n", i, live[b]);
                 blocks[live[b]].livein.push_back(i);
                 ops[i].nUse = 0;
             }

@@ -405,6 +405,7 @@ void Proc::find_ivs()
 {
     // detect IVs
     rebuild_dom();
+    BJIT_LOG(" IV");
     for(auto & b : live)
     {
         for(auto & p : blocks[b].args) ops[p.phiop].iv = p.phiop;
