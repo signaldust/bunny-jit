@@ -130,7 +130,7 @@ struct AsmX64
     {
         unsigned index = rodata32.size();
         // try to find an existing constant with same value
-        for(unsigned i = 0; i < rodata64.size(); ++i)
+        for(unsigned i = 0; i < rodata32.size(); ++i)
         {
             if(rodata32[i] == data) { index = i; break; }
         }

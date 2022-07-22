@@ -26,6 +26,9 @@ using namespace bjit;
 // shortcut for NDOM
 #define NDOM(x) blocks[ops[x].block].dom.size()
 
+#define SORT_GT(a,b) (NDOM(a) > NDOM(b) || (NDOM(a) == NDOM(b) && a > b))
+#define SORT_LT(a,b) (NDOM(a) < NDOM(b) || (NDOM(a) == NDOM(b) && a < b))
+
 /*
 
 We try to only do folding here that is either directly profitable, or
@@ -153,7 +156,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         std::swap(op.in[0], op.in[1]);
                         progress = true;
                         break;
-    
+
                     // rewrite 0 - a = -a
                     case ops::isub:
                         if(!ops[op.in[1]].i64)
@@ -164,7 +167,6 @@ bool Proc::opt_fold(bool unsafeOpt)
                             progress = true;
                         }
                         break;
-    
                     case ops::jilt: case ops::jige: case ops::jigt: case ops::jile:
                     case ops::jult: case ops::juge: case ops::jugt: case ops::jule:
                     case ops::jdlt: case ops::jdge: case ops::jdgt: case ops::jdle:
@@ -190,17 +192,17 @@ bool Proc::opt_fold(bool unsafeOpt)
                     && I1(opcode) && N1.nUse == 1)
                     {
                         // a,b and c,d are already sorted
-                        if(NDOM(N0.in[0]) > NDOM(N1.in[0]))
+                        if(SORT_GT(N0.in[0],N1.in[0]))
                         {
                             std::swap(N0.in[0], N1.in[0]);
                             progress = true;
                         }
-                        if(NDOM(N0.in[1]) > NDOM(N1.in[1]))
+                        if(SORT_GT(N0.in[1],N1.in[1]))
                         {
                             std::swap(N0.in[1], N1.in[1]);
                             progress = true;
                         }
-                        if(NDOM(N0.in[1]) > NDOM(N1.in[0]))
+                        if(SORT_GT(N0.in[1],N1.in[0]))
                         {
                             std::swap(N0.in[1], N1.in[0]);
                             progress = true;
@@ -209,7 +211,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     // reassoc (a+b)+c as (a+c)+b where c.ndom < b.ndom
                     //
                     if(I(opcode) && I0(opcode) && N0.nUse == 1
-                    && NDOM(op.in[1]) < NDOM(N0.in[1]))
+                    && SORT_LT(op.in[1],N0.in[1]))
                     {
                         std::swap(op.in[1], N0.in[1]);
                         progress = true;
@@ -218,7 +220,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     // reassoc a+(b+c) as c+(a+b) where a.ndom < c.ndom
                     //
                     if(I(opcode) && I1(opcode) && N1.nUse == 1
-                    && NDOM(op.in[0]) < NDOM(N1.in[1]))
+                    && SORT_LT(op.in[0],N1.in[1]))
                     {
                         std::swap(op.in[0], N1.in[1]);
                         progress = true;
@@ -226,7 +228,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     // reassoc (a+b)+c as (c+b)+a where c.ndom < a.ndom
                     //
                     if(I(opcode) && I0(opcode) && N0.nUse == 1
-                    && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                    && SORT_LT(op.in[1],N0.in[0]))
                     {
                         std::swap(op.in[1], N0.in[0]);
                         progress = true;
@@ -234,7 +236,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     // reassoc a+(b+c) as b+(a+c) where a.ndom < b.ndom
                     //
                     if(I(opcode) && I1(opcode) && N1.nUse == 1
-                    && NDOM(op.in[0]) < NDOM(N1.in[0]))
+                    && SORT_LT(op.in[0],N1.in[0]))
                     {
                         std::swap(op.in[0], N1.in[0]);
                         progress = true;
@@ -244,32 +246,33 @@ bool Proc::opt_fold(bool unsafeOpt)
                 auto doReassoc2 = [&](int opcode, int opcodeI)
                 {
                     doReassoc1(opcode);
-                    
+
                     if(I(opcode)
                     && I0(opcode) && N0.nUse == 1
                     && I1(opcodeI) && N1.nUse == 1)
                     {
-                        if(NDOM(N0.in[0]) > NDOM(N1.in[0]))
+                        if(SORT_GT(N0.in[0],N1.in[0]))
                         {
                             std::swap(N0.in[0], N1.in[0]);
                             progress = true;
                         }
-                        if(NDOM(N0.in[1]) > NDOM(N1.in[0]))
+                        if(SORT_GT(N0.in[1],N1.in[0]))
                         {
                             std::swap(N0.in[1], N1.in[0]);
                             progress = true;
                         }
                     }
+                    
                     if(I(opcode)
                     && I0(opcodeI) && N0.nUse == 1
                     && I1(opcode) && N1.nUse == 1)
                     {
-                        if(NDOM(N0.in[0]) > NDOM(N1.in[0]))
+                        if(SORT_GT(N0.in[0],N1.in[0]))
                         {
                             std::swap(N0.in[0], N1.in[0]);
                             progress = true;
                         }
-                        if(NDOM(N0.in[0]) > NDOM(N1.in[1]))
+                        if(SORT_GT(N0.in[0],N1.in[1]))
                         {
                             std::swap(N0.in[0], N1.in[1]);
                             progress = true;
@@ -277,13 +280,13 @@ bool Proc::opt_fold(bool unsafeOpt)
                     }
 
                     if(I(opcode) && I0(opcodeI) && N0.nUse == 1
-                    && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                    && SORT_LT(op.in[1],N0.in[0]))
                     {
                         std::swap(op.in[1], N0.in[0]);
                         progress = true;
                     }
                     if(I(opcode) && I1(opcodeI) && N1.nUse == 1
-                    && NDOM(op.in[0]) < NDOM(N1.in[0]))
+                    && SORT_LT(op.in[0],N1.in[0]))
                     {
                         std::swap(op.in[0], N1.in[0]);
                         progress = true;
@@ -296,56 +299,84 @@ bool Proc::opt_fold(bool unsafeOpt)
                         auto imm32 = op.imm32;
                         op.imm32 = 0;
                         op.in[1] = N0.in[1];
-                        op.opcode = ops::iadd;
+                        op.opcode = opcode;
                         
                         N0.in[1] = noVal;
                         N0.imm32 = imm32;
-                        N0.opcode = ops::iaddI;
+                        N0.opcode = opcodeI;
                         progress = true;
                     }
                 };
 
-                auto doReassocSub1 = [&](int add, int sub)
+                // "preferAdd" is really for mul/div where div is more expensive
+                auto doReassocSub1 = [&](int add, int sub, bool preferAdd)
                 {
                     // we don't have very general handling for subs
                     // but handle a few easy cases..
+
+                    // reassoc (a-b)+(c-d) into (a+c)-(b+d)
+                    if(I(add)
+                    && I0(sub) && N0.nUse == 1
+                    && I1(sub) && N1.nUse == 1
+                    && (preferAdd || SORT_GT(N0.in[1],N1.in[0])))
+                    {
+                        std::swap(N0.in[1], N1.in[0]);
+                        N0.opcode = add;
+                        N1.opcode = add;
+                        op.opcode = sub;
+                        progress = true;
+                    }
+
                     // reassoc (a-b)+(c-d) by sorting a,c and b,d
                     if(I(add)
                     && I0(sub) && N0.nUse == 1
                     && I1(sub) && N1.nUse == 1)
                     {
-                        if(NDOM(N0.in[0]) > NDOM(N1.in[0]))
+                        if(SORT_GT(N0.in[0],N1.in[0]))
                         {
                             std::swap(N0.in[0], N1.in[0]);
                             progress = true;
                         }
-                        if(NDOM(N0.in[1]) > NDOM(N1.in[1]))
+                        if(SORT_GT(N0.in[1],N1.in[1]))
                         {
                             std::swap(N0.in[1], N1.in[1]);
                             progress = true;
                         }
                     }
+
+                    // reassoc (a-b)-(c-d) as (a+d)-(c+b)
+                    if(I(sub)
+                    && I0(sub) && N0.nUse == 1
+                    && I1(sub) && N1.nUse == 1
+                    && (preferAdd || SORT_GT(N0.in[1],N1.in[1])))
+                    {
+                        std::swap(N0.in[1], N1.in[1]);
+                        N0.opcode = add;
+                        N1.opcode = add;
+                        progress = true;
+                    }
+                                        
                     // reassoc (a-b)-(c-d) by sorting a,d and b,c
                     if(I(sub)
                     && I0(sub) && N0.nUse == 1
                     && I1(sub) && N1.nUse == 1)
                     {
-                        if(NDOM(N0.in[0]) > NDOM(N1.in[1]))
+                        if(SORT_GT(N0.in[0],N1.in[1]))
                         {
                             std::swap(N0.in[0], N1.in[1]);
                             progress = true;
                         }
-                        if(NDOM(N0.in[1]) > NDOM(N1.in[0]))
+                        if(SORT_GT(N0.in[1],N1.in[0]))
                         {
                             std::swap(N0.in[1], N1.in[0]);
                             progress = true;
                         }
                     }
-    
+
                     // reassoc (a+b)-c as (a-c)+b where c.ndom < b.ndom
                     //
                     if(I(sub) && I0(add) && N0.nUse == 1
-                    && NDOM(op.in[1]) < NDOM(N0.in[1]))
+                    && SORT_LT(op.in[1],N0.in[1]))
                     {
                         std::swap(op.opcode, N0.opcode);
                         std::swap(op.in[1], N0.in[1]);
@@ -353,7 +384,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     }
                     // reassoc (a+b)-c as (b-c)+a where c.ndom < a.ndom
                     if(I(sub) && I0(add) && N0.nUse == 1
-                    && NDOM(op.in[1]) > NDOM(N0.in[0]))
+                    && SORT_GT(op.in[1],N0.in[0]))
                     {
                         std::swap(op.opcode, N0.opcode);
                         std::swap(op.in[1], N0.in[0]);
@@ -362,7 +393,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     }
                     // reassoc (a+b)-c as (a-c)+b where c.ndom < b.ndom
                     if(I(sub) && I0(add) && N0.nUse == 1
-                    && NDOM(op.in[1]) > NDOM(N0.in[1]))
+                    && SORT_GT(op.in[1],N0.in[1]))
                     {
                         std::swap(op.opcode, N0.opcode);
                         std::swap(op.in[1], N0.in[1]);
@@ -372,7 +403,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     // reassoc (a-b)+c as (a+c)-b where c.ndom < b.ndom
                     //
                     if(I(add) && I0(sub) && N0.nUse == 1
-                    && NDOM(op.in[1]) < NDOM(N0.in[1]))
+                    && SORT_LT(op.in[1],N0.in[1]))
                     {
                         std::swap(op.opcode, N0.opcode);
                         std::swap(op.in[1], N0.in[1]);
@@ -381,7 +412,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     // reassoc (a-b)+c as (c-b)+a where c.ndom < a.ndom
                     //
                     if(I(add) && I0(sub) && N0.nUse == 1
-                    && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                    && SORT_LT(op.in[1],N0.in[0]))
                     {
                         std::swap(op.in[1], N0.in[0]);
                         progress = true;
@@ -390,7 +421,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     // reassoc (a-b)-c as (a-c)-b where c.ndom < b.ndom
                     //
                     if(I(sub) && I0(sub) && N0.nUse == 1
-                    && NDOM(op.in[1]) < NDOM(N0.in[1]))
+                    && SORT_LT(op.in[1],N0.in[1]))
                     {
                         std::swap(op.in[1], N0.in[1]);
                         progress = true;
@@ -398,7 +429,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     // reassoc (a-b)-c as a-(c+b) where c.ndom < a.ndom
                     //
                     if(I(sub) && I0(sub) && N0.nUse == 1
-                    && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                    && SORT_LT(op.in[1],N0.in[0]))
                     {
                         std::swap(op.in[1], N0.in[0]);  // (c-b)-a  = invalid
                         std::swap(op.in[0], op.in[1]);  // a-(c-b)  = invalid
@@ -409,7 +440,7 @@ bool Proc::opt_fold(bool unsafeOpt)
 
                 auto doReassocSub2 = [&](int add, int sub, int addI, int subI)
                 {
-                    doReassocSub1(add, sub);
+                    doReassocSub1(add, sub, false);
                     
                     // reassoc (a+b)-c as (a-c)+b where c is constant
                     if(I(subI) && I0(add) && N0.nUse == 1)
@@ -424,7 +455,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         N0.opcode = subI;
                         progress = true;
                     }
-                    
+
                     // reassoc (a-b)+c as (a+c)-b where c is constant
                     if(I(addI) && I0(sub) && N0.nUse == 1)
                     {
@@ -455,33 +486,37 @@ bool Proc::opt_fold(bool unsafeOpt)
                     
                     // reassoc (a-b)-c as a-(c+b) where c.ndom < a.ndom
                     if(I(sub) && I0(subI) && N0.nUse == 1
-                    && NDOM(op.in[1]) < NDOM(N0.in[0]))
+                    && SORT_LT(op.in[1],N0.in[0]))
                     {
                         std::swap(op.in[1], N0.in[0]);  // (c-b)-a  = invalid
                         std::swap(op.in[0], op.in[1]);  // a-(c-b)  = invalid
-                        N0.opcode = addI;         // a-(c+b)  = valid
+                        N0.opcode = addI;               // a-(c+b)  = valid
                         progress = true;
                     }                
 
                 };
 
-                doReassoc2(ops::iadd, ops::iaddI);
-                doReassocSub2(ops::iadd, ops::isub, ops::iaddI, ops::isubI);
-                doReassoc2(ops::imul, ops::imulI);
-                doReassoc2(ops::iand, ops::iandI);
-                doReassoc2(ops::ixor, ops::ixorI);
-                doReassoc2(ops::ior, ops::iorI);
-
-                if(unsafeOpt)
+                if(0)   // NOTE: These are not SAFE yet :)
                 {
-                    doReassoc1(ops::fadd);
-                    doReassocSub1(ops::fadd, ops::fsub);
-                    doReassoc1(ops::fmul);
-                    doReassoc1(ops::dadd);
-                    doReassocSub1(ops::dadd, ops::dsub);
-                    doReassoc1(ops::dmul);
+                    doReassoc2(ops::iadd, ops::iaddI);
+                    doReassocSub2(ops::iadd, ops::isub, ops::iaddI, ops::isubI);
+                    doReassoc2(ops::imul, ops::imulI);
+                    doReassoc2(ops::iand, ops::iandI);
+                    doReassoc2(ops::ixor, ops::ixorI);
+                    doReassoc2(ops::ior, ops::iorI);
+    
+                    if(unsafeOpt)
+                    {
+                        doReassoc1(ops::fadd);
+                        doReassocSub1(ops::fadd, ops::fsub, false);
+                        doReassoc1(ops::fmul);
+                        doReassocSub1(ops::fmul, ops::fdiv, true);
+                        doReassoc1(ops::dadd);
+                        doReassocSub1(ops::dadd, ops::dsub, false);
+                        doReassoc1(ops::dmul);
+                        doReassocSub1(ops::dmul, ops::ddiv, true);
+                    }
                 }
-
                 
                 // simplify ieqI/ineI into inverted test when possible
                 // don't bother if there are other uses
@@ -507,7 +542,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         }
                     }
                 }
-    
+
                 if(I1(ops::lci) && N1.i64 == (int32_t) N1.i64)
                 switch(op.opcode)
                 {
@@ -532,7 +567,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         op.in[1] = noVal;
                         progress = true;
                         break;
-                    
+
                     case ops::iadd:
                         op.opcode = ops::iaddI;
                         op.imm32 = (int32_t) N1.i64;
@@ -628,7 +663,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.in[0] = noVal;
                     progress = true;
                 }
-    
+
                 // -(-a) = a
                 if(I(ops::ineg) && I0(ops::ineg)) rename.add(bc, N0.in[0]);
                 if(I(ops::fneg) && I0(ops::fneg)) rename.add(bc, N0.in[0]);
@@ -664,7 +699,15 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.makeNOP();
                     continue;                    
                 }
-                
+
+                // a * 0 -> 0
+                if(I(ops::imulI) && !op.imm32)
+                {
+                    op.opcode = ops::lci;
+                    op.i64 = 0;
+                    progress = true;
+                }
+
                 // a * -1 -> -a
                 if(I(ops::imulI) && -1 == op.imm32)
                 {
@@ -794,7 +837,6 @@ bool Proc::opt_fold(bool unsafeOpt)
                         progress = true;
                     }
                 }
-    
                 // merge shift into multiply
                 if(I(ops::imulI) && I0(ops::ishlI))
                 {
@@ -818,9 +860,9 @@ bool Proc::opt_fold(bool unsafeOpt)
                         progress = true;
                     }
                 }
-    
+
                 // can we replace multiply with shift?
-                if(I(ops::imulI) && !(op.imm32 & (op.imm32 - 1)))
+                if(I(ops::imulI) && op.imm32 && !(op.imm32 & (op.imm32 - 1)))
                 {
                     uint32_t b = op.imm32;
                     int shift = 0; while(b >>= 1) ++shift;
@@ -975,7 +1017,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.in[0] = N0.in[0];
                     progress = true;
                 }
-    
+
                 // bit-XOR merges : (a^b)^c = a^(b^c)
                 if(I(ops::ixorI) && I0(ops::ixorI))
                 {
@@ -1702,7 +1744,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         op.opcode = ops::lcd;
                         progress = true;
                         break;
-                }
+                }                
             }
         }
         

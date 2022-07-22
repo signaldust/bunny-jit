@@ -150,7 +150,7 @@ struct AsmArm64
     {
         unsigned index = rodata32.size();
         // try to find an existing constant with same value
-        for(unsigned i = 0; i < rodata64.size(); ++i)
+        for(unsigned i = 0; i < rodata32.size(); ++i)
         {
             if(rodata32[i] == data) { index = i; break; }
         }
@@ -221,7 +221,7 @@ struct AsmArm64
         if(imm64 == (uint32_t) imm64)
         {
             // LDR pc-relative .. imm19
-            auto off = data32(imm64) >> 2;
+            auto off = (data32(imm64) - out.size()) >> 2;
             emit32(0x18000000 | REG(r) | ((0x7ffff & off) << 5));
             return;
         }
@@ -229,7 +229,7 @@ struct AsmArm64
         if(imm64 == (int32_t) imm64)
         {
             // LDR pc-relative .. imm19
-            auto off = data32(imm64) >> 2;
+            auto off = (data32(imm64) - out.size()) >> 2;
             emit32(0x98000000 | REG(r) | ((0x7ffff & off) << 5));
             return;
         }
