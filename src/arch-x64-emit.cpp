@@ -156,17 +156,15 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     // we put such blocks below stack top
     //
     // this should place one shuffle just before it's target block
-    auto scheduleBlock = [&](unsigned label)
+    auto scheduleBlock = [&](unsigned label) -> unsigned
     {
         label = threadJump(label);
         
-        if(blocks[label].flags.codeDone) return;
+        if(blocks[label].flags.codeDone) return label;
 
         blocks[label].flags.codeDone = true;
         todo.push_back(label);
         
-        if(!todo.size()) return;
-
         auto & b = blocks[todo.back()];
         auto & j = ops[b.code.back()];
         if(j.opcode == ops::jmp && !blocks[j.label[0]].flags.codeDone)
@@ -176,6 +174,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             blocks[todo.back()].flags.codeDone = true;
             todo.push_back(top);
         }
+
+        return label;
     };
 
     auto doJump = [&](unsigned label)
@@ -297,10 +297,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.emit(0x0F);
                 a64.emit(0x80 | _CC(i.opcode));
                 // relocs
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(-4-out.size());
-                // schedule target
-                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
 
@@ -310,10 +308,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.emit(0x0F);
                 a64.emit(0x80 | _CC(i.opcode));
                 // relocs
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(-4-out.size());
-                // schedule target
-                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
 
@@ -335,10 +331,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.emit(0x0F);
                 a64.emit(0x80 | _CC(i.opcode+ops::jilt-ops::jiltI));
                 // relocs
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(-4-out.size());
-                // schedule target
-                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
                             
@@ -354,10 +348,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.emit(0x0F);
                 a64.emit(0x80 | _CC(i.opcode));
                 // relocs
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(-4-out.size());
-                // schedule target
-                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
 
@@ -373,10 +365,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 a64.emit(0x0F);
                 a64.emit(0x80 | _CC(i.opcode));
                 // relocs
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(-4-out.size());
-                // schedule target
-                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
                 

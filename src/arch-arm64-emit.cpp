@@ -179,17 +179,15 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
     // we put such blocks below stack top
     //
     // this should place one shuffle just before it's target block
-    auto scheduleBlock = [&](unsigned label)
+    auto scheduleBlock = [&](unsigned label) -> unsigned
     {
         label = threadJump(label);
         
-        if(blocks[label].flags.codeDone) return;
+        if(blocks[label].flags.codeDone) return label;
 
         blocks[label].flags.codeDone = true;
         todo.push_back(label);
         
-        if(!todo.size()) return;
-
         auto & b = blocks[todo.back()];
         auto & j = ops[b.code.back()];
         if(j.opcode == ops::jmp && !blocks[j.label[0]].flags.codeDone)
@@ -199,6 +197,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             blocks[todo.back()].flags.codeDone = true;
             todo.push_back(top);
         }
+
+        return label;
     };
 
     auto doJump = [&](unsigned label)
@@ -312,12 +312,11 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::jieq:
                 a64.CMPrr(ops[i.in[0]].reg, ops[i.in[1]].reg);
                 
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(0x54000000
                     | _CC(i.opcode)
                     | ((0x7ffff & -(out.size()>>2))<<5));
 
-                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
 
@@ -330,19 +329,18 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 // compare immediate seems fine too..
                 a64._rri12(0xF1000000, regs::sp, ops[i.in[0]].reg, 0);
                 
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(0x54000000
                     | _CC(i.opcode)
                     | ((0x7ffff & -(out.size()>>2))<<5));
             #else
                 // CBZ / CBNZ - prefer smaller code?
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(
                     (i.opcode == ops::jz ? 0xB4000000 : 0xB5000000)
                     | REG(ops[i.in[0]].reg)
                     | ((0x7ffff & -(out.size()>>2))<<5));
             #endif
-                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
                 
@@ -374,12 +372,11 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                     a64.CMPrr(ops[i.in[0]].reg, regs::x16);
                 }
                 
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(0x54000000
                     | _CC(i.opcode+ops::jilt-ops::jiltI)
                     | ((0x7ffff & -(out.size()>>2))<<5));
 
-                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
                 
@@ -392,12 +389,11 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::jfeq:
                 a64.FCMPss(ops[i.in[0]].reg, ops[i.in[1]].reg);
                 
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(0x54000000
                     | _CC(i.opcode)
                     | ((0x7ffff & -(out.size()>>2))<<5));
                 
-                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
                 
@@ -410,12 +406,11 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::jdeq:
                 a64.FCMPdd(ops[i.in[0]].reg, ops[i.in[1]].reg);
                 
-                a64.addReloc(i.label[0]);
+                a64.addReloc(scheduleBlock(i.label[0]));
                 a64.emit32(0x54000000
                     | _CC(i.opcode)
                     | ((0x7ffff & -(out.size()>>2))<<5));
                 
-                scheduleBlock(i.label[0]);
                 doJump(i.label[1]);
                 break;
                 

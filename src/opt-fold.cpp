@@ -5,6 +5,8 @@
 
 using namespace bjit;
 
+#define PRINTLN //BJIT_LOG("\n fold %d (op %04x)", __LINE__, op.index);
+
 // match op
 #define I(x) (op.opcode == x)
 
@@ -23,12 +25,6 @@ using namespace bjit;
 #define N1 ops[op.in[1]]
 #define N2 ops[op.in[2]]
 
-// shortcut for NDOM
-#define NDOM(x) blocks[ops[x].block].dom.size()
-
-#define SORT_GT(a,b) (NDOM(a) > NDOM(b) || (NDOM(a) == NDOM(b) && a > b))
-#define SORT_LT(a,b) (NDOM(a) < NDOM(b) || (NDOM(a) == NDOM(b) && a < b))
-
 /*
 
 We try to only do folding here that is either directly profitable, or
@@ -41,8 +37,6 @@ such the speculative further optimizations fail to materialize.
 bool Proc::opt_fold(bool unsafeOpt)
 {
     //debug();
-
-    rebuild_dom();  // need this for intelligent reassoc
 
     BJIT_ASSERT(live.size());   // should have at least one DCE pass done
 
@@ -98,6 +92,7 @@ bool Proc::opt_fold(bool unsafeOpt)
 
                 // for associative operations and comparisons where neither
                 // operand is constant, sort operands to improve CSE
+                //
                 if(!C0 && !C1)
                 switch(op.opcode)
                 {
@@ -108,13 +103,10 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::dadd: case ops::dmul:
                     case ops::iand: case ops::ior: case ops::ixor:
                         {
-                            int ndom0 = NDOM(op.in[0]);
-                            int ndom1 = NDOM(op.in[1]);
-                            if(ndom0 > ndom1
-                            || (ndom0 == ndom1 && op.in[0] > op.in[1]))
+                            if(op.in[0] > op.in[1])
                             {
                                 std::swap(op.in[0], op.in[1]);
-                                progress = true;
+                                progress = true; PRINTLN;
                             }
                         }
                         break;
@@ -125,14 +117,11 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::dlt: case ops::dge: case ops::dgt: case ops::dle:
                         // (xor 2) relative to ilt swaps operands
                         {
-                            int ndom0 = NDOM(op.in[0]);
-                            int ndom1 = NDOM(op.in[1]);
-                            if(ndom0 > ndom1
-                            || (ndom0 == ndom1 && op.in[0] > op.in[1]))
+                            if(op.in[0] > op.in[1])
                             {
                                 op.opcode = ops::ilt + (2^(op.opcode-ops::ilt));
                                 std::swap(op.in[0], op.in[1]);
-                                progress = true;
+                                progress = true; PRINTLN;
                             }
                         }
                         break;
@@ -154,7 +143,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::dadd: case ops::dmul:
                     case ops::iand: case ops::ior: case ops::ixor:
                         std::swap(op.in[0], op.in[1]);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
 
                     // rewrite 0 - a = -a
@@ -164,7 +153,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                             op.opcode = ops::ineg;
                             op.in[0] = op.in[1];
                             op.in[1] = noVal;
-                            progress = true;
+                            progress = true; PRINTLN;
                         }
                         break;
                     case ops::jilt: case ops::jige: case ops::jigt: case ops::jile:
@@ -172,7 +161,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::jdlt: case ops::jdge: case ops::jdgt: case ops::jdle:
                         op.opcode = 2 ^ op.opcode;
                         std::swap(op.in[0], op.in[1]);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::ilt: case ops::ige: case ops::igt: case ops::ile:
@@ -181,343 +170,10 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::dlt: case ops::dge: case ops::dgt: case ops::dle:
                         op.opcode = ops::ilt + (2^(op.opcode-ops::ilt));
                         std::swap(op.in[0], op.in[1]);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                 }
 
-                auto doReassoc1 = [&](int opcode)
-                {
-                    if(I(opcode)
-                    && I0(opcode) && N0.nUse == 1
-                    && I1(opcode) && N1.nUse == 1)
-                    {
-                        // a,b and c,d are already sorted
-                        if(SORT_GT(N0.in[0],N1.in[0]))
-                        {
-                            std::swap(N0.in[0], N1.in[0]);
-                            progress = true;
-                        }
-                        if(SORT_GT(N0.in[1],N1.in[1]))
-                        {
-                            std::swap(N0.in[1], N1.in[1]);
-                            progress = true;
-                        }
-                        if(SORT_GT(N0.in[1],N1.in[0]))
-                        {
-                            std::swap(N0.in[1], N1.in[0]);
-                            progress = true;
-                        }
-                    }
-                    // reassoc (a+b)+c as (a+c)+b where c.ndom < b.ndom
-                    //
-                    if(I(opcode) && I0(opcode) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[1]))
-                    {
-                        std::swap(op.in[1], N0.in[1]);
-                        progress = true;
-                    }
-                    
-                    // reassoc a+(b+c) as c+(a+b) where a.ndom < c.ndom
-                    //
-                    if(I(opcode) && I1(opcode) && N1.nUse == 1
-                    && SORT_LT(op.in[0],N1.in[1]))
-                    {
-                        std::swap(op.in[0], N1.in[1]);
-                        progress = true;
-                    }
-                    // reassoc (a+b)+c as (c+b)+a where c.ndom < a.ndom
-                    //
-                    if(I(opcode) && I0(opcode) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.in[1], N0.in[0]);
-                        progress = true;
-                    }
-                    // reassoc a+(b+c) as b+(a+c) where a.ndom < b.ndom
-                    //
-                    if(I(opcode) && I1(opcode) && N1.nUse == 1
-                    && SORT_LT(op.in[0],N1.in[0]))
-                    {
-                        std::swap(op.in[0], N1.in[0]);
-                        progress = true;
-                    }
-                };
-                
-                auto doReassoc2 = [&](int opcode, int opcodeI)
-                {
-                    doReassoc1(opcode);
-
-                    if(I(opcode)
-                    && I0(opcode) && N0.nUse == 1
-                    && I1(opcodeI) && N1.nUse == 1)
-                    {
-                        if(SORT_GT(N0.in[0],N1.in[0]))
-                        {
-                            std::swap(N0.in[0], N1.in[0]);
-                            progress = true;
-                        }
-                        if(SORT_GT(N0.in[1],N1.in[0]))
-                        {
-                            std::swap(N0.in[1], N1.in[0]);
-                            progress = true;
-                        }
-                    }
-                    
-                    if(I(opcode)
-                    && I0(opcodeI) && N0.nUse == 1
-                    && I1(opcode) && N1.nUse == 1)
-                    {
-                        if(SORT_GT(N0.in[0],N1.in[0]))
-                        {
-                            std::swap(N0.in[0], N1.in[0]);
-                            progress = true;
-                        }
-                        if(SORT_GT(N0.in[0],N1.in[1]))
-                        {
-                            std::swap(N0.in[0], N1.in[1]);
-                            progress = true;
-                        }
-                    }
-
-                    if(I(opcode) && I0(opcodeI) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.in[1], N0.in[0]);
-                        progress = true;
-                    }
-                    if(I(opcode) && I1(opcodeI) && N1.nUse == 1
-                    && SORT_LT(op.in[0],N1.in[0]))
-                    {
-                        std::swap(op.in[0], N1.in[0]);
-                        progress = true;
-                    }
-
-                    // reassoc (a+b)+c as (a+c)+b where c is constant
-                    //
-                    if(I(opcodeI) && I0(opcode) && N0.nUse == 1)
-                    {
-                        auto imm32 = op.imm32;
-                        op.imm32 = 0;
-                        op.in[1] = N0.in[1];
-                        op.opcode = opcode;
-                        
-                        N0.in[1] = noVal;
-                        N0.imm32 = imm32;
-                        N0.opcode = opcodeI;
-                        progress = true;
-                    }
-                };
-
-                // "preferAdd" is really for mul/div where div is more expensive
-                auto doReassocSub1 = [&](int add, int sub, bool preferAdd)
-                {
-                    // we don't have very general handling for subs
-                    // but handle a few easy cases..
-
-                    // reassoc (a-b)+(c-d) into (a+c)-(b+d)
-                    if(I(add)
-                    && I0(sub) && N0.nUse == 1
-                    && I1(sub) && N1.nUse == 1
-                    && (preferAdd || SORT_GT(N0.in[1],N1.in[0])))
-                    {
-                        std::swap(N0.in[1], N1.in[0]);
-                        N0.opcode = add;
-                        N1.opcode = add;
-                        op.opcode = sub;
-                        progress = true;
-                    }
-
-                    // reassoc (a-b)+(c-d) by sorting a,c and b,d
-                    if(I(add)
-                    && I0(sub) && N0.nUse == 1
-                    && I1(sub) && N1.nUse == 1)
-                    {
-                        if(SORT_GT(N0.in[0],N1.in[0]))
-                        {
-                            std::swap(N0.in[0], N1.in[0]);
-                            progress = true;
-                        }
-                        if(SORT_GT(N0.in[1],N1.in[1]))
-                        {
-                            std::swap(N0.in[1], N1.in[1]);
-                            progress = true;
-                        }
-                    }
-
-                    // reassoc (a-b)-(c-d) as (a+d)-(c+b)
-                    if(I(sub)
-                    && I0(sub) && N0.nUse == 1
-                    && I1(sub) && N1.nUse == 1
-                    && (preferAdd || SORT_GT(N0.in[1],N1.in[1])))
-                    {
-                        std::swap(N0.in[1], N1.in[1]);
-                        N0.opcode = add;
-                        N1.opcode = add;
-                        progress = true;
-                    }
-                                        
-                    // reassoc (a-b)-(c-d) by sorting a,d and b,c
-                    if(I(sub)
-                    && I0(sub) && N0.nUse == 1
-                    && I1(sub) && N1.nUse == 1)
-                    {
-                        if(SORT_GT(N0.in[0],N1.in[1]))
-                        {
-                            std::swap(N0.in[0], N1.in[1]);
-                            progress = true;
-                        }
-                        if(SORT_GT(N0.in[1],N1.in[0]))
-                        {
-                            std::swap(N0.in[1], N1.in[0]);
-                            progress = true;
-                        }
-                    }
-
-                    // reassoc (a+b)-c as (a-c)+b where c.ndom < b.ndom
-                    //
-                    if(I(sub) && I0(add) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[1]))
-                    {
-                        std::swap(op.opcode, N0.opcode);
-                        std::swap(op.in[1], N0.in[1]);
-                        progress = true;
-                    }
-                    // reassoc (a+b)-c as (b-c)+a where c.ndom < a.ndom
-                    if(I(sub) && I0(add) && N0.nUse == 1
-                    && SORT_GT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.opcode, N0.opcode);
-                        std::swap(op.in[1], N0.in[0]);
-                        std::swap(N0.in[0], N0.in[1]);
-                        progress = true;
-                    }
-                    // reassoc (a+b)-c as (a-c)+b where c.ndom < b.ndom
-                    if(I(sub) && I0(add) && N0.nUse == 1
-                    && SORT_GT(op.in[1],N0.in[1]))
-                    {
-                        std::swap(op.opcode, N0.opcode);
-                        std::swap(op.in[1], N0.in[1]);
-                        progress = true;
-                    }
-                    
-                    // reassoc (a-b)+c as (a+c)-b where c.ndom < b.ndom
-                    //
-                    if(I(add) && I0(sub) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[1]))
-                    {
-                        std::swap(op.opcode, N0.opcode);
-                        std::swap(op.in[1], N0.in[1]);
-                        progress = true;
-                    }
-                    // reassoc (a-b)+c as (c-b)+a where c.ndom < a.ndom
-                    //
-                    if(I(add) && I0(sub) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.in[1], N0.in[0]);
-                        progress = true;
-                    }
-                    
-                    // reassoc (a-b)-c as (a-c)-b where c.ndom < b.ndom
-                    //
-                    if(I(sub) && I0(sub) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[1]))
-                    {
-                        std::swap(op.in[1], N0.in[1]);
-                        progress = true;
-                    }
-                    // reassoc (a-b)-c as a-(c+b) where c.ndom < a.ndom
-                    //
-                    if(I(sub) && I0(sub) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.in[1], N0.in[0]);  // (c-b)-a  = invalid
-                        std::swap(op.in[0], op.in[1]);  // a-(c-b)  = invalid
-                        N0.opcode = add;          // a-(c+b)  = valid
-                        progress = true;
-                    }
-                };
-
-                auto doReassocSub2 = [&](int add, int sub, int addI, int subI)
-                {
-                    doReassocSub1(add, sub, false);
-                    
-                    // reassoc (a+b)-c as (a-c)+b where c is constant
-                    if(I(subI) && I0(add) && N0.nUse == 1)
-                    {
-                        auto imm32 = op.imm32;
-                        op.imm32 = 0;
-                        op.in[1] = N0.in[1];
-                        op.opcode = add;
-                        
-                        N0.in[1] = noVal;
-                        N0.imm32 = imm32;
-                        N0.opcode = subI;
-                        progress = true;
-                    }
-
-                    // reassoc (a-b)+c as (a+c)-b where c is constant
-                    if(I(addI) && I0(sub) && N0.nUse == 1)
-                    {
-                        auto imm32 = op.imm32;
-                        op.imm32 = 0;
-                        op.in[1] = N0.in[1];
-                        op.opcode = sub;
-                        
-                        N0.in[1] = noVal;
-                        N0.imm32 = imm32;
-                        N0.opcode = addI;
-                        progress = true;
-                    }
-                    
-                    // reassoc (a-b)-c as (a-c)-b where c is constant
-                    if(I(subI) && I0(sub) && N0.nUse == 1)
-                    {
-                        auto imm32 = op.imm32;
-                        op.imm32 = 0;
-                        op.in[1] = N0.in[1];
-                        op.opcode = sub;
-                        
-                        N0.in[1] = noVal;
-                        N0.imm32 = imm32;
-                        N0.opcode = subI;
-                        progress = true;
-                    }
-                    
-                    // reassoc (a-b)-c as a-(c+b) where c.ndom < a.ndom
-                    if(I(sub) && I0(subI) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.in[1], N0.in[0]);  // (c-b)-a  = invalid
-                        std::swap(op.in[0], op.in[1]);  // a-(c-b)  = invalid
-                        N0.opcode = addI;               // a-(c+b)  = valid
-                        progress = true;
-                    }                
-
-                };
-
-                if(0)   // NOTE: These are not SAFE yet :)
-                {
-                    doReassoc2(ops::iadd, ops::iaddI);
-                    doReassocSub2(ops::iadd, ops::isub, ops::iaddI, ops::isubI);
-                    doReassoc2(ops::imul, ops::imulI);
-                    doReassoc2(ops::iand, ops::iandI);
-                    doReassoc2(ops::ixor, ops::ixorI);
-                    doReassoc2(ops::ior, ops::iorI);
-    
-                    if(unsafeOpt)
-                    {
-                        doReassoc1(ops::fadd);
-                        doReassocSub1(ops::fadd, ops::fsub, false);
-                        doReassoc1(ops::fmul);
-                        doReassocSub1(ops::fmul, ops::fdiv, true);
-                        doReassoc1(ops::dadd);
-                        doReassocSub1(ops::dadd, ops::dsub, false);
-                        doReassoc1(ops::dmul);
-                        doReassocSub1(ops::dmul, ops::ddiv, true);
-                    }
-                }
-                
                 // simplify ieqI/ineI into inverted test when possible
                 // don't bother if there are other uses
                 if((I(ops::ieqI) || I(ops::ineI)) && !op.imm32 && N0.nUse == 1)
@@ -538,7 +194,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                             if(N0.hasImm32()) op.imm32 = N0.imm32;
                             op.in[0] = N0.in[0];
                             if(negate) op.opcode ^= 1;
-                            progress = true;
+                            progress = true; PRINTLN;
                         }
                     }
                 }
@@ -554,7 +210,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         op.opcode += ops::jiltI - ops::jilt;
                         op.imm32 = (int32_t) N1.i64;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     
                     case ops::ilt: case ops::ige:
@@ -565,14 +221,14 @@ bool Proc::opt_fold(bool unsafeOpt)
                         op.opcode += ops::iltI - ops::ilt;
                         op.imm32 = (int32_t) N1.i64;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
 
                     case ops::iadd:
                         op.opcode = ops::iaddI;
                         op.imm32 = (int32_t) N1.i64;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::isub:
                         // prefer iaddI as we can encode it as LEA
@@ -584,49 +240,49 @@ bool Proc::opt_fold(bool unsafeOpt)
                             op.imm32 = -op.imm32;
                         }
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::imul:
                         op.opcode = ops::imulI;
                         op.imm32 = (int32_t) N1.i64;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::iand:
                         op.opcode = ops::iandI;
                         op.imm32 = (int32_t) N1.i64;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ior:
                         op.opcode = ops::iorI;
                         op.imm32 = (int32_t) N1.i64;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ixor:
                         op.opcode = ops::ixorI;
                         op.imm32 = (int32_t) N1.i64;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ishl:
                         op.opcode = ops::ishlI;
                         op.imm32 = (int32_t) N1.i64;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ishr:
                         op.opcode = ops::ishrI;
                         op.imm32 = (int32_t) N1.i64;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ushr:
                         op.opcode = ops::ushrI;
                         op.imm32 = (int32_t) N1.i64;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                 }
                 
@@ -640,7 +296,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.opcode = negate ^ (N0.opcode + ops::jilt - ops::ilt);
                     op.in[1] = N0.in[1];
                     op.in[0] = N0.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 
                 // fold conditions into jumps
@@ -652,16 +308,15 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.imm32 = N0.imm32;
                     op.in[0] = N0.in[0];
                     op.in[1] = noVal;
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
     
-                
                 // simplify jieqI/jineI into jz/jnz when possible
                 if((I(ops::jieqI) || I(ops::jineI)) && !op.imm32)
                 {
                     op.opcode = I(ops::jieqI) ? ops::jz : ops::jnz;
                     op.in[0] = noVal;
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
 
                 // -(-a) = a
@@ -675,7 +330,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 || (I(ops::imulI) && 1 == op.imm32))
                 {
                     rename.add(bc, op.in[0]);
-                    progress = true;
+                    progress = true; PRINTLN;
                     op.makeNOP();
                     continue;
                 }
@@ -685,7 +340,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 || (I(ops::fmul) && I1(ops::lcf) && N1.f32 == 1.f))
                 {
                     rename.add(bc, op.in[0]);
-                    progress = true;
+                    progress = true; PRINTLN;
                     op.makeNOP();
                     continue;                    
                 }
@@ -695,7 +350,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 || (I(ops::dmul) && I1(ops::lcd) && N1.f64 == 1.))
                 {
                     rename.add(bc, op.in[0]);
-                    progress = true;
+                    progress = true; PRINTLN;
                     op.makeNOP();
                     continue;                    
                 }
@@ -705,22 +360,22 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.opcode = ops::lci;
                     op.i64 = 0;
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
 
                 // a * -1 -> -a
                 if(I(ops::imulI) && -1 == op.imm32)
                 {
-                    op.opcode = ops::ineg; progress = true;
+                    op.opcode = ops::ineg; progress = true; PRINTLN;
                 }
                 if(I(ops::fmul) && I1(ops::lcf) && N1.f32 == -1.f)
                 {
-                    op.opcode = ops::fneg; op.in[1] = noVal; progress = true;
+                    op.opcode = ops::fneg; op.in[1] = noVal; progress = true; PRINTLN;
                 }
                 
                 if(I(ops::dmul) && I1(ops::lcd) && N1.f64 == -1.)
                 {
-                    op.opcode = ops::dneg; op.in[1] = noVal; progress = true;
+                    op.opcode = ops::dneg; op.in[1] = noVal; progress = true; PRINTLN;
                 }
                 
                 // a + (-b) = a-b
@@ -728,19 +383,19 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.opcode = ops::isub;
                     op.in[1] = N1.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 if(I(ops::fadd) && I1(ops::fneg))
                 {
                     op.opcode = ops::fsub;
                     op.in[1] = N1.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 if(I(ops::dadd) && I1(ops::dneg))
                 {
                     op.opcode = ops::dsub;
                     op.in[1] = N1.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 
     
@@ -749,19 +404,19 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.opcode = ops::iadd;
                     op.in[1] = N1.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 if(I(ops::fsub) && I1(ops::fneg))
                 {
                     op.opcode = ops::fadd;
                     op.in[1] = N1.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 if(I(ops::dsub) && I1(ops::dneg))
                 {
                     op.opcode = ops::dadd;
                     op.in[1] = N1.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
     
                 // -a + b = b - a
@@ -770,21 +425,21 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.opcode = ops::isub;
                     op.in[1] = N0.in[0];
                     std::swap(op.in[0], op.in[1]);
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 if(I(ops::fadd) && I0(ops::fneg))
                 {
                     op.opcode = ops::fsub;
                     op.in[1] = N0.in[0];
                     std::swap(op.in[0], op.in[1]);
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 if(I(ops::dadd) && I0(ops::dneg))
                 {
                     op.opcode = ops::dsub;
                     op.in[1] = N0.in[0];
                     std::swap(op.in[0], op.in[1]);
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
 
                 // a+a = a<<1
@@ -793,7 +448,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.opcode = ops::ishlI;
                     op.in[1] = noVal;
                     op.imm32 = 1;
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
     
                 // addition immediate merges
@@ -804,7 +459,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     {
                         op.in[0] = N0.in[0];
                         op.imm32 = v;
-                        progress = true;
+                        progress = true; PRINTLN;
                     }
                 }
                 if(I(ops::isubI) && I0(ops::isubI))
@@ -814,7 +469,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     {
                         op.in[0] = N0.in[0];
                         op.imm32 = v;
-                        progress = true;
+                        progress = true; PRINTLN;
                     }
                 }
                 if(I(ops::iaddI) && I0(ops::isubI))
@@ -824,7 +479,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     {
                         op.in[0] = N0.in[0];
                         op.imm32 = v;
-                        progress = true;
+                        progress = true; PRINTLN;
                     }
                 }
                 if(I(ops::isubI) && I0(ops::iaddI))
@@ -834,7 +489,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     {
                         op.in[0] = N0.in[0];
                         op.imm32 = v;
-                        progress = true;
+                        progress = true; PRINTLN;
                     }
                 }
                 // merge shift into multiply
@@ -845,7 +500,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     {
                         op.in[0] = N0.in[0];
                         op.imm32 = v;
-                        progress = true;
+                        progress = true; PRINTLN;
                     }
                 }
     
@@ -857,7 +512,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     {
                         op.in[0] = N0.in[0];
                         op.imm32 = v;
-                        progress = true;
+                        progress = true; PRINTLN;
                     }
                 }
 
@@ -868,7 +523,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     int shift = 0; while(b >>= 1) ++shift;
                     op.opcode = ops::ishlI;
                     op.imm32 = shift;
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 
                 // can we replace division with shift?
@@ -880,7 +535,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.opcode = ops::ushrI;
                     op.imm32 = shift;
                     op.in[1] = noVal;
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
 
                 // can we replace modulo with mask? max 32-bits for now
@@ -892,9 +547,9 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.opcode = ops::iandI;
                     op.imm32 = ((((uint64_t)1)<<shift)-1);
                     op.in[1] = noVal;
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
-                
+
                 // (a<<n)<<m = (a<<(n+m)), happens from adds/muls
                 if(I(ops::ishlI) && I0(ops::ishlI))
                 {
@@ -910,7 +565,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         op.in[0] = N0.in[0];
                         op.imm32 = shift;
                     }
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
 
                 // (a>>n)>>m = (a>>(n+m)) - signed
@@ -925,7 +580,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     
                     op.in[0] = N0.in[0];
                     op.imm32 = shift;
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 
                 // (a>>n)>>m = (a>>(n+m)) - unsigned
@@ -943,7 +598,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         op.in[0] = N0.in[0];
                         op.imm32 = shift;
                     }
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 
 
@@ -953,7 +608,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 if(I(ops::ishlI) && I0(ops::iaddI) && N0.nUse == 1)
                 {
                     int shift = (op.imm32%64);
-                    int64_t imm = N0.imm32 << shift;
+                    int64_t imm = int64_t(N0.imm32) << shift;
                     if(imm == (int32_t) imm)
                     {
                         N0.opcode = ops::ishlI;
@@ -961,7 +616,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         
                         op.opcode = ops::iaddI;
                         op.imm32 = imm;
-                        progress = true;
+                        progress = true; PRINTLN;
                     }
                 }
 
@@ -977,7 +632,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         
                         op.opcode = ops::isubI;
                         op.imm32 = imm;
-                        progress = true;
+                        progress = true; PRINTLN;
                     }
                 }
                 
@@ -987,6 +642,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     rename.add(op.index, op.in[0]);
                     op.makeNOP();
+                    progress = true; PRINTLN;
                     continue;
                 }
                 
@@ -998,7 +654,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     rename.add(bc, N0.in[0]);
                     op.makeNOP();
-                    progress = true;
+                    progress = true; PRINTLN;
                     continue;
                 }
                 
@@ -1007,7 +663,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.imm32 &= N0.imm32;
                     op.in[0] = N0.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
     
                 // bit-OR merges : (a|b)|c = a|(b|c)
@@ -1015,7 +671,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.imm32 |= N0.imm32;
                     op.in[0] = N0.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
 
                 // bit-XOR merges : (a^b)^c = a^(b^c)
@@ -1023,19 +679,20 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.imm32 ^= N0.imm32;
                     op.in[0] = N0.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
+                    debugOp(op.index);
                 }
     
                 if(I(ops::ixorI) && !~op.imm32)
                 {
                     op.opcode = ops::inot;
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
     
                 if(I(ops::ixorI) && !op.imm32)
                 {
                     rename.add(bc, op.in[0]);
-                    progress = true;
+                    progress = true; PRINTLN;
                     op.makeNOP();
                     continue;
                 }
@@ -1047,7 +704,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.off16 += N0.imm32;
                     op.in[0] = N0.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 if(false && op.hasMem() && op.hasOutput()
                 && I0(ops::isubI) && N0.nUse == 1
@@ -1055,7 +712,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.off16 -= N0.imm32;
                     op.in[0] = N0.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
 
                 // second operand or store?
@@ -1065,7 +722,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.off16 += N1.imm32;
                     op.in[1] = N1.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 if(false && op.hasMem() && op.nInputs() >= 2
                 && I1(ops::isubI) && N1.nUse == 1
@@ -1073,7 +730,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.off16 -= N1.imm32;
                     op.in[1] = N1.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
 
                 // third operand on 2-reg store?
@@ -1085,7 +742,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.off16 += N2.imm32;
                     op.in[2] = N2.in[0];
                     debugOp(bc);
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 if(false && op.hasMem() && op.nInputs() >= 3
                 && I1(ops::isubI) && N2.nUse == 1
@@ -1093,7 +750,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 {
                     op.off16 -= N2.imm32;
                     op.in[1] = N2.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
 
                 // merge iadd into 1-reg loads?
@@ -1104,7 +761,7 @@ bool Proc::opt_fold(bool unsafeOpt)
 
                     op.in[1] = N0.in[1];
                     op.in[0] = N0.in[0];
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
                 
                 // merge iadd into 1-reg stores?
@@ -1118,9 +775,9 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.in[2] = N1.in[1];
                     op.in[1] = N1.in[0];
                     debugOp(bc);
-                    progress = true;
+                    progress = true; PRINTLN;
                 }
-                
+
                 if(C0)
                 switch(op.opcode)
                 {
@@ -1130,215 +787,215 @@ bool Proc::opt_fold(bool unsafeOpt)
                             op.opcode = ops::iretI;
                             op.imm32 = N0.i64;
                             op.in[0] = noVal;
-                            progress = true;
+                            progress = true; PRINTLN;
                         }
                         break;
                     case ops::jz:
                         op.opcode = ops::jmp;
                         if(N0.i64) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::jnz:
                         op.opcode = ops::jmp;
                         if(!N0.i64) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
     
                     case ops::jiltI:
                         op.opcode = ops::jmp;
                         if(!(N0.i64 < (int64_t)op.imm32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jigeI:
                         op.opcode = ops::jmp;
                         if(!(N0.i64 >= (int64_t)op.imm32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jigtI:
                         op.opcode = ops::jmp;
                         if(!(N0.i64 > (int64_t)op.imm32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jileI:
                         op.opcode = ops::jmp;
                         if(!(N0.i64 <= (int64_t)op.imm32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
     
                     case ops::jieqI:
                         op.opcode = ops::jmp;
                         if(!(N0.i64 == (int64_t)op.imm32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jineI:
                         op.opcode = ops::jmp;
                         if(!(N0.i64 != (int64_t)op.imm32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::jultI:
                         op.opcode = ops::jmp;
                         if(!(N0.u64 < (int64_t)op.imm32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jugeI:
                         op.opcode = ops::jmp;
                         if(!(N0.u64 >= (int64_t)op.imm32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jugtI:
                         op.opcode = ops::jmp;
                         if(!(N0.u64 > (int64_t)op.imm32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::juleI:
                         op.opcode = ops::jmp;
                         if(!(N0.u64 <= (int64_t)op.imm32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::iltI:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 < op.imm32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::igeI:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 >= op.imm32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::igtI:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 > op.imm32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ileI:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 <= op.imm32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
     
                     case ops::ieqI:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 == op.imm32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ineI:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 != op.imm32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::ultI:
                         op.opcode = ops::lci;
                         op.u64 = (N0.u64 < (int64_t)op.imm32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ugeI:
                         op.opcode = ops::lci;
                         op.u64 = (N0.u64 >= (int64_t)op.imm32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ugtI:
                         op.opcode = ops::lci;
                         op.u64 = (N0.u64 > (int64_t)op.imm32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::uleI:
                         op.opcode = ops::lci;
                         op.u64 = (N0.u64 <= (int64_t)op.imm32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     // arithmetic
                     case ops::iaddI:
                         op.i64 = N0.i64 + (int64_t)op.imm32;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::isubI:
                         op.i64 = N0.i64 - (int64_t)op.imm32;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ineg:
                         op.i64 = -N0.i64;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::imulI:
                         op.i64 = N0.i64 * (int64_t)op.imm32;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                          
                     // bitwise
                     case ops::inot:
                         op.i64 = ~N0.i64;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     
                     case ops::iandI:
                         op.i64 = N0.i64 & (int64_t)op.imm32;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::iorI:
                         op.i64 = N0.i64 | (int64_t)op.imm32;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ixorI:
                         op.i64 = N0.i64 ^ (int64_t)op.imm32;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
     
                     // bitshifts
                     case ops::ishlI:
                         op.i64 = N0.i64 << op.imm32;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::ishrI:
                         // this relies on compiler giving signed shift
                         op.i64 = N0.i64 >> op.imm32;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
     
                     case ops::ushrI:
                         // this relies on compiler giving unsigned shift
                         op.u64 = N0.u64 >> op.imm32;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
 
                     case ops::fneg:
                         op.f32 = -N0.f32;
                         op.opcode = ops::lcf;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::dneg:
                         op.f64 = -N0.f64;
                         op.opcode = ops::lcd;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                 }
     
@@ -1352,28 +1009,28 @@ bool Proc::opt_fold(bool unsafeOpt)
                         if(!(N0.i64 < N1.i64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jige:
                         op.opcode = ops::jmp;
                         if(!(N0.i64 >= N1.i64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jigt:
                         op.opcode = ops::jmp;
                         if(!(N0.i64 > N1.i64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jile:
                         op.opcode = ops::jmp;
                         if(!(N0.i64 <= N1.i64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
     
                     case ops::jieq:
@@ -1381,14 +1038,14 @@ bool Proc::opt_fold(bool unsafeOpt)
                         if(!(N0.i64 == N1.i64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jine:
                         op.opcode = ops::jmp;
                         if(!(N0.i64 != N1.i64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::jult:
@@ -1396,28 +1053,28 @@ bool Proc::opt_fold(bool unsafeOpt)
                         if(!(N0.u64 < N1.u64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::juge:
                         op.opcode = ops::jmp;
                         if(!(N0.u64 >= N1.u64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jugt:
                         op.opcode = ops::jmp;
                         if(!(N0.u64 > N1.u64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jule:
                         op.opcode = ops::jmp;
                         if(!(N0.u64 <= N1.u64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::jdeq:
@@ -1425,42 +1082,42 @@ bool Proc::opt_fold(bool unsafeOpt)
                         if(!(N0.f64 == N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jdne:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 != N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jdlt:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 < N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jdge:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 >= N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jdgt:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 > N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jdle:
                         op.opcode = ops::jmp;
                         if(!(N0.f64 <= N1.f64)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::jfeq:
@@ -1468,95 +1125,95 @@ bool Proc::opt_fold(bool unsafeOpt)
                         if(!(N0.f32 == N1.f32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jfne:
                         op.opcode = ops::jmp;
                         if(!(N0.f32 != N1.f32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jflt:
                         op.opcode = ops::jmp;
                         if(!(N0.f32 < N1.f32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jfge:
                         op.opcode = ops::jmp;
                         if(!(N0.f32 >= N1.f32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jfgt:
                         op.opcode = ops::jmp;
                         if(!(N0.f32 > N1.f32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::jfle:
                         op.opcode = ops::jmp;
                         if(!(N0.f32 <= N1.f32)) op.label[0] = op.label[1];
                         op.in[0] = noVal;
                         op.in[1] = noVal;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
     
                     case ops::ilt:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 < N1.i64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ige:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 >= N1.i64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::igt:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 > N1.i64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ile:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 <= N1.i64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
     
                     case ops::ieq:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 == N1.i64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ine:
                         op.opcode = ops::lci;
                         op.i64 = (N0.i64 != N1.i64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::ult:
                         op.opcode = ops::lci;
                         op.i64 = (N0.u64 < N1.u64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::uge:
                         op.opcode = ops::lci;
                         op.i64 = (N0.u64 >= N1.u64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ugt:
                         op.opcode = ops::lci;
                         op.i64 = (N0.u64 > N1.u64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ule:
                         op.opcode = ops::lci;
                         op.i64 = (N0.u64 <= N1.u64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
     
                     // Floating point versions
@@ -1564,82 +1221,82 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::deq:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 == N1.f64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::dne:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 != N1.f64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::dlt:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 < N1.f64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::dge:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 >= N1.f64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::dgt:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 > N1.f64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::dle:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f64 <= N1.f64);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::feq:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f32 == N1.f32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::fne:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f32 != N1.f32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::flt:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f32 < N1.f32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::fge:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f32 >= N1.f32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::fgt:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f32 > N1.f32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::fle:
                         op.opcode = ops::lci;
                         op.i64 = (N0.f32 <= N1.f32);
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     
                     // arithmetic
                     case ops::iadd:
                         op.i64 = N0.i64 + N1.i64;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::isub:
                         op.i64 = N0.i64 - N1.i64;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::imul:
                         op.i64 = N0.i64 * N1.i64;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::idiv:
                         // preserve division by zero!
@@ -1647,7 +1304,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         {
                             op.i64 = N0.i64 / N1.i64;
                             op.opcode = ops::lci;
-                            progress = true;
+                            progress = true; PRINTLN;
                         }
                         break;
                     case ops::imod:
@@ -1656,7 +1313,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         {
                             op.i64 = N0.i64 % N1.i64;
                             op.opcode = ops::lci;
-                            progress = true;
+                            progress = true; PRINTLN;
                         }
                         break;
                     case ops::udiv:
@@ -1665,7 +1322,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         {
                             op.u64 = N0.u64 / N1.u64;
                             op.opcode = ops::lci;
-                            progress = true;
+                            progress = true; PRINTLN;
                         }
                         break;
                     case ops::umod:
@@ -1674,7 +1331,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         {
                             op.u64 = N0.u64 % N1.u64;
                             op.opcode = ops::lci;
-                            progress = true;
+                            progress = true; PRINTLN;
                         }
                         break;
                          
@@ -1682,17 +1339,17 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::iand:
                         op.i64 = N0.i64 & N1.i64;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ior:
                         op.i64 = N0.i64 | N1.i64;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                     case ops::ixor:
                         op.i64 = N0.i64 ^ N1.i64;
                         op.opcode = ops::lci;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
 
                     // floating point, these should be safe
@@ -1700,49 +1357,49 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::fadd:
                         op.f32 = N0.f32 + N1.f32;
                         op.opcode = ops::lcf;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::fsub:
                         op.f32 = N0.f32 - N1.f32;
                         op.opcode = ops::lcf;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::fmul:
                         op.f32 = N0.f32 * N1.f32;
                         op.opcode = ops::lcf;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::fdiv:
                         op.f32 = N0.f32 / N1.f32;
                         op.opcode = ops::lcf;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::dadd:
                         op.f64 = N0.f64 + N1.f64;
                         op.opcode = ops::lcd;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::dsub:
                         op.f64 = N0.f64 - N1.f64;
                         op.opcode = ops::lcd;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::dmul:
                         op.f64 = N0.f64 * N1.f64;
                         op.opcode = ops::lcd;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                         
                     case ops::ddiv:
                         op.f64 = N0.f64 / N1.f64;
                         op.opcode = ops::lcd;
-                        progress = true;
+                        progress = true; PRINTLN;
                         break;
                 }                
             }
@@ -1756,3 +1413,4 @@ bool Proc::opt_fold(bool unsafeOpt)
 
     return anyProgress;
 }
+

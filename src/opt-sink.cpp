@@ -153,7 +153,7 @@ bool Proc::opt_sink(bool unsafeOpt)
             // make room and move original ops back
             auto & tcode = blocks[tBlock].code;
             tcode.resize(tcode.size() + tmp0.size());
-            for(int i = tcode.size(); i-- > insertAt;)
+            for(int i = tcode.size(); --i > insertAt;)
             {
                 tcode[i] = tcode[i-tmp0.size()];
             }
@@ -189,7 +189,7 @@ bool Proc::opt_sink(bool unsafeOpt)
             // make room and move original ops back
             auto & tcode = blocks[tBlock].code;
             tcode.resize(tcode.size() + tmp1.size());
-            for(int i = tcode.size(); i-- > insertAt;)
+            for(int i = tcode.size(); --i > insertAt;)
             {
                 tcode[i] = tcode[i-tmp1.size()];
             }
