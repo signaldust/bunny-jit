@@ -333,8 +333,7 @@ bool Proc::opt_jump()
 
             BJIT_LOG(" MERGE");
             progress = true;
-            // FIXME: This is inefficient, but merges confuse other loop-opt
-            return true;
+            continue;
         }
 
         // if second branch is pdom, swap so DFS runs on loops first
