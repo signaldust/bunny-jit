@@ -25,7 +25,7 @@ Features:
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
   * performs roughly<sup>2</sup> DCE, GCSE/LICM/PRE, CF/CP (SCCP?) and register allocation (as of now)
   * assembles to native x64 binary code with simple module system that supports [hot-patching](#patching-calls)
-  * uses `std::vector` to manage memory, keeps `valgrind` happy, tries to be cache efficient
+  * uses `std::vector` to manage memory, keeps `asan` happy (`valgrind` is broken on macOS), tries to be cache efficient
 
 <sup>1</sup><i>Obviously loading code on the fly is not entirely portable (we are
 fully [W^X](https://en.wikipedia.org/wiki/W%5EX) compliant), but we support generic
