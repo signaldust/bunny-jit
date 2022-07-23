@@ -95,7 +95,7 @@ bool Proc::opt_cse(bool unsafeOpt)
 {
     rebuild_dom();
     rebuild_memtags(unsafeOpt);
-    
+
     impl::Rename rename;
 
     BJIT_LOG(" CSE");
@@ -103,6 +103,9 @@ bool Proc::opt_cse(bool unsafeOpt)
     // we'll do a second round of dom-rebuilding
     // if we break edges when hoisting
     bool needRebuildDOM = false;
+
+    // need DCE when hoisting, even if we don't make real progress
+    bool needDCE = false;
 
     // pairs, packed into uint32_t for cheap sort
     BJIT_ASSERT(sizeof(uint32_t) == 2*sizeof(noVal));
@@ -185,6 +188,8 @@ bool Proc::opt_cse(bool unsafeOpt)
             {
                 if(cse_debug)
                     BJIT_LOG("\nhoisting %04x: %d -> %d", op.index, b, mblock);
+
+                needDCE = true;
                     
                 bc = noVal;
                 op.block = mblock;
@@ -243,7 +248,7 @@ bool Proc::opt_cse(bool unsafeOpt)
     if(needRebuildDOM) rebuild_dom();
 
     // found no pairs, we're done
-    if(!pairs.size()) return false;
+    if(!pairs.size()) return needDCE;
 
     // sort collected pairs
     std::make_heap(pairs.begin(), pairs.end());
@@ -312,7 +317,8 @@ bool Proc::opt_cse(bool unsafeOpt)
             if(p)
             {
                 // check dominance
-                if(cfdom[blocks[p->block].dom.size()-1] == p->block)
+                auto pds = blocks[p->block].dom.size();
+                if(cfdom.size() >= pds && cfdom[pds-1] == p->block)
                 {
                     preList[c] = p->index;
                     matches = true;
@@ -322,10 +328,11 @@ bool Proc::opt_cse(bool unsafeOpt)
                     auto it = std::lower_bound(
                         pairs.begin(), pairs.end(), p->index << 16);
 
-                    while((*it)>>16 == p->index)
+                    while(it != pairs.end() && (*it)>>16 == p->index)
                     {
                         auto & alt = ops[(*it)&noVal];
-                        if(cfdom[blocks[alt.block].dom.size()-1] == alt.block)
+                        auto ads = blocks[alt.block].dom.size();
+                        if(cfdom.size() >= ads && cfdom[ads-1] == alt.block)
                         {
                             preList[c] = alt.index;
                             matches = true;
@@ -599,7 +606,7 @@ bool Proc::opt_cse(bool unsafeOpt)
 
             // Check if we've moved the op to another block
             // and mark it as removed here if we did.
-            if(op.block != b) { bc = noVal; continue; }
+            if(op.block != b) { bc = noVal; needDCE = true; continue; }
 
             if(op.opcode == ops::nop) { continue; }
             
@@ -626,5 +633,5 @@ bool Proc::opt_cse(bool unsafeOpt)
         }
     }
 
-    return anyProgress;
+    return needDCE || anyProgress;
 }

@@ -3,7 +3,7 @@
 .SUFFIXES:
 
 # Generic compilation flags, both C and C++
-CFLAGS := -Isrc -g -ferror-limit=5
+CFLAGS := -Isrc -g -ferror-limit=5 #-fsanitize=address
 CFLAGS += -Ofast -fomit-frame-pointer
 CFLAGS += -Wall -Werror -Wfloat-conversion -Wno-unused-function
 
@@ -11,7 +11,7 @@ CFLAGS += -Wall -Werror -Wfloat-conversion -Wno-unused-function
 CXXFLAGS := -std=c++11 -fno-exceptions
 
 # this is just so local.make can add flags
-LINKFLAGS :=
+LINKFLAGS := #-fsanitize=address
 
 # if local.make exists, then include it for local configuration
 -include local.make

@@ -5,13 +5,47 @@ using namespace bjit;
 
 void Proc::rebuild_cfg()
 {
+    // Redo liveblocks .. sometimes this is called before DCE
+    for(auto & b : live) blocks[b].flags.live = false;
+    todo.clear();
+    live.clear();
+    
+    todo.push_back(0);
+    live.push_back(0);
+    blocks[0].flags.live = true;
+    while(todo.size())
+    {
+        auto b = todo.back();
+        todo.pop_back();
+
+        auto & jmp = ops[blocks[b].code.back()];
+
+        if(jmp.opcode <= ops::jmp)
+        for(int k = 0; k < 2; ++k)
+        {
+            if(k && jmp.opcode == ops::jmp) break;
+
+            if(!blocks[jmp.label[k]].flags.live)
+            {
+                todo.push_back(jmp.label[k]);
+                live.push_back(jmp.label[k]);
+                blocks[jmp.label[k]].flags.live = true;
+            }
+        }            
+    }
+
     // rebuild comeFrom, should delay this until iteration done
     for(int b = live.size();b--;) blocks[live[b]].comeFrom.clear();
     for(int b = live.size();b--;)
     {
         // if this fails, we're probably missing return
         BJIT_ASSERT(blocks[live[b]].code.size());
-        BJIT_ASSERT(ops[blocks[b].code.back()].opcode <= ops::tcalln);
+
+        // this happens when we do a jump merge, the whole block is noVals
+        // and it's not really live anymore
+        BJIT_ASSERT(blocks[live[b]].code.back() != noVal);
+        
+        BJIT_ASSERT(ops[blocks[live[b]].code.back()].opcode <= ops::tcalln);
         
         auto & op = ops[blocks[live[b]].code.back()];
         if(op.opcode < ops::jmp)

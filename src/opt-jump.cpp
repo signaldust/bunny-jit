@@ -120,7 +120,6 @@ bool Proc::opt_jump_be(uint16_t b)
         if(opc.opcode == ops::phi)
         {
             BJIT_ASSERT(opc.phiIndex == opi.phiIndex);
-            
             copy.args[opc.phiIndex].phiop = opc.index;
         }
 
@@ -287,7 +286,7 @@ bool Proc::opt_jump_be(uint16_t b)
 
 bool Proc::opt_jump()
 {
-    //rebuild_dom();    // don't need this if after CSE
+    rebuild_dom();      // don't need this if after CSE
     rebuild_livein();   // don't need this if after sink
 
     if(jump_debug) debug();
@@ -334,7 +333,8 @@ bool Proc::opt_jump()
 
             BJIT_LOG(" MERGE");
             progress = true;
-            continue;
+            // FIXME: This is inefficient, but merges confuse other loop-opt
+            return true;
         }
 
         // if second branch is pdom, swap so DFS runs on loops first
@@ -403,12 +403,17 @@ bool Proc::opt_jump()
 
 void Proc::find_ivs()
 {
+    //debug();
     // detect IVs
     rebuild_dom();
     BJIT_LOG(" IV");
     for(auto & b : live)
     {
-        for(auto & p : blocks[b].args) ops[p.phiop].iv = p.phiop;
+        for(auto & p : blocks[b].args)
+        {
+            if(p.phiop == noVal) continue;
+            ops[p.phiop].iv = p.phiop;
+        }
 
         auto findSource = [&](uint16_t val) -> uint16_t
         {
@@ -474,6 +479,7 @@ void Proc::find_ivs()
 
         for(auto & p : blocks[b].args)
         {
+            if(p.phiop == noVal) continue;
             if(ops[p.phiop].iv == p.phiop) ops[p.phiop].iv = noVal;
         }
         

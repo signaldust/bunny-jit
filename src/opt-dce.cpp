@@ -6,7 +6,6 @@ using namespace bjit;
 void Proc::opt_dce(bool unsafeOpt)
 {
     bool progress = true;
-    //debug();
 
     int iters = 0;
     while(progress)
@@ -65,7 +64,8 @@ void Proc::opt_dce(bool unsafeOpt)
 
                     while(true)
                     {
-                        auto & kc = blocks[ops[i].label[k]].code;
+                        auto bsrc = ops[i].label[k];
+                        auto & kc = blocks[bsrc].code;
                         auto tjmp = noVal;
 
                         // threading conditional jumps into phi-blocks currently
@@ -88,10 +88,40 @@ void Proc::opt_dce(bool unsafeOpt)
 
                         auto target = ops[tjmp].label[0];
 
+                        // do another pass
+                        if(false && blocks[target].code[0] == noVal)
+                        {
+                            progress = true;
+                            break;
+                        }
+
+                        // if the block we're jumping from has phis
+                        // then validate that target block also has them
+                        bool noPhi = false;
+                        for(auto & p : blocks[bsrc].args)
+                        {
+                            // this can happen
+                            if(p.phiop == noVal
+                            || ops[p.phiop].opcode == ops::nop) continue;
+
+                            bool good = false;
+                            for(auto & a : blocks[target].alts)
+                            {
+                                if(a.src == bsrc && a.val == p.phiop)
+                                {
+                                    good = true;
+                                    break;
+                                }
+                            }
+                            if(!good) { noPhi = true; break; }
+                        }
+
+                        if(noPhi) break;
+                        
                         // if we are jumping into a block with phis then
                         // validate that a blocks isn't there for shuffle
-                        
-                        if(ops[blocks[target].code[0]].opcode == ops::phi)
+                        //if(ops[blocks[target].code[0]].opcode == ops::phi)
+                        if(blocks[target].alts.size())
                         {
                             bool bad = false;
 
@@ -118,6 +148,7 @@ void Proc::opt_dce(bool unsafeOpt)
                                         if(s.phi != val) continue;
                                         if(s.src != b) continue;
                                         val = s.val;
+                                        
                                         good = true;
                                         break;
                                     }
@@ -139,6 +170,9 @@ void Proc::opt_dce(bool unsafeOpt)
                                     }
                                 }
 
+                                // phi got removed this pass?
+                                if(ops[a.phi].opcode == ops::nop) continue;
+                                
                                 // if we've not seen it, store tmp
                                 if(args[ops[a.phi].phiIndex].tmp == noVal)
                                 {
@@ -153,10 +187,12 @@ void Proc::opt_dce(bool unsafeOpt)
                             
                             if(bad) break;
                         }
-                        
+
                         // patch target phis
-                        for(auto & a : blocks[target].alts)
+                        for(int ai = 0, sz = blocks[target].alts.size();
+                            ai < sz; ++ai)
                         {
+                            auto & a = blocks[target].alts[ai];
                             if(a.src == ops[i].label[k])
                             {
                                 auto val = a.val;
@@ -191,7 +227,7 @@ void Proc::opt_dce(bool unsafeOpt)
                                 if(!dedup) blocks[target].newAlt(a.phi, b, val);
                             }
                         }
-                        
+
                         ops[i].label[k] = target;
                         progress = true;    // need at least new DOMs
                     }
@@ -364,6 +400,7 @@ void Proc::findUsesBlock(int b, bool inOnly, bool localOnly)
     // this must be done in reverse
     for(int c = blocks[b].code.size(); c--;)
     {
+        if(blocks[b].code[c] == noVal) continue;
         auto & op = ops[blocks[b].code[c]];
 
         if(!localOnly && op.opcode <= ops::jmp)
@@ -435,7 +472,7 @@ void Proc::rebuild_livein()
                 // is this a variable that we need?
                 if(!ops[i].hasOutput() || !ops[i].nUse) continue;
 
-                BJIT_LOG(" v%04x live in %d\n", i, live[b]);
+                //BJIT_LOG(" v%04x live in %d\n", i, live[b]);
                 blocks[live[b]].livein.push_back(i);
                 ops[i].nUse = 0;
             }

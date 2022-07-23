@@ -17,36 +17,6 @@ void Proc::allocRegs(bool unsafeOpt)
     findSCC();
     find_ivs();
 
-    // save a DCE pass by rebuilding live manually
-    // this is needed to get SCC shuffle blocks in correct order
-    for(auto & b : live) blocks[b].flags.live = false;
-    todo.clear();
-    live.clear();
-    
-    todo.push_back(0);
-    live.push_back(0);
-    blocks[0].flags.live = true;
-    while(todo.size())
-    {
-        auto b = todo.back();
-        todo.pop_back();
-
-        auto & jmp = ops[blocks[b].code.back()];
-
-        if(jmp.opcode <= ops::jmp)
-        for(int k = 0; k < 2; ++k)
-        {
-            if(k && jmp.opcode == ops::jmp) break;
-
-            if(!blocks[jmp.label[k]].flags.live)
-            {
-                todo.push_back(jmp.label[k]);
-                live.push_back(jmp.label[k]);
-                blocks[jmp.label[k]].flags.live = true;
-            }
-        }            
-    }
-
     // rebuild the other stuff
     rebuild_dom();
     rebuild_livein();
@@ -266,7 +236,8 @@ void Proc::allocRegs(bool unsafeOpt)
                         if(mask & op.regsIn(j)) mask &= op.regsIn(j);
                         foundUse = false;
                     }
-                    else if(op.in[j] == regstate[ops[op.in[j]].reg])
+                    else if(ops[op.in[j]].reg != regs::nregs
+                            && op.in[j] == regstate[ops[op.in[j]].reg])
                     {
                         if(ra_debug)
                         BJIT_LOG("op uses reg: %s\n", regName(ops[op.in[j]].reg));
@@ -810,6 +781,8 @@ void Proc::allocRegs(bool unsafeOpt)
         // force spills on phi's without registers
         for(auto & a : blocks[b].args)
         {
+            // These happen because opt-jump is lazy
+            if(a.phiop == noVal) continue;
             if(ops[a.phiop].reg == regs::nregs)
             {
                 ops[a.phiop].flags.spill = true;
@@ -1251,6 +1224,7 @@ void Proc::allocRegs(bool unsafeOpt)
                 // but don't optimize the same phi twice
                 for(auto & a : blocks[b].args)
                 {
+                    if(a.phiop == noVal) continue;
                     if(!ops[a.phiop].flags.no_opt
                     && ops[a.phiop].flags.spill)
                     {

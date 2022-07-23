@@ -25,13 +25,16 @@
 #  define BJIT_LOG(...)     fprintf(stderr, __VA_ARGS__)
 #endif
 
-#include "bjit-impl.h"
-
 namespace bjit
 {
     struct too_many_ops {};
     struct internal_error {};
+};
 
+#include "bjit-impl.h"
+
+namespace bjit
+{
     // These add a bit of type-safety to the interface only.
     //
     struct Value { uint16_t index; };
@@ -111,13 +114,13 @@ namespace bjit
             
             blocks.resize(label + 1);
             
-            blocks[label].args.resize(env.size());
+            blocks[label].args.reserve(env.size());
 
             // generate phis
             for(int i = 0; i < env.size(); ++i)
             {
                 auto phi = addOp(ops::phi, ops[env[i].index].flags.type, label);
-                blocks[label].args[i].phiop = phi;
+                blocks[label].args.push_back(phi);
                 ops[phi].phiIndex = i;
                 ops[phi].iv = noVal;
             }
@@ -449,6 +452,12 @@ namespace bjit
                 
                 // do fold
                 if(opt_fold(unsafeOpt)) repeat = true;
+                
+                // if we only made progress, then cleanup
+                if(repeat) opt_dce(unsafeOpt);
+
+                // reassoc pass (tends to improve CSE)
+                if(opt_reassoc(unsafeOpt)) repeat = true;
 
                 // then do CSE
                 if(opt_cse(unsafeOpt)) repeat = true;
@@ -645,6 +654,7 @@ namespace bjit
 
         // opt-fold.cpp
         bool opt_fold(bool unsafeOpt);
+        bool opt_reassoc(bool unsafeOpt);
 
         // opt-jump.cpp
         bool opt_jump_be(uint16_t b);
