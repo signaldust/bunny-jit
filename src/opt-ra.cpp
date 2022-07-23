@@ -36,7 +36,8 @@ void Proc::allocRegs(bool unsafeOpt)
 
         for(int i = 0; i < blocks[b].livein.size(); ++i)
         {
-            auto & op = ops[blocks[b].livein[i]];
+            auto opIndex = blocks[b].livein[i];
+            auto & op = ops[opIndex];
             
             blocks[b].code[i] = newOp(ops::phi, op.flags.type, b);
             ops[blocks[b].code[i]].phiIndex = blocks[b].args.size();
@@ -46,10 +47,10 @@ void Proc::allocRegs(bool unsafeOpt)
 
             for(auto cf : blocks[b].comeFrom)
             {
-                blocks[b].newAlt(blocks[b].code[i], cf, op.index);
+                blocks[b].newAlt(blocks[b].code[i], cf, opIndex);
             }
 
-            rename.add(op.index, blocks[b].code[i]);
+            rename.add(opIndex, blocks[b].code[i]);
         }
         
         blocks[b].livein.clear();
@@ -303,7 +304,8 @@ void Proc::allocRegs(bool unsafeOpt)
         
         for(int c = 0; c < blocks[b].code.size(); ++c)
         {
-            auto & op = ops[blocks[b].code[c]];
+            auto opIndex = blocks[b].code[c];
+            auto & op = ops[opIndex];
 
             if(ra_debug) if(codeOut.size()) debugOp(codeOut.back());
 
@@ -340,19 +342,19 @@ void Proc::allocRegs(bool unsafeOpt)
                     bad = true;
                 }
                 
-                if(!bad && a.opcode == ops::phi && a.iv == op.index
-                && a.nUse > 1 && regstate[a.reg] == a.index)
+                if(!bad && a.opcode == ops::phi && a.iv == opIndex
+                && a.nUse > 1 && regstate[a.reg] == op.in[i])
                 {
-                    auto s = findBest(a.regsMask(), regs::nregs, c+1, a.index);
+                    auto s = findBest(a.regsMask(), regs::nregs, c+1, op.in[i]);
 
                     // if we can't find a good reg, then bail out
                     if(s == regs::nregs || s == a.reg) break;
 
                     if(ra_debug) BJIT_LOG("; saving IV %04x (%s -> %s) \n",
-                            a.index, regName(a.reg), regName(s));
+                            op.in[i], regName(a.reg), regName(s));
                     uint16_t sr = newOp(ops::rename, a.flags.type, b);
                     
-                    ops[sr].in[0] = a.index;
+                    ops[sr].in[0] = op.in[i];
                     ops[sr].reg = s;
                     ops[sr].scc = a.scc;
                     regstate[s] = sr;
@@ -361,7 +363,7 @@ void Proc::allocRegs(bool unsafeOpt)
                     ops[sr].nUse = a.nUse - 1;
                     a.nUse = 1;
                     
-                    rename.add(a.index, sr);
+                    rename.add(op.in[i], sr);
                     // do NOT rename this op
                     if(ra_debug) debugOp(sr);
                     
@@ -718,13 +720,13 @@ void Proc::allocRegs(bool unsafeOpt)
             if(!op.hasOutput()) continue;
 
             // do we need to bump memtag?
-            if(op.hasSideFX() && (!unsafeOpt || !op.canCSE())) memtag = op.index;
+            if(op.hasSideFX() && (!unsafeOpt || !op.canCSE())) memtag = opIndex;
 
             if(op.opcode == ops::phi)
             {
                 for(auto & a : blocks[b].alts)
                 {
-                    if(a.phi != op.index) continue;
+                    if(a.phi != opIndex) continue;
                     
                     if(op.reg == regs::nregs)
                     for(int r = 0; r < regs::nregs; ++r)
@@ -774,7 +776,7 @@ void Proc::allocRegs(bool unsafeOpt)
             op.reg = findBest(mask, prefer, c+1);
 
             BJIT_ASSERT(op.reg < regs::nregs);
-            regstate[op.reg] = op.index; // blocks[b].code[c];
+            regstate[op.reg] = opIndex; // blocks[b].code[c];
             usedRegsBlock |= R2Mask(op.reg);
         }
 

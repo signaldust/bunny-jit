@@ -94,8 +94,8 @@ namespace bjit
                 uint16_t    label[2];
             };
             
-            uint16_t    index;  // index in ops[] array (ie. backref)
             uint16_t    block;  // block in which the op currently lives
+            uint16_t    pos = noVal;        // position in block after DCE
             
             uint16_t    opcode;             // opcode, see ir-ops.h
             uint8_t     reg = regs::none;   // output register
@@ -177,11 +177,11 @@ namespace bjit
             uint16_t opcode = noVal;
         
             OpCSE() {}
-            OpCSE(Op const & op) { set(op); }
+            OpCSE(uint16_t opIndex, Op const & op) { set(opIndex, op); }
         
-            void set(Op const & op)
+            void set(uint16_t opIndex, Op const & op)
             {
-                index = op.index;
+                index = opIndex;
                 block = op.block;
                 opcode = op.opcode;
                 if(op.hasI64() || op.hasF64())
@@ -201,11 +201,11 @@ namespace bjit
         
             // NOTE: we need temporary to force the "noVals"
             bool isEqual(Op const & op) const
-            { OpCSE tmp(op); return isEqual(tmp); }
+            { OpCSE tmp(noVal, op); return isEqual(tmp); }
         
             // NOTE: we need temporary to force the "noVals"
             static uint64_t getHash(Op const & op)
-            { OpCSE tmp(op); return getHash(tmp); }
+            { OpCSE tmp(noVal, op); return getHash(tmp); }
             
             bool isEqual(OpCSE const & op) const
             { return i64 == op.i64 && opcode == op.opcode; }

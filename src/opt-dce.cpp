@@ -312,12 +312,13 @@ void Proc::opt_dce(bool unsafeOpt)
                 // rename phis we can eliminate
                 for(int k = 0; k < ops[i].nInputs(); ++k)
                 {
-                    auto & phi = ops[ops[i].in[k]];
+                    auto phiIndex = ops[i].in[k];
+                    auto & phi = ops[phiIndex];
 
                     if(phi.opcode != ops::phi) continue;
 
                     auto src = blocks[phi.block].args[phi.phiIndex].tmp;
-                    if(src != phi.index)
+                    if(src != phiIndex)
                     {
                         ops[i].in[k] = src;
                         ++ops[src].nUse;
@@ -332,7 +333,7 @@ void Proc::opt_dce(bool unsafeOpt)
                 if(phi.opcode != ops::phi) continue;
 
                 auto src = blocks[phi.block].args[phi.phiIndex].tmp;
-                if(src != phi.index)
+                if(src != a.val)
                 {
                     a.val = src;
                     ++ops[src].nUse;
@@ -382,7 +383,11 @@ void Proc::opt_dce(bool unsafeOpt)
                 if(ops[b.code[i]].opcode == ops::nop) continue;
                 if(!ops[b.code[i]].hasSideFX() && !ops[b.code[i]].nUse) continue;
                 
-                if(j != i) b.code[j] = b.code[i];
+                if(j != i)
+                {
+                    b.code[j] = b.code[i];
+                }
+                ops[b.code[j]].pos = j;
                 ++j;
             }
 

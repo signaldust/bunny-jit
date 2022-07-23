@@ -53,11 +53,11 @@ bool Proc::opt_fold(bool unsafeOpt)
         progress = false;
         for(auto b : live)
         {
-            for(auto & bc : blocks[b].code)
+            for(auto & opIndex : blocks[b].code)
             {
-                if(bc == noVal) continue;
+                if(opIndex == noVal) continue;
                 
-                auto & op = ops[bc];
+                auto & op = ops[opIndex];
 
                 if(op.opcode == ops::nop) { continue; }
                 
@@ -84,11 +84,9 @@ bool Proc::opt_fold(bool unsafeOpt)
 
                 // catch phi-rewriting problems early
                 BJIT_ASSERT(op.nInputs() < 1
-                || ops[op.in[0]].opcode != op.opcode
-                || N0.index != op.index);
+                || ops[op.in[0]].opcode != op.opcode || &N0 != &op);
                 BJIT_ASSERT(op.nInputs() < 2
-                || ops[op.in[1]].opcode != op.opcode
-                || N1.index != op.index);
+                || ops[op.in[1]].opcode != op.opcode || &N1 != &op);
 
                 // for associative operations and comparisons where neither
                 // operand is constant, sort operands to improve CSE
@@ -314,16 +312,16 @@ bool Proc::opt_fold(bool unsafeOpt)
                 }
 
                 // -(-a) = a
-                if(I(ops::ineg) && I0(ops::ineg)) rename.add(bc, N0.in[0]);
-                if(I(ops::fneg) && I0(ops::fneg)) rename.add(bc, N0.in[0]);
-                if(I(ops::dneg) && I0(ops::dneg)) rename.add(bc, N0.in[0]);
+                if(I(ops::ineg) && I0(ops::ineg)) rename.add(opIndex, N0.in[0]);
+                if(I(ops::fneg) && I0(ops::fneg)) rename.add(opIndex, N0.in[0]);
+                if(I(ops::dneg) && I0(ops::dneg)) rename.add(opIndex, N0.in[0]);
                 
                 // a + 0, a - 0, a * 1 -> a
                 if((I(ops::iaddI) && !op.imm32)
                 || (I(ops::isubI) && !op.imm32)
                 || (I(ops::imulI) && 1 == op.imm32))
                 {
-                    rename.add(bc, op.in[0]);
+                    rename.add(opIndex, op.in[0]);
                     progress = true; PRINTLN;
                     op.makeNOP();
                     continue;
@@ -333,7 +331,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 || (I(ops::fsub) && I1(ops::lcf) && N1.f32 == 0.f)
                 || (I(ops::fmul) && I1(ops::lcf) && N1.f32 == 1.f))
                 {
-                    rename.add(bc, op.in[0]);
+                    rename.add(opIndex, op.in[0]);
                     progress = true; PRINTLN;
                     op.makeNOP();
                     continue;                    
@@ -343,7 +341,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 || (I(ops::dsub) && I1(ops::lcd) && N1.f64 == 0.)
                 || (I(ops::dmul) && I1(ops::lcd) && N1.f64 == 1.))
                 {
-                    rename.add(bc, op.in[0]);
+                    rename.add(opIndex, op.in[0]);
                     progress = true; PRINTLN;
                     op.makeNOP();
                     continue;                    
@@ -643,7 +641,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 if((I(ops::ishlI) || I(ops::ishrI) || I(ops::ushrI))
                 && !(op.imm32 % 64))
                 {
-                    rename.add(op.index, op.in[0]);
+                    rename.add(opIndex, op.in[0]);
                     op.makeNOP();
                     progress = true; PRINTLN;
                     continue;
@@ -655,7 +653,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 // ~(~a) = a
                 if(I(ops::inot) && I0(ops::inot))
                 {
-                    rename.add(bc, N0.in[0]);
+                    rename.add(opIndex, N0.in[0]);
                     op.makeNOP();
                     progress = true; PRINTLN;
                     continue;
@@ -683,7 +681,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.imm32 ^= N0.imm32;
                     op.in[0] = N0.in[0];
                     progress = true; PRINTLN;
-                    debugOp(op.index);
+                    debugOp(opIndex);
                 }
     
                 if(I(ops::ixorI) && !~op.imm32)
@@ -694,7 +692,7 @@ bool Proc::opt_fold(bool unsafeOpt)
     
                 if(I(ops::ixorI) && !op.imm32)
                 {
-                    rename.add(bc, op.in[0]);
+                    rename.add(opIndex, op.in[0]);
                     progress = true; PRINTLN;
                     op.makeNOP();
                     continue;
@@ -741,10 +739,10 @@ bool Proc::opt_fold(bool unsafeOpt)
                 && I2(ops::iaddI) && N2.nUse == 1
                 && (op.off16 + N2.imm32) == uint16_t(op.off16 + N2.imm32))
                 {
-                    debugOp(bc);
+                    debugOp(opIndex);
                     op.off16 += N2.imm32;
                     op.in[2] = N2.in[0];
-                    debugOp(bc);
+                    debugOp(opIndex);
                     progress = true; PRINTLN;
                 }
                 if(false && op.hasMem() && op.nInputs() >= 3
@@ -772,12 +770,12 @@ bool Proc::opt_fold(bool unsafeOpt)
                 && I1(ops::iadd) && N1.nUse == 1)
                 {
                     debugOp(op.in[1]);
-                    debugOp(bc);
+                    debugOp(opIndex);
                     op.opcode += ops::s2i8 - ops::si8;
 
                     op.in[2] = N1.in[1];
                     op.in[1] = N1.in[0];
-                    debugOp(bc);
+                    debugOp(opIndex);
                     progress = true; PRINTLN;
                 }
 
