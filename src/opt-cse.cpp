@@ -120,9 +120,10 @@ bool Proc::opt_cse(bool unsafeOpt)
     {
         for(auto & bc : blocks[b].code)
         {
-            if(bc == noVal) continue;
+            const auto opIndex = bc;
+            if(opIndex == noVal) continue;
 
-            auto & op = ops[bc];
+            auto & op = ops[opIndex];
 
             if(op.opcode == ops::nop) { continue; }
             
@@ -187,7 +188,7 @@ bool Proc::opt_cse(bool unsafeOpt)
             if(mblock != b)
             {
                 if(cse_debug)
-                    BJIT_LOG("\nhoisting %04x: %d -> %d", op.index, b, mblock);
+                    BJIT_LOG("\nhoisting %04x: %d -> %d", opIndex, b, mblock);
 
                 needDCE = true;
                     
@@ -196,7 +197,7 @@ bool Proc::opt_cse(bool unsafeOpt)
 
                 // try to move the new op backwards
                 int k = blocks[mblock].code.size();
-                blocks[mblock].code.push_back(op.index);
+                blocks[mblock].code.push_back(opIndex);
                 while(k--)
                 {
                     // don't move past anything that can't move (phi, alloc)
@@ -220,26 +221,29 @@ bool Proc::opt_cse(bool unsafeOpt)
                     if(!canMove) break;
 
                     // move
+                    BJIT_ASSERT(ops[blocks[mblock].code[k]].pos == k);
                     std::swap(blocks[mblock].code[k],
                         blocks[mblock].code[k+1]);
+                    ops[blocks[mblock].code[k+1]].pos = k+1;
+                    op.pos = k;
                 }
             }
             else if(cse_debug)
-                BJIT_LOG("\ncan't move %04x from %d", op.index, b);
+                BJIT_LOG("\ncan't move %04x from %d", opIndex, b);
                  
 
             // now check if we have another op in the table?
             // 
             auto * ptr = cseTable.find(op);
 
-            if(!ptr)  cseTable.insert(op);
+            if(!ptr) { OpCSE cseOp(opIndex, op); cseTable.insert(cseOp); }
             else
             {
                 // we should never find this op in the table anymore
-                BJIT_ASSERT(ptr->index != op.index);
+                BJIT_ASSERT(ptr->index != opIndex);
 
                 // add to pairs, original op goes to MSB
-                pairs.push_back(op.index + (uint32_t(ptr->index) << 16));
+                pairs.push_back(opIndex + (uint32_t(ptr->index) << 16));
             }
         }
     }
@@ -302,7 +306,7 @@ bool Proc::opt_cse(bool unsafeOpt)
             // forbid PRE if we're not the pdom of the source
             if(blocks[cf].pdom != op.block) return;
             
-            OpCSE match(op);
+            OpCSE match(cse.index, op);
             for(auto & a : mb.alts)
             {
                 if(a.src != cf) continue;
@@ -330,11 +334,12 @@ bool Proc::opt_cse(bool unsafeOpt)
 
                     while(it != pairs.end() && (*it)>>16 == p->index)
                     {
-                        auto & alt = ops[(*it)&noVal];
+                        auto altIndex = (*it)&noVal;
+                        auto & alt = ops[altIndex];
                         auto ads = blocks[alt.block].dom.size();
                         if(cfdom.size() >= ads && cfdom[ads-1] == alt.block)
                         {
-                            preList[c] = alt.index;
+                            preList[c] = altIndex;
                             matches = true;
                             break;
                         }
@@ -347,7 +352,8 @@ bool Proc::opt_cse(bool unsafeOpt)
         if(!matches) return;
 
         // found either a partial or full redundancy:
-        if(cse_debug) BJIT_LOG("\nPRE: L%d:%04x matches with:", op.block, op.index);
+        if(cse_debug)
+            BJIT_LOG("\nPRE: L%d:%04x matches with:", op.block, cse.index);
             
         // insert a new phi into the matched block
         auto phi = newOp(ops::phi, op.flags.type, op.block);
@@ -361,7 +367,7 @@ bool Proc::opt_cse(bool unsafeOpt)
             // FIXME: this duplicates work form above
             if(preList[c] == noVal)
             {
-                OpCSE match(op);
+                OpCSE match(cse.index, op);
                 for(auto & a : mb.alts)
                 {
                     if(a.src != mb.comeFrom[c]) continue;
@@ -388,14 +394,17 @@ bool Proc::opt_cse(bool unsafeOpt)
             mb.newAlt(phi, mb.comeFrom[c], preList[c]);
         }
 
-        rename.add(op.index, phi);
+        rename.add(cse.index, phi);
         op.makeNOP();
     };
     cseTable.foreach(checkPre);
 
     // returns true if we made some progress
-    auto csePair = [&](Op & op0, Op & op1) -> bool
+    auto csePair = [&](uint16_t op0index, uint16_t op1index) -> bool
     {
+        auto & op0 = ops[op0index];
+        auto & op1 = ops[op1index];
+        
         // did we already eliminate one of these
         if(op0.opcode == ops::nop) return false;
         if(op1.opcode == ops::nop) return false;
@@ -404,7 +413,7 @@ bool Proc::opt_cse(bool unsafeOpt)
         auto b1 = op1.block;
         
         if(cse_debug) BJIT_LOG("\nCSE: %04x (in %d) vs. %04x (in %d): ",
-            op0.index, op0.block, op1.index, op1.block);
+            op0index, op0.block, op1index, op1.block);
 
         // closest common dominator
         int ccd = 0;
@@ -447,40 +456,31 @@ bool Proc::opt_cse(bool unsafeOpt)
         else if(b0 == b1)
         {
             // same block case, figure out which one is earlier
-            BJIT_ASSERT(b0 == ccd);
-
-            bool found = false;
-            for(auto & c : blocks[ccd].code)
+            // sanity check that positions are actually up to date
+            BJIT_ASSERT(blocks[op0.block].code[op0.pos] == op0index);
+            BJIT_ASSERT(blocks[op1.block].code[op1.pos] == op1index);
+            if(op0.pos < op1.pos)
             {
-                if(c == op0.index)
-                {
-                    if(cse_debug)
-                        BJIT_LOG("GOOD: %04x first in block", op0.index);
-                    rename.add(op1.index, op0.index);
-                    op1.makeNOP();
-                    op0.flags.no_opt = false;   // can optimize again
-                    found = true;
-                    break;
-                }
-
-                if(c == op1.index)
-                {
-                    if(cse_debug) 
-                        BJIT_LOG("GOOD: %04x first in block", op1.index);
-                    rename.add(op0.index, op1.index);
-                    op0.makeNOP();
-                    op1.flags.no_opt = false;   // can optimize again
-                    found = true;
-                    break;
-                }
+                if(cse_debug)
+                    BJIT_LOG("GOOD: %04x first in block", op0index);
+                rename.add(op1index, op0index);
+                op1.makeNOP();
+                op0.flags.no_opt = false;   // can optimize again
+                return true;
             }
-            BJIT_ASSERT(found);
-            return true;
+            else
+            {
+                BJIT_LOG("GOOD: %04x first in block", op1index);
+                rename.add(op0index, op1index);
+                op0.makeNOP();
+                op1.flags.no_opt = false;   // can optimize again
+                return true;
+            }
         }
         else if(ccd == b1)
         {
-            if(cse_debug) BJIT_LOG("GOOD: %04x in ccd", op1.index);
-            rename.add(op0.index, op1.index);
+            if(cse_debug) BJIT_LOG("GOOD: %04x in ccd", op1index);
+            rename.add(op0index, op1index);
             op0.makeNOP();
             op1.flags.no_opt = false;   // can optimize again
 
@@ -488,8 +488,8 @@ bool Proc::opt_cse(bool unsafeOpt)
         }
         else if(ccd == b0)
         {
-            if(cse_debug) BJIT_LOG("GOOD: %04x in ccd", op0.index);
-            rename.add(op1.index, op0.index);
+            if(cse_debug) BJIT_LOG("GOOD: %04x in ccd", op0index);
+            rename.add(op1index, op0index);
             op1.makeNOP();
             op0.flags.no_opt = false;   // can optimize again
             
@@ -509,7 +509,7 @@ bool Proc::opt_cse(bool unsafeOpt)
 
             // try to move this op backwards
             int k = blocks[ccd].code.size();
-            blocks[ccd].code.push_back(op0.index);
+            blocks[ccd].code.push_back(op0index);
             while(k--)
             {
                 // don't move past anything with sideFX
@@ -534,11 +534,14 @@ bool Proc::opt_cse(bool unsafeOpt)
                 ops[blocks[ccd].code[k]].hasSideFX()) break;
 
                 // move
+                BJIT_ASSERT(ops[blocks[ccd].code[k]].pos == k);
                 std::swap(blocks[ccd].code[k],
                     blocks[ccd].code[k+1]);
+                ops[blocks[ccd].code[k+1]].pos = k+1;
+                op0.pos = k;
             }
 
-            rename.add(op1.index, op0.index);
+            rename.add(op1index, op0index);
             op1.makeNOP();
             op0.flags.no_opt = false;   // can optimize again
             
@@ -556,7 +559,7 @@ bool Proc::opt_cse(bool unsafeOpt)
         int j = 0, limit = pairs.size();
         for(int i = 0; i < limit; ++i)
         {
-            if(csePair(ops[pairs[i]>>16], ops[pairs[i]&noVal]))
+            if(csePair(pairs[i]>>16, pairs[i]&noVal))
             {
                 progress = true;
             }
@@ -568,7 +571,7 @@ bool Proc::opt_cse(bool unsafeOpt)
                 {
                     for(int q = p+1; q < i; ++q)
                     {
-                        if(csePair(ops[pairs[p]&noVal], ops[pairs[q]&noVal]))
+                        if(csePair(pairs[p]&noVal, pairs[q]&noVal))
                         {
                             progress = true;
                         }
@@ -583,7 +586,7 @@ bool Proc::opt_cse(bool unsafeOpt)
         {
             for(int q = p+1; q < limit; ++q)
             {
-                if(csePair(ops[pairs[p]&noVal], ops[pairs[q]&noVal]))
+                if(csePair(pairs[p]&noVal, pairs[q]&noVal))
                 {
                     progress = true;
                 }

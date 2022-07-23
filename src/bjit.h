@@ -433,6 +433,14 @@ namespace bjit
         std::vector<Block>      blocks;
         std::vector<Op>         ops;
 
+        uint16_t    getOpIndex(Op & op)
+        {
+            // this is somewhat ugly, but saves us a field in Op
+            auto i = (uintptr_t(&op) - uintptr_t(ops.data())) / sizeof(Op);
+            BJIT_ASSERT(i == (uint16_t) i);
+            return (uint16_t) i;
+        }
+
         uint16_t    currentBlock;
 
         void opt(bool unsafeOpt = false)
@@ -465,8 +473,8 @@ namespace bjit
                 // if we only made progress, then cleanup
                 if(repeat) opt_dce(unsafeOpt);
 
-                // always check jumps, this is relatively cheap
-                if(opt_jump()) { repeat = true; }
+                // check jumps, only does at most one at a time
+                while(opt_jump()) { repeat = true; }
             }
 
             // this should not currently enable further optimization
@@ -546,7 +554,7 @@ namespace bjit
             ops[i].in[1] = noVal;
             ops[i].scc = noSCC;
             ops[i].flags.type = type;
-            ops[i].index = i;
+            //ops[i].index = i;
             ops[i].block = block;
             return i;
         }

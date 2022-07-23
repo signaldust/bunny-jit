@@ -29,7 +29,6 @@ void Proc::sanity()
             //debugOp(c);
 
             // sanity check that block/index are correct
-            BJIT_ASSERT(op.index == c);
             BJIT_ASSERT(op.block == b);
 
             if(op.opcode == ops::phi)

@@ -61,13 +61,14 @@ bool Proc::opt_sink(bool unsafeOpt)
         // loop code backwards
         for(int c = blocks[b].code.size(); c--;)
         {
-            auto op = ops[blocks[b].code[c]];
+            auto opIndex = blocks[b].code[c];
+            auto op = ops[opIndex];
 
             // if this has no local uses, is it something we can sink?
             if(op.nUse || !op.canCSE() || (!unsafeOpt && op.hasSideFX()))
             {
                 if(sink_debug)
-                    BJIT_LOG("\n %04x not eligible in L%d", op.index, b);
+                    BJIT_LOG("\n %04x not eligible in L%d", opIndex, b);
                 continue;
             }
 
@@ -76,7 +77,7 @@ bool Proc::opt_sink(bool unsafeOpt)
 
             for(auto l : blocks[jmp.label[0]].livein)
             {
-                if(op.index != l) continue;
+                if(opIndex != l) continue;
                 live0 = true;
                 continue;
             }
@@ -84,7 +85,7 @@ bool Proc::opt_sink(bool unsafeOpt)
             if(jmp.opcode < ops::jmp)
                 for(auto l : blocks[jmp.label[1]].livein)
             {
-                if(op.index != l) continue;
+                if(opIndex != l) continue;
                 live1 = true;
                 continue;
             }
@@ -119,7 +120,7 @@ bool Proc::opt_sink(bool unsafeOpt)
             if(sink_debug) BJIT_LOG("\nSinking...");
 
             // pick the block where this is live
-            (live0 ? tmp0 : tmp1).push_back(op.index);
+            (live0 ? tmp0 : tmp1).push_back(opIndex);
             blocks[b].code[c] = noVal;  // dead at original site
             
             // see if we should be moving inputs too?

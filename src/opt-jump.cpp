@@ -91,8 +91,10 @@ bool Proc::opt_jump_be(uint16_t b)
     BJIT_ASSERT(head.code.size());
     for(int i = 0; i < head.code.size(); ++i)
     {
-        auto & opi = ops[head.code[i]];
-        auto & opc = ops[addOp(opi.opcode, opi.flags.type, nb)];
+        auto opiIndex = head.code[i];
+        auto & opi = ops[opiIndex];
+        auto opcIndex = addOp(opi.opcode, opi.flags.type, nb);
+        auto & opc = ops[opcIndex];
 
         // copy operands
         opc.i64 = opi.i64;
@@ -120,10 +122,10 @@ bool Proc::opt_jump_be(uint16_t b)
         if(opc.opcode == ops::phi)
         {
             BJIT_ASSERT(opc.phiIndex == opi.phiIndex);
-            copy.args[opc.phiIndex].phiop = opc.index;
+            copy.args[opc.phiIndex].phiop = opcIndex;
         }
 
-        renameCopy.add(opi.index, opc.index);
+        renameCopy.add(opiIndex, opcIndex);
     }
     
     // copy phi alts
@@ -333,7 +335,7 @@ bool Proc::opt_jump()
 
             BJIT_LOG(" MERGE");
             progress = true;
-            continue;
+            break;
         }
 
         // if second branch is pdom, swap so DFS runs on loops first

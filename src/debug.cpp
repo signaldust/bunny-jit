@@ -19,6 +19,8 @@ void bjit::Proc::debugOp(uint16_t iop) const
     if(iop == noVal) { BJIT_LOG("           -- removed op -- \n"); return; }
     auto & op = ops[iop];
 
+    BJIT_LOG("%04x:", op.pos);
+
     if(op.hasOutput())
     {
         if(op.flags.spill) BJIT_LOG("=[%04x]= ", op.scc);
@@ -163,7 +165,7 @@ void bjit::Proc::debug() const
                     }
                 }
             }
-            BJIT_LOG("\n; SLOT  VALUE    REG       OP   USE TYPE  ARGS\n");
+            BJIT_LOG("\n;      SLOT  VALUE    REG       OP   USE TYPE  ARGS\n");
             for(auto & iop : blocks[b].code) { debugOp(iop); }
             //if(0)
             if(raDone)

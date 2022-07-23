@@ -6,7 +6,7 @@
 
 using namespace bjit;
 
-#define PRINTLN //BJIT_LOG("\n reassoc %d (op %04x)", __LINE__, op.index);
+#define PRINTLN BJIT_LOG("\n reassoc %d (op %04x)", __LINE__, getOpIndex(op));
 
 // match op
 #define I(x) (op.opcode == x)
@@ -42,6 +42,30 @@ bool Proc::opt_reassoc(bool unsafeOpt)
 
     int iter = 0;
 
+    // returns the op that's later
+    #if 0
+    auto sortOps = [&](uint16_t op1, uint16_t op2) -> uint16_t
+    {
+        auto ndom1 = blocks[ops[op1].block].dom.size();
+        auto ndom2 = blocks[ops[op2].block].dom.size();
+
+        if(ndom1 < ndom2) return op2;
+        if(ndom1 > ndom2) return op1;
+
+        // if ndom is the same, then block should be same as well
+        BJIT_ASSERT(ops[op1].block == ops[op2].block);
+
+        // now we need to find which op is first
+        for(auto & bc : blocks[ops[op1].block].code)
+        {
+            if(bc == op1) return op2;
+            if(bc == op2) return op1;
+        }
+
+        BJIT_ASSERT(false);
+    };
+    #endif
+
     bool progress = true, anyProgress = false;
     while(progress)
     {
@@ -59,6 +83,121 @@ bool Proc::opt_reassoc(bool unsafeOpt)
 
                 if(op.opcode == ops::nop) { continue; }
                 
+                auto doReassocC = [&](int opcode, int opcodeI) {
+                    // reassoc (a+b)+c as (a+c)+b where c is constant
+                    //
+                    if(I(opcodeI) && I0(opcode) && N0.nUse == 1)
+                    {
+                        BJIT_LOG("\n REASSOC \n");
+                        debugOp(op.in[0]);
+                        debugOp(bc);
+                        
+                        auto imm32 = op.imm32;
+                        op.imm32 = 0;
+                        op.in[1] = N0.in[1];
+                        op.opcode = opcode;
+                        
+                        N0.in[1] = noVal;
+                        N0.imm32 = imm32;
+                        N0.opcode = opcodeI;
+                        progress = true; PRINTLN;
+
+                        debugOp(op.in[0]);
+                        debugOp(bc);
+                    }
+
+                    // FIXME: (a+c1) + (b+c2) -> (a+(c1+c2)) + (b+0)
+                    // ... but we need lambda to generalize?
+                    //
+                    // another possibility:
+                    //   a+((b+c2)+c1) .. but needs order check
+                    
+                };
+
+                // reassoc (a+b)-c as (a-c)+b where c is constant
+                if(I(ops::isubI) && I0(ops::iadd) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::iadd;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::isubI;
+                    progress = true; PRINTLN;
+                }
+
+                // reassoc (a-b)+c as (a+c)-b where c is constant
+                if(I(ops::iaddI) && I0(ops::isub) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::isub;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::iaddI;
+                    progress = true; PRINTLN;
+                }
+
+                // reassoc (a-b)-c as (a-c)-b where c is constant
+                if(I(ops::isubI) && I0(ops::isub) && N0.nUse == 1)
+                {
+                    auto imm32 = op.imm32;
+                    op.imm32 = 0;
+                    op.in[1] = N0.in[1];
+                    op.opcode = ops::isub;
+                    
+                    N0.in[1] = noVal;
+                    N0.imm32 = imm32;
+                    N0.opcode = ops::isubI;
+                    progress = true; PRINTLN;
+                }
+                
+                doReassocC(ops::iadd, ops::iaddI);
+                doReassocC(ops::imul, ops::imulI);
+                doReassocC(ops::iand, ops::iandI);
+                doReassocC(ops::ixor, ops::ixorI);
+                doReassocC(ops::ior, ops::iorI);
+
+            }
+        }
+        
+        if(progress) anyProgress = true;
+    }
+
+    //debug();
+    BJIT_LOG(" Fold:%d", iter);
+
+    return anyProgress;
+}
+
+#if 0
+
+                if(0)   // NOTE: These are not SAFE yet :)
+                {
+                    doReassoc2(ops::iadd, ops::iaddI);
+                    doReassocSub2(ops::iadd, ops::isub, ops::iaddI, ops::isubI);
+                    doReassoc2(ops::imul, ops::imulI);
+                    doReassoc2(ops::iand, ops::iandI);
+                    doReassoc2(ops::ixor, ops::ixorI);
+                    doReassoc2(ops::ior, ops::iorI);
+    
+                    if(unsafeOpt)
+                    {
+                        doReassoc1(ops::fadd);
+                        doReassocSub1(ops::fadd, ops::fsub, false);
+                        doReassoc1(ops::fmul);
+                        doReassocSub1(ops::fmul, ops::fdiv, true);
+                        doReassoc1(ops::dadd);
+                        doReassocSub1(ops::dadd, ops::dsub, false);
+                        doReassoc1(ops::dmul);
+                        doReassocSub1(ops::dmul, ops::ddiv, true);
+                    }
+                }
+
                 // for associative operations and comparisons where neither
                 // operand is constant, sort operands to improve CSE
                 if(!C0 && !C1)
@@ -359,108 +498,4 @@ bool Proc::opt_reassoc(bool unsafeOpt)
 
                 };
 
-                auto doReassocC = [&](int opcode, int opcodeI) {
-                    // reassoc (a+b)+c as (a+c)+b where c is constant
-                    //
-                    if(I(opcodeI) && I0(opcode)
-                    && (op.in[1] != op.in[0]) && N0.nUse == 1)
-                    {
-                        BJIT_LOG("\n REASSOC \n");
-                        debugOp(op.in[0]);
-                        debugOp(op.index);
-                        
-                        auto imm32 = op.imm32;
-                        op.imm32 = 0;
-                        op.in[1] = N0.in[1];
-                        op.opcode = opcode;
-                        
-                        N0.in[1] = noVal;
-                        N0.imm32 = imm32;
-                        N0.opcode = opcodeI;
-                        progress = true; PRINTLN;
-
-                        debugOp(op.in[0]);
-                        debugOp(op.index);
-                    }
-                };
-
-                // reassoc (a+b)-c as (a-c)+b where c is constant
-                if(I(ops::isubI) && I0(ops::iadd) && N0.nUse == 1)
-                {
-                    auto imm32 = op.imm32;
-                    op.imm32 = 0;
-                    op.in[1] = N0.in[1];
-                    op.opcode = ops::iadd;
-                    
-                    N0.in[1] = noVal;
-                    N0.imm32 = imm32;
-                    N0.opcode = ops::isubI;
-                    progress = true; PRINTLN;
-                }
-
-                // reassoc (a-b)+c as (a+c)-b where c is constant
-                if(I(ops::iaddI) && I0(ops::isub) && N0.nUse == 1)
-                {
-                    auto imm32 = op.imm32;
-                    op.imm32 = 0;
-                    op.in[1] = N0.in[1];
-                    op.opcode = ops::isub;
-                    
-                    N0.in[1] = noVal;
-                    N0.imm32 = imm32;
-                    N0.opcode = ops::iaddI;
-                    progress = true; PRINTLN;
-                }
-                
-                // reassoc (a-b)-c as (a-c)-b where c is constant
-                if(I(ops::isubI) && I0(ops::isub) && N0.nUse == 1)
-                {
-                    auto imm32 = op.imm32;
-                    op.imm32 = 0;
-                    op.in[1] = N0.in[1];
-                    op.opcode = ops::isub;
-                    
-                    N0.in[1] = noVal;
-                    N0.imm32 = imm32;
-                    N0.opcode = ops::isubI;
-                    progress = true; PRINTLN;
-                }
-                
-                doReassocC(ops::iadd, ops::iaddI);
-                doReassocC(ops::imul, ops::imulI);
-                doReassocC(ops::iand, ops::iandI);
-                doReassocC(ops::ixor, ops::ixorI);
-                doReassocC(ops::ior, ops::iorI);
-
-                if(0)   // NOTE: These are not SAFE yet :)
-                {
-                    doReassoc2(ops::iadd, ops::iaddI);
-                    doReassocSub2(ops::iadd, ops::isub, ops::iaddI, ops::isubI);
-                    doReassoc2(ops::imul, ops::imulI);
-                    doReassoc2(ops::iand, ops::iandI);
-                    doReassoc2(ops::ixor, ops::ixorI);
-                    doReassoc2(ops::ior, ops::iorI);
-    
-                    if(unsafeOpt)
-                    {
-                        doReassoc1(ops::fadd);
-                        doReassocSub1(ops::fadd, ops::fsub, false);
-                        doReassoc1(ops::fmul);
-                        doReassocSub1(ops::fmul, ops::fdiv, true);
-                        doReassoc1(ops::dadd);
-                        doReassocSub1(ops::dadd, ops::dsub, false);
-                        doReassoc1(ops::dmul);
-                        doReassocSub1(ops::dmul, ops::ddiv, true);
-                    }
-                }
-            }
-        }
-        
-        if(progress) anyProgress = true;
-    }
-
-    //debug();
-    BJIT_LOG(" Fold:%d", iter);
-
-    return anyProgress;
-}
+#endif
