@@ -25,7 +25,7 @@ Features:
   * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
   * performs roughly<sup>2</sup> DCE, GCSE/LICM/PRE, CF/CP (SCCP?) and register allocation (as of now)
   * assembles to native x64 binary code with simple module system that supports [hot-patching](#patching-calls)
-  * uses `std::vector` to manage memory, keeps `asan` happy (`valgrind` is broken on macOS), tries to be cache efficient
+  * uses `std::vector` to manage memory, keeps `asan`<sup>3</sup> happy, tries to be cache efficient
 
 <sup>1</sup><i>Obviously loading code on the fly is not entirely portable (we are
 fully [W^X](https://en.wikipedia.org/wiki/W%5EX) compliant), but we support generic
@@ -36,6 +36,11 @@ This is a bit hand-wavy, because traditional optimizations are formulated in ter
 of variables, yet we optimize purely on SSA values, but this is roughly what we get.
 There are some limitations with PRE/SCCP in the name of simplicity, but we should
 get most of the high-value situations; see [below](#optimizations) for details.</i>
+
+<sup>3</sup><i>
+I used to run this regularly under `valgrind` too, but it no longer works on macOS.
+I'll revisit the topic (testing on Linux) once this gets closed to production ready.
+</i>
 
 I suggest looking at the tests (eg. [`test_fib.cpp`](tests/test_fib.cpp) or
 [`test_sieve.cpp`](tests/test_sieve.cpp)) for examples of how to
