@@ -499,7 +499,6 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
             case ops::iadd:
                 a64._rrr(a64._ADD, i.reg, ops[i.in[0]].reg, ops[i.in[1]].reg);
                 break;
-
             case ops::iaddI:
                 if(i.imm32 == (0xfff & i.imm32))
                 {

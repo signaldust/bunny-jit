@@ -231,14 +231,8 @@ bool Proc::opt_fold(bool unsafeOpt)
                         progress = true; PRINTLN;
                         break;
                     case ops::isub:
-                        // prefer iaddI as we can encode it as LEA
                         op.opcode = ops::isubI;
                         op.imm32 = (int32_t) N1.i64;
-                        if(op.imm32 != -op.imm32)
-                        {
-                            op.opcode = ops::iaddI;
-                            op.imm32 = -op.imm32;
-                        }
                         op.in[1] = noVal;
                         progress = true; PRINTLN;
                         break;
@@ -492,6 +486,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                         progress = true; PRINTLN;
                     }
                 }
+
                 // merge shift into multiply
                 if(I(ops::imulI) && I0(ops::ishlI))
                 {
@@ -517,7 +512,8 @@ bool Proc::opt_fold(bool unsafeOpt)
                 }
 
                 // can we replace multiply with shift?
-                if(I(ops::imulI) && op.imm32 && !(op.imm32 & (op.imm32 - 1)))
+                if(I(ops::imulI) && op.imm32
+                && !(int64_t(op.imm32) & (int64_t(op.imm32) - 1)))
                 {
                     uint32_t b = op.imm32;
                     int shift = 0; while(b >>= 1) ++shift;
@@ -624,7 +620,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                 if(I(ops::ishlI) && I0(ops::isubI) && N0.nUse == 1)
                 {
                     int shift = (op.imm32%64);
-                    int64_t imm = N0.imm32 << shift;
+                    int64_t imm = int64_t(N0.imm32) << shift;
                     if(imm == (int32_t) imm)
                     {
                         N0.opcode = ops::ishlI;
@@ -634,6 +630,13 @@ bool Proc::opt_fold(bool unsafeOpt)
                         op.imm32 = imm;
                         progress = true; PRINTLN;
                     }
+                }
+
+                // convert any isubI to iaddI when possible
+                if(I(ops::isubI) && op.imm32 != (int32_t)(1<<31))
+                {
+                    op.imm32 = -op.imm32;
+                    op.opcode = ops::iaddI;
                 }
                 
                 // shift by zero is always a NOP
