@@ -163,7 +163,7 @@
     _(imulI, BJIT_CSE+1, 1+BJIT_IMM32), \
     /* integer bitwise */ \
     _(iandI, BJIT_CSE+1, 1+BJIT_IMM32), \
-    _(iorI,  BJIT_CSE+1, 1+BJIT_IMM32),  \
+    _(iorI,  BJIT_CSE+1, 1+BJIT_IMM32), \
     _(ixorI, BJIT_CSE+1, 1+BJIT_IMM32), \
     /* integer shifts */ \
     _(ishlI, BJIT_CSE+1, 1+BJIT_IMM32), \
