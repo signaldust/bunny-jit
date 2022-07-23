@@ -22,24 +22,27 @@ Features:
   * portable<sup>1</sup> C++11 without dependencies (other than STL)
   * uses low-level portable instruction set that models common architectures
   * supports integers, single- and double-floats (probably SIMD at some point)
-  * [end-to-end SSA](#ssa), with consistency checking and [simple interface](#instructions) to generate valid SSA
-  * performs roughly<sup>2</sup> DCE, GCSE/LICM/PRE, CF/CP (SCCP?) and register allocation (as of now)
+  * [end-to-end SSA](#ssa), with consistency checking<sup>2</sup> and [simple interface](#instructions) to generate valid SSA
+  * performs roughly<sup>3</sup> DCE, GCSE/LICM/PRE, CF/CP (SCCP?) and register allocation (as of now)
   * assembles to native x64 binary code with simple module system that supports [hot-patching](#patching-calls)
-  * uses `std::vector` to manage memory, keeps `asan`<sup>3</sup> happy, tries to be cache efficient
+  * uses `std::vector` to manage memory, keeps `asan`<sup>4</sup> happy, tries to be cache efficient
 
 <sup>1</sup><i>Obviously loading code on the fly is not entirely portable (we are
 fully [W^X](https://en.wikipedia.org/wiki/W%5EX) compliant), but we support generic
 `mmap`/`mprotect` (eg. Linux, macOS, etc) and Windows (now fixed and tested as well).</i>
 
-<sup>2</sup><i>
+<sup>2</sup><i>This doesn't guarantee correctness, but problems with optimizations
+are usually much more likely to assert than to silently produce incorrect code.</i>
+
+<sup>3</sup><i>
 This is a bit hand-wavy, because traditional optimizations are formulated in terms
 of variables, yet we optimize purely on SSA values, but this is roughly what we get.
 There are some limitations with PRE/SCCP in the name of simplicity, but we should
 get most of the high-value situations; see [below](#optimizations) for details.</i>
 
-<sup>3</sup><i>
+<sup>4</sup><i>
 I used to run this regularly under `valgrind` too, but it no longer works on macOS.
-I'll revisit the topic (testing on Linux) once this gets closed to production ready.
+I'll revisit the topic (testing on Linux) once this gets closer to production ready.
 </i>
 
 I suggest looking at the tests (eg. [`test_fib.cpp`](tests/test_fib.cpp) or
