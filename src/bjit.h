@@ -20,6 +20,9 @@
 #endif
 #define BJIT_ASSERT(x)          BJIT_ASSERT_T(x, bjit::internal_error);
 
+// This is used for some checks that are borderline paranoid
+#define BJIT_ASSERT_MORE(x)     BJIT_ASSERT(x)
+
 #ifndef BJIT_LOG
 #  include <cstdio>
 #  define BJIT_LOG(...)     fprintf(stderr, __VA_ARGS__)
@@ -63,7 +66,7 @@ namespace bjit
             currentBlock = newLabel().index;
             emitLabel(Label{currentBlock});
 
-            // front-ends can use the invariant this is always 0
+            // front-ends can use the invariant this is always SSA value 0
             alloc(allocBytes);
 
             if(args) for(;*args;++args)
@@ -437,7 +440,7 @@ namespace bjit
         {
             // this is somewhat ugly, but saves us a field in Op
             auto i = (uintptr_t(&op) - uintptr_t(ops.data())) / sizeof(Op);
-            BJIT_ASSERT(i == (uint16_t) i);
+            BJIT_ASSERT_MORE(i == (uint16_t) i);
             return (uint16_t) i;
         }
 

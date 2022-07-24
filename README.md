@@ -317,8 +317,8 @@ exceptions might not happen where expected)
 
 `ishr a b` and `ushr a b` are signed and unsigned right-shift while 
 left-shift (signed or unsigned) is `ishl a b` and we currently specify that the
-number of bits to shift is modulo the bitsize of integers (eg. x64 does this
-natively, but I don't think ARM does; it can still be implemented efficiently
+number of bits to shift is modulo the bitsize of integers (eg. both x64 and
+Aarch64 do this; on other architectures it could be implemented efficiently
 by masking, but note that this is subject to change and we might rule it as
 *undefined behaviour* at least for the "unsafe" `levelOpt=2`)
 

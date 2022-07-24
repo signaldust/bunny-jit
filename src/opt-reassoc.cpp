@@ -55,7 +55,7 @@ bool Proc::opt_reassoc(bool unsafeOpt)
         if(ndom1 > ndom2) return false;
 
         // if ndom is the same, then block should be same as well
-        BJIT_ASSERT(ops[op1].block == ops[op2].block);
+        BJIT_ASSERT_MORE(ops[op1].block == ops[op2].block);
 
         return ops[op1].pos < ops[op2].pos ? true : false;
     };

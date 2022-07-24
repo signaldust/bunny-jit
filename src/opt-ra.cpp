@@ -188,8 +188,9 @@ void Proc::allocRegs(bool unsafeOpt)
             // if preferred register is impossible, clear it
             if(reg != regs::nregs && !(R2Mask(reg)&mask))
             {
-                //BJIT_LOG("incompatible: mask %012llx (reg: %012llx)\n",
-                //    mask, R2Mask(reg));
+                if(ra_debug)
+                    BJIT_LOG("incompatible: mask %012llx (reg: %012llx)\n",
+                        mask, R2Mask(reg));
                 reg = regs::nregs;
             }
 
@@ -295,7 +296,7 @@ void Proc::allocRegs(bool unsafeOpt)
                 }
             }
 
-            BJIT_ASSERT(anyValid != regs::none);
+            BJIT_ASSERT_MORE(anyValid != regs::none);
             return anyValid;
         };
         
@@ -585,7 +586,7 @@ void Proc::allocRegs(bool unsafeOpt)
                         if(ra_debug) BJIT_LOG(" - reloaded\n");
                         ops[in].flags.spill = true;
                         ops[rr].in[0] = in;
-                        BJIT_ASSERT(rop.scc == ops[in].scc);
+                        BJIT_ASSERT_MORE(rop.scc == ops[in].scc);
                         ops[rr].scc = ops[in].scc;
                     }
 
@@ -605,7 +606,7 @@ void Proc::allocRegs(bool unsafeOpt)
             // sanity check that we got the renames right
             for(int i = 0; i < op.nInputs(); ++i)
             {
-                BJIT_ASSERT(regstate[ops[op.in[i]].reg] == op.in[i]);
+                BJIT_ASSERT_MORE(regstate[ops[op.in[i]].reg] == op.in[i]);
             }
             
             // check to free once all inputs are done
@@ -1328,7 +1329,7 @@ void Proc::findSCC()
     std::vector<bool>   sccUsed;
 
     // keep this as sanity check for now, we can remove it later
-    for(auto & op : ops) if(op.hasOutput()) BJIT_ASSERT(op.scc == noSCC);
+    for(auto & op : ops) if(op.hasOutput()) BJIT_ASSERT_MORE(op.scc == noSCC);
     
     // livescan live
     for(auto bi : live)
@@ -1358,7 +1359,7 @@ void Proc::findSCC()
             }
             BJIT_ASSERT(useAfterDefine);
             // this is just a sanity check
-            BJIT_ASSERT(ops[in].scc < sccUsed.size());
+            BJIT_ASSERT_MORE(ops[in].scc < sccUsed.size());
             sccUsed[ops[in].scc] = true;
 
             if(scc_debug) BJIT_LOG("Live in: %04x:[%04x]\n", in, ops[in].scc);

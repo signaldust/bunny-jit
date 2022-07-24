@@ -175,7 +175,7 @@ bool Proc::opt_sink(bool unsafeOpt)
         {
             progress = true;
             
-            BJIT_ASSERT(jmp.opcode < ops::jmp);
+            BJIT_ASSERT_MORE(jmp.opcode < ops::jmp);
             
             // skip any ops that must be in the beginning
             // really just phis, but try to be future-proof
