@@ -202,7 +202,9 @@ Next you can either call `Proc::compile()` to obtain native code, or you can
 create a `bjit::Module` and pass the `Proc` to `Module::compile()` which will
 return an index. Either of these can take an "optimization level" (default: `1`)
 that can be `0` for DCE-only, `1` for "safe" or `2` to allow "unsafe" optimizations
-(eg. "fast-math" floating-point, ignore possibility of divide-by-zero, etc).
+(eg. "fast-math" floating-point, allow exceptions from integer div-by-zero to occur
+earlier/later than expected, etc; essentially slighly more stuff is treated as
+"undefined behaviour").
 
 Multiple procedures can be compiled into the same module. See [below](#calling-functions)
 on how procedures can call each other or external functions. `Module::load()` 
