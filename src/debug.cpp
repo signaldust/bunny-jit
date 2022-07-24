@@ -19,7 +19,7 @@ void bjit::Proc::debugOp(uint16_t iop) const
     if(iop == noVal) { BJIT_LOG("           -- removed op -- \n"); return; }
     auto & op = ops[iop];
 
-    BJIT_LOG("%04x:", op.pos);
+    BJIT_LOG("%4x:", op.pos);
 
     if(op.hasOutput())
     {

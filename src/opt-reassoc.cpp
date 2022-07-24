@@ -6,7 +6,7 @@
 
 using namespace bjit;
 
-#define PRINTLN BJIT_LOG("\n reassoc %d (op %04x)", __LINE__, getOpIndex(op));
+#define PRINTLN //BJIT_LOG("\n reassoc %d (op %04x)", __LINE__, getOpIndex(op));
 
 // match op
 #define I(x) (op.opcode == x)
@@ -42,29 +42,23 @@ bool Proc::opt_reassoc(bool unsafeOpt)
 
     int iter = 0;
 
-    // returns the op that's later
-    #if 0
-    auto sortOps = [&](uint16_t op1, uint16_t op2) -> uint16_t
+    // returns the op that's more dominant
+    auto firstOpDominates = [&](uint16_t op1, uint16_t op2) -> bool
     {
+        // we want strict dominance only
+        if(op1 == op2) return false;
+        
         auto ndom1 = blocks[ops[op1].block].dom.size();
         auto ndom2 = blocks[ops[op2].block].dom.size();
 
-        if(ndom1 < ndom2) return op2;
-        if(ndom1 > ndom2) return op1;
+        if(ndom1 < ndom2) return true;
+        if(ndom1 > ndom2) return false;
 
         // if ndom is the same, then block should be same as well
         BJIT_ASSERT(ops[op1].block == ops[op2].block);
 
-        // now we need to find which op is first
-        for(auto & bc : blocks[ops[op1].block].code)
-        {
-            if(bc == op1) return op2;
-            if(bc == op2) return op1;
-        }
-
-        BJIT_ASSERT(false);
+        return ops[op1].pos < ops[op2].pos ? true : false;
     };
-    #endif
 
     bool progress = true, anyProgress = false;
     while(progress)
@@ -75,45 +69,164 @@ bool Proc::opt_reassoc(bool unsafeOpt)
         progress = false;
         for(auto b : live)
         {
-            for(auto & bc : blocks[b].code)
+            for(const auto & bc : blocks[b].code)
             {
                 if(bc == noVal) continue;
                 
                 auto & op = ops[bc];
 
                 if(op.opcode == ops::nop) { continue; }
-                
-                auto doReassocC = [&](int opcode, int opcodeI) {
-                    // reassoc (a+b)+c as (a+c)+b where c is constant
-                    //
-                    if(I(opcodeI) && I0(opcode) && N0.nUse == 1)
-                    {
-                        BJIT_LOG("\n REASSOC \n");
-                        debugOp(op.in[0]);
-                        debugOp(bc);
-                        
-                        auto imm32 = op.imm32;
-                        op.imm32 = 0;
-                        op.in[1] = N0.in[1];
-                        op.opcode = opcode;
-                        
-                        N0.in[1] = noVal;
-                        N0.imm32 = imm32;
-                        N0.opcode = opcodeI;
-                        progress = true; PRINTLN;
 
-                        debugOp(op.in[0]);
-                        debugOp(bc);
+            #if 1
+                auto debugReassoc = [&](Op & op, int opcode, int opcodeI) {};
+            #else
+                // This is rather inefficient, but it's for debugging only
+                std::function<void(Op&,int,int)> debugReassoc
+                = [&](Op & op, int opcode, int opcodeI)
+                {
+                    BJIT_LOG("%04x", getOpIndex(op));
+                    if(op.opcode == opcode)
+                    {
+                        BJIT_LOG(":( ");
+                        debugReassoc(ops[op.in[0]], opcode, opcodeI);
+                        BJIT_LOG(" # ");
+                        debugReassoc(ops[op.in[1]], opcode, opcodeI);
+                        BJIT_LOG(" )");
+                    }
+                    else if(op.opcode == opcodeI)
+                    {
+                        BJIT_LOG(":( ");
+                        debugReassoc(ops[op.in[0]], opcode, opcodeI);
+                        BJIT_LOG(" # ");
+                        BJIT_LOG("imm:%d", op.imm32);
+                        BJIT_LOG(" )");
+                    }
+                    else return;
+                };
+            #endif
+
+                // This tries to reassociate into a "canonical form" where:
+                //
+                //  - loop invariants and constants go early -> CF + LICM
+                //  - order of operands is always the same -> CSE
+                //  - try to form (a+a)+b when possible -> special fold rules
+                //
+                // Sadly this results in flat dependency chains, so ideally
+                // we should probably add a second reassoc pass just before
+                // RA that builds binary trees, but only within basic blocks.
+                auto doReassoc = [&](int opcode, int opcodeI)
+                {
+                    if(I(opcode) || I(opcodeI))
+                    {
+                        debugReassoc(op, opcode, opcodeI);
+                    }
+                
+                    // reorder:       (b+a) -> (a+b)        where a < b
+                    if(I(opcode) && firstOpDominates(op.in[0],op.in[1]))
+                    {
+                        std::swap(op.in[0], op.in[1]);// PRINTLN
                     }
 
-                    // FIXME: (a+c1) + (b+c2) -> (a+(c1+c2)) + (b+0)
-                    // ... but we need lambda to generalize?
-                    //
-                    // another possibility:
-                    //   a+((b+c2)+c1) .. but needs order check
+                    // reassoc: (a+b)+(c+d) -> (a+c)+(b+d) where c < b
+                    if(I(opcode) && N0.nUse == 1 && N1.nUse == 1
+                    && I0(opcode) && I1(opcode)
+                    && firstOpDominates(N0.in[1], N1.in[0]))
+                    {
+                        std::swap(N0.in[1], N1.in[0]);
+                        progress = true; PRINTLN
+                    }
                     
+                    // reassoc: (a+b)+(c+d) -> ((c+d)+b)+a
+                    //      where (a+b) < (c+d) and a < (c+d)
+                    if(I(opcode) && N0.nUse == 1 && N1.nUse == 1
+                    && I0(opcode) && I1(opcode)
+                    && N0.in[0] != N0.in[1]   // <- gets special cased
+                    && firstOpDominates(op.in[1], N0.in[0]))
+                    {
+                        auto tmp = N0.in[0];
+                        N0.in[0] = op.in[1];
+                        op.in[1] = tmp;
+                        progress = true; PRINTLN
+                    }
+
+                    // reassoc: (a+b)+X -> (a+X)+b
+                    //      where b < X
+                    if(I(opcode) && N0.nUse == 1
+                    && I0(opcode) && N0.in[0] != N0.in[1]
+                    && firstOpDominates(op.in[1], N0.in[1]))
+                    {
+                        std::swap(N0.in[1], op.in[1]);
+                        progress = true; PRINTLN
+                    }
+
+                    // reassoc: (a+b)+X -> (X+b)+a
+                    //      where a < X
+                    if(I(opcode) && N0.nUse == 1
+                    && I0(opcode) && N0.in[0] != N0.in[1]
+                    && firstOpDominates(op.in[1], N0.in[0]))
+                    {
+                        std::swap(N0.in[0], op.in[1]);
+                        progress = true; PRINTLN
+                    }
+
+                    // reassoc: (a+b)+b -> (b+b)+a, see previous
+                    if(I(opcode) && I0(opcode) && N0.nUse == 1
+                    && N0.in[0] != N0.in[1]
+                    && N0.in[1] == op.in[1])
+                    {
+                        std::swap(N0.in[0], op.in[1]);
+                        progress = true; PRINTLN
+                    }
+                    
+                    // reassoc: (a+b)+a -> (a+a)+b, see previous
+                    if(I(opcode) && I0(opcode) && N0.nUse == 1
+                    && N0.in[0] != N0.in[1]
+                    && N0.in[0] == op.in[1])
+                    {
+                        std::swap(N0.in[1], op.in[1]);
+                        progress = true; PRINTLN
+                    }
+
+                    // reassoc: (a+C1) + (b+C2) -> ((b+C2)+C1)+a
+                    if(I(opcode) && N0.nUse == 1 && N1.nUse == 1
+                    && I0(opcodeI) && I1(opcodeI))
+                    {
+                        auto tmp = N0.in[0];
+                        N0.in[0] = op.in[1];
+                        op.in[1] = tmp;
+                        progress = true; PRINTLN
+                    }
+                    
+                    // immediates always "dominate" everything
+                    // rewrite (a+b)+C as (b+C)+a
+                    // but special case (a+a)+C for better regalloc
+                    if(I(opcodeI) && I0(opcode) && N0.nUse == 1
+                    && N0.in[0] != N0.in[1])
+                    {
+                        std::swap(op.opcode, N0.opcode);
+                        std::swap(N0.in[1], N0.in[0]);
+                        std::swap(op.in[1], N0.in[1]);  // one is noval
+                        std::swap(op.imm32, N0.imm32);
+                        progress = true; PRINTLN
+                    }
+
+                    // see above (a+C)+a is better written the other way
+                    if(I(opcode) && I0(opcodeI) && N0.nUse == 1
+                    && op.in[1] == N0.in[0])
+                    {
+                        std::swap(op.opcode, N0.opcode);
+                        std::swap(op.in[1], N0.in[1]);  // one is noval
+                        std::swap(op.imm32, N0.imm32);
+                        progress = true; PRINTLN
+                    }
+
+                    if(I(opcode) || I(opcodeI))
+                    {
+                        debugReassoc(op, opcode, opcodeI);
+                    }
                 };
 
+                
                 // reassoc (a+b)-c as (a-c)+b where c is constant
                 if(I(ops::isubI) && I0(ops::iadd) && N0.nUse == 1)
                 {
@@ -156,11 +269,11 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     progress = true; PRINTLN;
                 }
                 
-                doReassocC(ops::iadd, ops::iaddI);
-                doReassocC(ops::imul, ops::imulI);
-                doReassocC(ops::iand, ops::iandI);
-                doReassocC(ops::ixor, ops::ixorI);
-                doReassocC(ops::ior, ops::iorI);
+                doReassoc(ops::iadd, ops::iaddI);
+                doReassoc(ops::imul, ops::imulI);
+                doReassoc(ops::iand, ops::iandI);
+                doReassoc(ops::ixor, ops::ixorI);
+                doReassoc(ops::ior, ops::iorI);
 
             }
         }
@@ -173,329 +286,3 @@ bool Proc::opt_reassoc(bool unsafeOpt)
 
     return anyProgress;
 }
-
-#if 0
-
-                if(0)   // NOTE: These are not SAFE yet :)
-                {
-                    doReassoc2(ops::iadd, ops::iaddI);
-                    doReassocSub2(ops::iadd, ops::isub, ops::iaddI, ops::isubI);
-                    doReassoc2(ops::imul, ops::imulI);
-                    doReassoc2(ops::iand, ops::iandI);
-                    doReassoc2(ops::ixor, ops::ixorI);
-                    doReassoc2(ops::ior, ops::iorI);
-    
-                    if(unsafeOpt)
-                    {
-                        doReassoc1(ops::fadd);
-                        doReassocSub1(ops::fadd, ops::fsub, false);
-                        doReassoc1(ops::fmul);
-                        doReassocSub1(ops::fmul, ops::fdiv, true);
-                        doReassoc1(ops::dadd);
-                        doReassocSub1(ops::dadd, ops::dsub, false);
-                        doReassoc1(ops::dmul);
-                        doReassocSub1(ops::dmul, ops::ddiv, true);
-                    }
-                }
-
-                // for associative operations and comparisons where neither
-                // operand is constant, sort operands to improve CSE
-                if(!C0 && !C1)
-                switch(op.opcode)
-                {
-                    case ops::ieq: case ops::ine:
-                    case ops::deq: case ops::dne:
-                    case ops::iadd: case ops::imul:
-                    case ops::fadd: case ops::fmul:
-                    case ops::dadd: case ops::dmul:
-                    case ops::iand: case ops::ior: case ops::ixor:
-                        {
-                            int ndom0 = NDOM(op.in[0]);
-                            int ndom1 = NDOM(op.in[1]);
-                            if(ndom0 > ndom1
-                            || (ndom0 == ndom1 && op.in[0] > op.in[1]))
-                            {
-                                std::swap(op.in[0], op.in[1]);
-                                progress = true; PRINTLN;
-                            }
-                        }
-                        break;
-                        
-                    case ops::ilt: case ops::ige: case ops::igt: case ops::ile:
-                    case ops::ult: case ops::uge: case ops::ugt: case ops::ule:
-                    case ops::flt: case ops::fge: case ops::fgt: case ops::fle:
-                    case ops::dlt: case ops::dge: case ops::dgt: case ops::dle:
-                        // (xor 2) relative to ilt swaps operands
-                        {
-                            int ndom0 = NDOM(op.in[0]);
-                            int ndom1 = NDOM(op.in[1]);
-                            if(ndom0 > ndom1
-                            || (ndom0 == ndom1 && op.in[0] > op.in[1]))
-                            {
-                                op.opcode = ops::ilt + (2^(op.opcode-ops::ilt));
-                                std::swap(op.in[0], op.in[1]);
-                                progress = true; PRINTLN;
-                            }
-                        }
-                        break;
-
-                    default: break;
-                }
-    
-                auto doReassoc1 = [&](int opcode)
-                {
-                    if(I(opcode)
-                    && I0(opcode) && N0.nUse == 1
-                    && I1(opcode) && N1.nUse == 1)
-                    {
-                        // a,b and c,d are already sorted
-                        if(SORT_GT(N0.in[0],N1.in[0]))
-                        {
-                            std::swap(N0.in[0], N1.in[0]);
-                            progress = true; PRINTLN;
-                        }
-                        if(SORT_GT(N0.in[1],N1.in[1]))
-                        {
-                            std::swap(N0.in[1], N1.in[1]);
-                            progress = true; PRINTLN;
-                        }
-                        if(SORT_GT(N0.in[1],N1.in[0]))
-                        {
-                            std::swap(N0.in[1], N1.in[0]);
-                            progress = true; PRINTLN;
-                        }
-                    }
-                    // reassoc (a+b)+c as (a+c)+b where c.ndom < b.ndom
-                    //
-                    if(I(opcode) && I0(opcode) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[1]))
-                    {
-                        std::swap(op.in[1], N0.in[1]);
-                        progress = true; PRINTLN;
-                    }
-                    
-                    // reassoc a+(b+c) as c+(a+b) where a.ndom < c.ndom
-                    //
-                    if(I(opcode) && I1(opcode) && N1.nUse == 1
-                    && SORT_LT(op.in[0],N1.in[1]))
-                    {
-                        std::swap(op.in[0], N1.in[1]);
-                        progress = true; PRINTLN;
-                    }
-                    // reassoc (a+b)+c as (c+b)+a where c.ndom < a.ndom
-                    //
-                    if(I(opcode) && I0(opcode) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.in[1], N0.in[0]);
-                        progress = true; PRINTLN;
-                    }
-                    // reassoc a+(b+c) as b+(a+c) where a.ndom < b.ndom
-                    //
-                    if(I(opcode) && I1(opcode) && N1.nUse == 1
-                    && SORT_LT(op.in[0],N1.in[0]))
-                    {
-                        std::swap(op.in[0], N1.in[0]);
-                        progress = true; PRINTLN;
-                    }
-                };
-                
-                auto doReassoc2 = [&](int opcode, int opcodeI)
-                {
-                    doReassoc1(opcode);
-
-                    if(I(opcode)
-                    && I0(opcode) && N0.nUse == 1
-                    && I1(opcodeI) && N1.nUse == 1)
-                    {
-                        if(SORT_GT(N0.in[0],N1.in[0]))
-                        {
-                            std::swap(N0.in[0], N1.in[0]);
-                            progress = true; PRINTLN;
-                        }
-                        if(SORT_GT(N0.in[1],N1.in[0]))
-                        {
-                            std::swap(N0.in[1], N1.in[0]);
-                            progress = true; PRINTLN;
-                        }
-                    }
-                    
-                    if(I(opcode)
-                    && I0(opcodeI) && N0.nUse == 1
-                    && I1(opcode) && N1.nUse == 1)
-                    {
-                        if(SORT_GT(N0.in[0],N1.in[0]))
-                        {
-                            std::swap(N0.in[0], N1.in[0]);
-                            progress = true; PRINTLN;
-                        }
-                        if(SORT_GT(N0.in[0],N1.in[1]))
-                        {
-                            std::swap(N0.in[0], N1.in[1]);
-                            progress = true; PRINTLN;
-                        }
-                    }
-
-                    if(I(opcode) && I0(opcodeI) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.in[1], N0.in[0]);
-                        progress = true; PRINTLN;
-                    }
-                    if(I(opcode) && I1(opcodeI) && N1.nUse == 1
-                    && SORT_LT(op.in[0],N1.in[0]))
-                    {
-                        std::swap(op.in[0], N1.in[0]);
-                        progress = true; PRINTLN;
-                    }
-
-                };
-
-                // "preferAdd" is really for mul/div where div is more expensive
-                auto doReassocSub1 = [&](int add, int sub, bool preferAdd)
-                {
-                    // we don't have very general handling for subs
-                    // but handle a few easy cases..
-
-                    // reassoc (a-b)+(c-d) into (a+c)-(b+d)
-                    if(I(add)
-                    && I0(sub) && N0.nUse == 1
-                    && I1(sub) && N1.nUse == 1
-                    && (preferAdd || SORT_GT(N0.in[1],N1.in[0])))
-                    {
-                        std::swap(N0.in[1], N1.in[0]);
-                        N0.opcode = add;
-                        N1.opcode = add;
-                        op.opcode = sub;
-                        progress = true; PRINTLN;
-                    }
-
-                    // reassoc (a-b)+(c-d) by sorting a,c and b,d
-                    if(I(add)
-                    && I0(sub) && N0.nUse == 1
-                    && I1(sub) && N1.nUse == 1)
-                    {
-                        if(SORT_GT(N0.in[0],N1.in[0]))
-                        {
-                            std::swap(N0.in[0], N1.in[0]);
-                            progress = true; PRINTLN;
-                        }
-                        if(SORT_GT(N0.in[1],N1.in[1]))
-                        {
-                            std::swap(N0.in[1], N1.in[1]);
-                            progress = true; PRINTLN;
-                        }
-                    }
-
-                    // reassoc (a-b)-(c-d) as (a+d)-(c+b)
-                    if(I(sub)
-                    && I0(sub) && N0.nUse == 1
-                    && I1(sub) && N1.nUse == 1
-                    && (preferAdd || SORT_GT(N0.in[1],N1.in[1])))
-                    {
-                        std::swap(N0.in[1], N1.in[1]);
-                        N0.opcode = add;
-                        N1.opcode = add;
-                        progress = true; PRINTLN;
-                    }
-                                        
-                    // reassoc (a-b)-(c-d) by sorting a,d and b,c
-                    if(I(sub)
-                    && I0(sub) && N0.nUse == 1
-                    && I1(sub) && N1.nUse == 1)
-                    {
-                        if(SORT_GT(N0.in[0],N1.in[1]))
-                        {
-                            std::swap(N0.in[0], N1.in[1]);
-                            progress = true; PRINTLN;
-                        }
-                        if(SORT_GT(N0.in[1],N1.in[0]))
-                        {
-                            std::swap(N0.in[1], N1.in[0]);
-                            progress = true; PRINTLN;
-                        }
-                    }
-
-                    // reassoc (a+b)-c as (a-c)+b where c.ndom < b.ndom
-                    //
-                    if(I(sub) && I0(add) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[1]))
-                    {
-                        std::swap(op.opcode, N0.opcode);
-                        std::swap(op.in[1], N0.in[1]);
-                        progress = true; PRINTLN;
-                    }
-                    // reassoc (a+b)-c as (b-c)+a where c.ndom < a.ndom
-                    if(I(sub) && I0(add) && N0.nUse == 1
-                    && SORT_GT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.opcode, N0.opcode);
-                        std::swap(op.in[1], N0.in[0]);
-                        std::swap(N0.in[0], N0.in[1]);
-                        progress = true; PRINTLN;
-                    }
-                    // reassoc (a+b)-c as (a-c)+b where c.ndom < b.ndom
-                    if(I(sub) && I0(add) && N0.nUse == 1
-                    && SORT_GT(op.in[1],N0.in[1]))
-                    {
-                        std::swap(op.opcode, N0.opcode);
-                        std::swap(op.in[1], N0.in[1]);
-                        progress = true; PRINTLN;
-                    }
-                    
-                    // reassoc (a-b)+c as (a+c)-b where c.ndom < b.ndom
-                    //
-                    if(I(add) && I0(sub) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[1]))
-                    {
-                        std::swap(op.opcode, N0.opcode);
-                        std::swap(op.in[1], N0.in[1]);
-                        progress = true; PRINTLN;
-                    }
-                    // reassoc (a-b)+c as (c-b)+a where c.ndom < a.ndom
-                    //
-                    if(I(add) && I0(sub) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.in[1], N0.in[0]);
-                        progress = true; PRINTLN;
-                    }
-                    
-                    // reassoc (a-b)-c as (a-c)-b where c.ndom < b.ndom
-                    //
-                    if(I(sub) && I0(sub) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[1]))
-                    {
-                        std::swap(op.in[1], N0.in[1]);
-                        progress = true; PRINTLN;
-                    }
-                    // reassoc (a-b)-c as a-(c+b) where c.ndom < a.ndom
-                    //
-                    if(I(sub) && I0(sub) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.in[1], N0.in[0]);  // (c-b)-a  = invalid
-                        std::swap(op.in[0], op.in[1]);  // a-(c-b)  = invalid
-                        N0.opcode = add;          // a-(c+b)  = valid
-                        progress = true; PRINTLN;
-                    }
-                };
-
-                auto doReassocSub2 = [&](int add, int sub, int addI, int subI)
-                {
-                    doReassocSub1(add, sub, false);
-                    
-                    
-                    // reassoc (a-b)-c as a-(c+b) where c.ndom < a.ndom
-                    if(I(sub) && I0(subI) && N0.nUse == 1
-                    && SORT_LT(op.in[1],N0.in[0]))
-                    {
-                        std::swap(op.in[1], N0.in[0]);  // (c-b)-a  = invalid
-                        std::swap(op.in[0], op.in[1]);  // a-(c-b)  = invalid
-                        N0.opcode = addI;               // a-(c+b)  = valid
-                        progress = true; PRINTLN;
-                    }                
-
-                };
-
-#endif
