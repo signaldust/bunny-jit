@@ -168,7 +168,7 @@ bool Proc::opt_cse(bool unsafeOpt)
                 {
                     if(blocks[mblock].comeFrom.size() > 1)
                     {
-                        auto & jcc =ops[blocks[blocks[mblock].idom].code.back()];
+                        auto & jcc = ops[blocks[blocks[mblock].idom].code.back()];
                         BJIT_ASSERT(jcc.opcode < ops::jmp);
                         
                         auto e = breakEdge(blocks[mblock].idom, mblock);
@@ -221,7 +221,7 @@ bool Proc::opt_cse(bool unsafeOpt)
                     if(!canMove) break;
 
                     // move
-                    BJIT_ASSERT(ops[blocks[mblock].code[k]].pos == k);
+                    BJIT_ASSERT_MORE(ops[blocks[mblock].code[k]].pos == k);
                     std::swap(blocks[mblock].code[k],
                         blocks[mblock].code[k+1]);
                     ops[blocks[mblock].code[k+1]].pos = k+1;
@@ -240,7 +240,7 @@ bool Proc::opt_cse(bool unsafeOpt)
             else
             {
                 // we should never find this op in the table anymore
-                BJIT_ASSERT(ptr->index != opIndex);
+                BJIT_ASSERT_MORE(ptr->index != opIndex);
 
                 // add to pairs, original op goes to MSB
                 pairs.push_back(opIndex + (uint32_t(ptr->index) << 16));
@@ -457,8 +457,8 @@ bool Proc::opt_cse(bool unsafeOpt)
         {
             // same block case, figure out which one is earlier
             // sanity check that positions are actually up to date
-            BJIT_ASSERT(blocks[op0.block].code[op0.pos] == op0index);
-            BJIT_ASSERT(blocks[op1.block].code[op1.pos] == op1index);
+            BJIT_ASSERT_MORE(blocks[op0.block].code[op0.pos] == op0index);
+            BJIT_ASSERT_MORE(blocks[op1.block].code[op1.pos] == op1index);
             if(op0.pos < op1.pos)
             {
                 if(cse_debug)
@@ -500,7 +500,7 @@ bool Proc::opt_cse(bool unsafeOpt)
             if(cse_debug) BJIT_LOG("GOOD: move to CCD:%d", ccd);
             if(op0.hasMemTag())
             {
-                BJIT_ASSERT(op0.memtag == blocks[ccd].memout);
+                BJIT_ASSERT_MORE(op0.memtag == blocks[ccd].memout);
             }
         
             // NOTE: We do a lazy clear of the original position
@@ -534,7 +534,7 @@ bool Proc::opt_cse(bool unsafeOpt)
                 ops[blocks[ccd].code[k]].hasSideFX()) break;
 
                 // move
-                BJIT_ASSERT(ops[blocks[ccd].code[k]].pos == k);
+                BJIT_ASSERT_MORE(ops[blocks[ccd].code[k]].pos == k);
                 std::swap(blocks[ccd].code[k],
                     blocks[ccd].code[k+1]);
                 ops[blocks[ccd].code[k+1]].pos = k+1;

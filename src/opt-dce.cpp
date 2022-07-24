@@ -210,7 +210,7 @@ void Proc::opt_dce(bool unsafeOpt)
                                         good = true;
                                         break;
                                     }
-                                    BJIT_ASSERT(good);
+                                    BJIT_ASSERT_MORE(good);
                                 }
 
                                 // check for duplicate
@@ -219,7 +219,7 @@ void Proc::opt_dce(bool unsafeOpt)
                                 {
                                     if(a.phi == s.phi && b == s.src)
                                     {
-                                        BJIT_ASSERT(s.val == val);
+                                        BJIT_ASSERT_MORE(s.val == val);
                                         dedup = true;
                                     }
                                 }

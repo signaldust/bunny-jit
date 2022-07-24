@@ -41,8 +41,6 @@ void Proc::rebuild_cfg()
         // if this fails, we're probably missing return
         BJIT_ASSERT(blocks[live[b]].code.size());
 
-        // this happens when we do a jump merge, the whole block is noVals
-        // and it's not really live anymore
         BJIT_ASSERT(blocks[live[b]].code.back() != noVal);
         
         BJIT_ASSERT(ops[blocks[live[b]].code.back()].opcode <= ops::tcalln);
