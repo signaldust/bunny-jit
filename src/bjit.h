@@ -554,7 +554,6 @@ namespace bjit
             ops[i].in[1] = noVal;
             ops[i].scc = noSCC;
             ops[i].flags.type = type;
-            //ops[i].index = i;
             ops[i].block = block;
             return i;
         }

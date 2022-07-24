@@ -5,7 +5,7 @@
 
 using namespace bjit;
 
-#define PRINTLN //BJIT_LOG("\n fold %d (op %04x)", __LINE__, op.index);
+#define PRINTLN //BJIT_LOG("\n fold %d (op %04x)", __LINE__, getOpIndex(op));
 
 // match op
 #define I(x) (op.opcode == x)
@@ -37,18 +37,33 @@ such the speculative further optimizations fail to materialize.
 bool Proc::opt_fold(bool unsafeOpt)
 {
     //debug();
-
+    rebuild_dom();
+    
     BJIT_ASSERT(live.size());   // should have at least one DCE pass done
 
     impl::Rename rename;
 
     int iter = 0;
 
+    // this should match the sort order in reassoc
+    // otherwise we run into infinite loops
+    auto shouldSwap = [&](uint16_t op1, uint16_t op2) -> bool
+    {
+        auto ndom1 = blocks[ops[op1].block].dom.size();
+        auto ndom2 = blocks[ops[op2].block].dom.size();
+
+        if(ndom1 < ndom2) return true;
+        if(ndom1 > ndom2) return false;
+
+        // if ndom is the same, then block should be same as well
+        BJIT_ASSERT(ops[op1].block == ops[op2].block);
+
+        return ops[op1].pos < ops[op2].pos;
+    };
+
     bool progress = true, anyProgress = false;
     while(progress)
     {
-        //debug();
-        
         ++iter;
         progress = false;
         for(auto b : live)
@@ -101,10 +116,10 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::dadd: case ops::dmul:
                     case ops::iand: case ops::ior: case ops::ixor:
                         {
-                            if(op.in[0] > op.in[1])
+                            if(shouldSwap(op.in[0], op.in[1]))
                             {
                                 std::swap(op.in[0], op.in[1]);
-                                progress = true; PRINTLN;
+                                PRINTLN;
                             }
                         }
                         break;
@@ -115,11 +130,11 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::dlt: case ops::dge: case ops::dgt: case ops::dle:
                         // (xor 2) relative to ilt swaps operands
                         {
-                            if(op.in[0] > op.in[1])
+                            if(shouldSwap(op.in[0], op.in[1]))
                             {
                                 op.opcode = ops::ilt + (2^(op.opcode-ops::ilt));
                                 std::swap(op.in[0], op.in[1]);
-                                progress = true; PRINTLN;
+                                PRINTLN;
                             }
                         }
                         break;
@@ -140,8 +155,7 @@ bool Proc::opt_fold(bool unsafeOpt)
                     case ops::fadd: case ops::fmul:
                     case ops::dadd: case ops::dmul:
                     case ops::iand: case ops::ior: case ops::ixor:
-                        std::swap(op.in[0], op.in[1]);
-                        progress = true; PRINTLN;
+                        std::swap(op.in[0], op.in[1]); PRINTLN;
                         break;
 
                     // rewrite 0 - a = -a
@@ -440,6 +454,26 @@ bool Proc::opt_fold(bool unsafeOpt)
                     op.opcode = ops::ishlI;
                     op.in[1] = noVal;
                     op.imm32 = 1;
+                    progress = true; PRINTLN;
+                }
+
+                // a&a = a,  a|a = a
+                if((I(ops::iand) || I(ops::ior))
+                && op.in[0] == op.in[1])
+                {
+                    rename.add(opIndex, op.in[0]);
+                    progress = true; PRINTLN;
+                    op.makeNOP();
+                    continue;                    
+                }
+
+                // a-a = 0,  a^a = 0
+                if((I(ops::isub) || I(ops::ixor)
+                    || I(ops::fsub) || I(ops::dsub))
+                && op.in[0] == op.in[1])
+                {
+                    op.opcode = ops::lci;
+                    op.i64 = 0;
                     progress = true; PRINTLN;
                 }
     
