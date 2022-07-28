@@ -235,9 +235,8 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     }
                 };
 
-                // FIXME: consider negation bits for add-operands
-                // to allow subtraction to use the same reassoc logic?
-
+                // These should prefer + over - because we want to also
+                // apply them to * and / where division is more expensive..
                 auto reassocSub = [&](int opAdd, int opSub)
                 {
                     // reorder: (b+a) -> (a+b) where a < b
@@ -512,6 +511,20 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     progress = true; PRINTLN;
                 }
 
+                // This preservers idiv as-is, so it's safe
+                //
+                // reassoc: (a*b)*(c/d) -> ((c/d)*b)*a
+                if(I(ops::imul) && N0.nUse == 1 && N1.nUse == 1
+                && I0(ops::imul) && I1(ops::idiv)
+                && N0.in[0] != N0.in[1]
+                && firstOpDominates(op.in[1], N0.in[0]))
+                {
+                    auto tmp = N0.in[0];
+                    N0.in[0] = op.in[1];
+                    op.in[1] = tmp;
+                    progress = true; PRINTLN
+                }
+                
                 reassocSub(ops::iadd, ops::isub);
                 doReassoc(ops::iadd, ops::iaddI);
                 doReassoc(ops::imul, ops::imulI);
@@ -526,10 +539,12 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                 {
                     reassocSub(ops::fadd, ops::fsub);
                     doReassoc(ops::fadd, noVal);
+                    reassocSub(ops::fmul, ops::fdiv);
                     doReassoc(ops::fmul, noVal);
                     
                     reassocSub(ops::dadd, ops::dsub);
                     doReassoc(ops::dadd, noVal);
+                    reassocSub(ops::dmul, ops::ddiv);
                     doReassoc(ops::dmul, noVal);
                 }
 
