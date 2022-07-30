@@ -76,13 +76,14 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                 auto & op = ops[bc];
 
                 if(op.opcode == ops::nop) { continue; }
+                if(!op.nUse) continue;  // might have simplified this away
 
             #if 1
                 auto debugReassoc =
                     [&](Op & op, int opcode, int opcodeI, int opSub) {};
             #else
                 // This is rather inefficient, but it's for debugging only
-                std::function<void(Op&,int,int,int)> debugReassoc
+                std::function<void(Op&,int,int,int)> debugReassocA
                 = [&](Op & op, int opcode, int opcodeI, int opSub)
                 {
                     BJIT_LOG("%04x", getOpIndex(op));
@@ -90,24 +91,26 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     if(op.opcode == opcode || op.opcode == opSub)
                     {
                         BJIT_LOG(":( ");
-                        debugReassoc(ops[op.in[0]], opcode, opcodeI, opSub);
+                        debugReassocA(ops[op.in[0]], opcode, opcodeI, opSub);
                         BJIT_LOG(" %c ", op.opcode == opcode ? '+' : '-');
-                        debugReassoc(ops[op.in[1]], opcode, opcodeI, opSub);
+                        debugReassocA(ops[op.in[1]], opcode, opcodeI, opSub);
                         BJIT_LOG(" )");
                     }
                     else if(op.opcode == opcodeI)
                     {
                         BJIT_LOG(":( ");
-                        debugReassoc(ops[op.in[0]], opcode, opcodeI, opSub);
+                        debugReassocA(ops[op.in[0]], opcode, opcodeI, opSub);
                         BJIT_LOG(" + ");
                         BJIT_LOG("imm:%d", op.imm32);
                         BJIT_LOG(" )");
                     }
                     else return;
                 };
+                auto debugReassoc =
+                    [&](Op & op, int opcode, int opcodeI, int opSub)
+                    { BJIT_LOG("\n"); debugReassocA(op, opcode, opcodeI, opSub); };
             #endif
 
-                //BJIT_LOG("\n");
                 debugReassoc(op, ops::iadd, ops::iaddI, ops::isub);
 
                 // This tries to reassociate into a "canonical form" where:
@@ -196,7 +199,8 @@ bool Proc::opt_reassoc(bool unsafeOpt)
 
                     // reassoc: (a+C1) + (b+C2) -> ((b+C2)+C1)+a
                     if(I(opcode) && N0.nUse == 1 && N1.nUse == 1
-                    && I0(opcodeI) && I1(opcodeI))
+                    && I0(opcodeI) && I1(opcodeI)
+                    && ops[N0.in[0]].opcode != opcodeI)
                     {
                         auto tmp = N0.in[0];
                         N0.in[0] = op.in[1];
@@ -235,9 +239,8 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     }
                 };
 
-                // FIXME: consider negation bits for add-operands
-                // to allow subtraction to use the same reassoc logic?
-
+                // These should prefer + over - because we want to also
+                // apply them to * and / where division is more expensive..
                 auto reassocSub = [&](int opAdd, int opSub)
                 {
                     // reorder: (b+a) -> (a+b) where a < b
@@ -278,10 +281,12 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     && N0.in[0] != N0.in[1]   // <- gets special cased
                     && firstOpDominates(op.in[1], N0.in[0]))
                     {
+                    //BJIT_LOG("\n");debugReassoc(op, opAdd, noVal, opSub);
                         auto tmp = N0.in[0];
                         N0.in[0] = op.in[1];
                         op.in[1] = tmp;
                         progress = true; PRINTLN
+                    //BJIT_LOG("\n");debugReassoc(op, opAdd, noVal, opSub);
                     }
                     
                     // reassoc: (a+b)-X -> (a-X)+b
@@ -403,8 +408,10 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     if(I(opAdd) && I0(opSub) && I1(opAdd)
                     && N0.in[1] == N1.in[0])
                     {
+                        --N0.nUse; --N1.nUse;
                         op.in[0] = N0.in[0];
                         op.in[1] = N1.in[1];
+                        ++N0.nUse; ++N1.nUse;
                         progress = true; PRINTLN
                     }
                     
@@ -412,8 +419,10 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     if(I(opAdd) && I0(opSub) && I1(opAdd)
                     && N0.in[1] == N1.in[1])
                     {
+                        --N0.nUse; --N1.nUse;
                         op.in[0] = N0.in[0];
                         op.in[1] = N1.in[0];
+                        ++N0.nUse; ++N1.nUse;
                         progress = true; PRINTLN
                     }
                     
@@ -421,8 +430,10 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     if(I(opAdd) && I0(opAdd) && I1(opSub)
                     && N0.in[1] == N1.in[1])
                     {
+                        --N0.nUse; --N1.nUse;
                         op.in[0] = N0.in[0];
                         op.in[1] = N1.in[0];
+                        ++N0.nUse; ++N1.nUse;
                         progress = true; PRINTLN
                     }
                     
@@ -430,8 +441,10 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     if(I(opAdd) && I0(opAdd) && I1(opSub)
                     && N0.in[0] == N1.in[1])
                     {
+                        --N0.nUse; --N1.nUse;
                         op.in[0] = N0.in[1];
                         op.in[1] = N1.in[0];
+                        ++N0.nUse; ++N1.nUse;
                         progress = true; PRINTLN
                     }
 
@@ -439,35 +452,42 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     if(I(opSub) && I0(opAdd) && I1(opAdd)
                     && N0.in[0] == N1.in[0])
                     {
+                        --N0.nUse; --N1.nUse;
                         op.in[0] = N0.in[1];
                         op.in[1] = N1.in[1];
+                        ++N0.nUse; ++N1.nUse;
                         progress = true; PRINTLN
                     }
                     // simplify (a+b)-(b+c) -> (a - c)
                     if(I(opSub) && I0(opAdd) && I1(opAdd)
                     && N0.in[1] == N1.in[0])
                     {
+                        --N0.nUse; --N1.nUse;
                         op.in[0] = N0.in[0];
                         op.in[1] = N1.in[1];
+                        ++N0.nUse; ++N1.nUse;
                         progress = true; PRINTLN
                     }
                     // simplify (a+b)-(b+c) -> (a - c)
                     if(I(opSub) && I0(opAdd) && I1(opAdd)
                     && N0.in[1] == N1.in[0])
                     {
+                        --N0.nUse; --N1.nUse;
                         op.in[0] = N0.in[0];
                         op.in[1] = N1.in[1];
+                        ++N0.nUse; ++N1.nUse;
                         progress = true; PRINTLN
                     }
                     // simplify (a+b)-(c+b) -> (a - c)
                     if(I(opSub) && I0(opAdd) && I1(opAdd)
                     && N0.in[1] == N1.in[1])
                     {
+                        --N0.nUse; --N1.nUse;
                         op.in[0] = N0.in[0];
                         op.in[1] = N1.in[0];
+                        ++N0.nUse; ++N1.nUse;
                         progress = true; PRINTLN
                     }
-                    
                 };
                 
                 // reassoc (a+b)-c as (a-c)+b where c is constant
@@ -512,6 +532,20 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                     progress = true; PRINTLN;
                 }
 
+                // This preservers idiv as-is, so it's safe
+                //
+                // reassoc: (a*b)*(c/d) -> ((c/d)*b)*a
+                if(I(ops::imul) && N0.nUse == 1 && N1.nUse == 1
+                && I0(ops::imul) && I1(ops::idiv)
+                && N0.in[0] != N0.in[1]
+                && firstOpDominates(op.in[1], N0.in[0]))
+                {
+                    auto tmp = N0.in[0];
+                    N0.in[0] = op.in[1];
+                    op.in[1] = tmp;
+                    progress = true; PRINTLN
+                }
+                
                 reassocSub(ops::iadd, ops::isub);
                 doReassoc(ops::iadd, ops::iaddI);
                 doReassoc(ops::imul, ops::imulI);
@@ -526,10 +560,12 @@ bool Proc::opt_reassoc(bool unsafeOpt)
                 {
                     reassocSub(ops::fadd, ops::fsub);
                     doReassoc(ops::fadd, noVal);
+                    reassocSub(ops::fmul, ops::fdiv);
                     doReassoc(ops::fmul, noVal);
                     
                     reassocSub(ops::dadd, ops::dsub);
                     doReassoc(ops::dadd, noVal);
+                    reassocSub(ops::dmul, ops::ddiv);
                     doReassoc(ops::dmul, noVal);
                 }
 

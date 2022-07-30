@@ -3,7 +3,7 @@
 
 // Define to only run one (eg. known to fail) case
 // and enable dumping the code into a file
-//#define ONECASE 10
+//#define ONECASE 93495
 
 uintptr_t iFuzzSeed(uint64_t seed, int opt)
 {
@@ -14,7 +14,7 @@ uintptr_t iFuzzSeed(uint64_t seed, int opt)
 
     for(int i = 0; i < 64; ++i)
     {
-        int op = random() % 9;
+        int op = random() % 11;
 
         // skip the alloc
         int a0 = 1 + (random() % (proc.env.size()-1));
@@ -33,6 +33,9 @@ uintptr_t iFuzzSeed(uint64_t seed, int opt)
         case 6: proc.env.push_back(proc.iand(proc.env[a0], proc.env[a1])); break;
         case 7: proc.env.push_back(proc.ior(proc.env[a0], proc.env[a1])); break;
         case 8: proc.env.push_back(proc.ixor(proc.env[a0], proc.env[a1])); break;
+
+        case 9: proc.env.push_back(proc.ineg(proc.env[a0])); break;
+        case 10: proc.env.push_back(proc.inot(proc.env[a0])); break;
         }
     }
 

@@ -326,9 +326,15 @@ bool Proc::opt_fold(bool unsafeOpt)
                 }
 
                 // -(-a) = a
-                if(I(ops::ineg) && I0(ops::ineg)) rename.add(opIndex, N0.in[0]);
-                if(I(ops::fneg) && I0(ops::fneg)) rename.add(opIndex, N0.in[0]);
-                if(I(ops::dneg) && I0(ops::dneg)) rename.add(opIndex, N0.in[0]);
+                if((I(ops::ineg) && I0(ops::ineg))
+                || (I(ops::fneg) && I0(ops::fneg))
+                || (I(ops::dneg) && I0(ops::dneg)))
+                {
+                    rename.add(opIndex, N0.in[0]);
+                    progress = true; PRINTLN;
+                    op.makeNOP();
+                    continue;
+                }
                 
                 // a + 0, a - 0, a * 1 -> a
                 if((I(ops::iaddI) && !op.imm32)
@@ -429,21 +435,21 @@ bool Proc::opt_fold(bool unsafeOpt)
                 if(I(ops::iadd) && I0(ops::ineg))
                 {
                     op.opcode = ops::isub;
-                    op.in[1] = N0.in[0];
+                    op.in[0] = N0.in[0];
                     std::swap(op.in[0], op.in[1]);
                     progress = true; PRINTLN;
                 }
                 if(I(ops::fadd) && I0(ops::fneg))
                 {
                     op.opcode = ops::fsub;
-                    op.in[1] = N0.in[0];
+                    op.in[0] = N0.in[0];
                     std::swap(op.in[0], op.in[1]);
                     progress = true; PRINTLN;
                 }
                 if(I(ops::dadd) && I0(ops::dneg))
                 {
                     op.opcode = ops::dsub;
-                    op.in[1] = N0.in[0];
+                    op.in[0] = N0.in[0];
                     std::swap(op.in[0], op.in[1]);
                     progress = true; PRINTLN;
                 }
@@ -467,12 +473,77 @@ bool Proc::opt_fold(bool unsafeOpt)
                     continue;                    
                 }
 
+                // a&(a|b) = a
+                if((I(ops::iand) && I0(ops::ior))
+                && (op.in[1] == N0.in[0] || op.in[1] == N0.in[1]))
+                {
+                    rename.add(opIndex, op.in[1]);
+                    progress = true; PRINTLN;
+                    op.makeNOP();
+                    continue;                    
+                }
+                if((I(ops::iand) && I1(ops::ior))
+                && (op.in[0] == N1.in[0] || op.in[0] == N1.in[1]))
+                {
+                    rename.add(opIndex, op.in[0]);
+                    progress = true; PRINTLN;
+                    op.makeNOP();
+                    continue;                    
+                }
+                // a|(a&b) = a
+                if((I(ops::ior) && I0(ops::iand))
+                && (op.in[1] == N0.in[0] || op.in[1] == N0.in[1]))
+                {
+                    rename.add(opIndex, op.in[1]);
+                    progress = true; PRINTLN;
+                    op.makeNOP();
+                    continue;                    
+                }
+                if((I(ops::ior) && I1(ops::iand))
+                && (op.in[0] == N1.in[0] || op.in[0] == N1.in[1]))
+                {
+                    rename.add(opIndex, op.in[0]);
+                    progress = true; PRINTLN;
+                    op.makeNOP();
+                    continue;                    
+                }
+
+                // a&~a = 0
+                if((I(ops::iand) && I0(ops::inot))
+                && (op.in[1] == N0.in[0]))
+                {
+                    op.opcode = ops::lci;
+                    op.i64 = 0;
+                    progress = true; PRINTLN;
+                    continue;                    
+                }
+                if((I(ops::iand) && I1(ops::inot))
+                && (op.in[0] == N1.in[0]))
+                {
+                    op.opcode = ops::lci;
+                    op.i64 = 0;
+                    progress = true; PRINTLN;
+                    continue;                    
+                }
+                
+
                 // a-a = 0,  a^a = 0
-                if((I(ops::isub) || I(ops::ixor)
-                    || I(ops::fsub) || I(ops::dsub))
+                if((I(ops::isub) || I(ops::ixor))
                 && op.in[0] == op.in[1])
                 {
                     op.opcode = ops::lci;
+                    op.i64 = 0;
+                    progress = true; PRINTLN;
+                }
+                if(I(ops::fsub) && op.in[0] == op.in[1])
+                {
+                    op.opcode = ops::lcf;
+                    op.i64 = 0;
+                    progress = true; PRINTLN;
+                }
+                if(I(ops::dsub) && op.in[0] == op.in[1])
+                {
+                    op.opcode = ops::lcd;
                     op.i64 = 0;
                     progress = true; PRINTLN;
                 }
