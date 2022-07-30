@@ -427,6 +427,7 @@ void Proc::find_ivs()
 
         for(auto & a : blocks[b].alts)
         {
+            // FIXME: This condition assumes that all loops have a preheader
             if(a.src == blocks[b].idom) continue;
 
             auto avs = findSource(a.val);
@@ -485,5 +486,4 @@ void Proc::find_ivs()
         }
         
     }
-
 }

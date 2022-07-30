@@ -68,9 +68,9 @@ void Proc::opt_dce(bool unsafeOpt)
                         auto & kc = blocks[bsrc].code;
                         auto tjmp = noVal;
 
-                        // threading conditional jumps into phi-blocks currently
-                        // cause problems with IV detection, which then hurts
-                        // register allocation.. so just don't do it..
+                        // threading conditional jumps through empty loop preheaders
+                        // with multiple entry-blocks causes havoc with IV logic
+                        // so avoid conditional jumps into targets with phis for now
                         if(ops[i].opcode < ops::jmp
                         && (kc[0] == noVal || ops[kc[0]].opcode == ops::phi)) break;
 
