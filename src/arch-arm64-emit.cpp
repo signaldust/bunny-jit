@@ -42,7 +42,7 @@ void Module::arch_patchNear(void * ptr, int32_t delta)
     if((code & 0xfc000000) != 0x10000000)
     {
         auto offset = (code & 0x3ffffff) + (delta >> 2);
-        code = 0x14000000 | (offset & 0x3ffffff);
+        code = (code & 0xfc000000) | (offset & 0x3ffffff);
     }
     else
     {
