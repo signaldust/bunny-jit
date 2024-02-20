@@ -95,7 +95,7 @@ I should paste this into every file, but for the time being:
 
 ```
 /****************************************************************************\
-* Bunny-JIT is (c) Copyright pihlaja@signaldust.com 2021-202                 *
+* Bunny-JIT is (c) Copyright pihlaja@signaldust.com 2021-2024                *
 *----------------------------------------------------------------------------*
 * You can use and/or redistribute this for whatever purpose, free of charge, *
 * provided that the above copyright notice and this permission notice appear *
