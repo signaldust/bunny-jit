@@ -880,8 +880,10 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(i.flags.type == Op::_ptr)
                     a64.MOVrr(i.reg, ops[i.in[0]].reg);
                 else if(i.flags.type == Op::_f32)
+                    // this is rename (not shuffle) 'cos zeroes upper components
                     a64._rrr(0x1E204000, i.reg, ops[i.in[0]].reg, 0);
                 else if(i.flags.type == Op::_f64)
+                    // this is rename (not shuffle) 'cos zeroes upper components
                     a64._rrr(0x1E604000, i.reg, ops[i.in[0]].reg, 0);
                 else BJIT_ASSERT(false);
                 break;

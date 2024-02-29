@@ -493,6 +493,7 @@ struct AsmX64
 #define _MOVDxr(r0, r1)     a64._RR(0, REG(r0), REG(r1), 0x66, 0x0F, 0x6E)
 #define _MOVDrx(r0, r1)     a64._RR(0, REG(r0), REG(r1), 0x66, 0x0F, 0x7E)
 
+#define _MOVAPSxx(r0, r1)   a64._RR(0, REG(r0), REG(r1), 0x0F, 0x28)
 #define _MOVSSxx(r0, r1)    a64._RR(0, REG(r0), REG(r1), 0xF3, 0x0F, 0x10)
 #define _MOVSSxi(r0, c)     a64._RM(0, REG(r0), RIP, a64.data32f(c), 0xF3, 0x0F, 0x10)
 #define _UCOMISSxx(r0, r1)  a64._RR(0, REG(r0), REG(r1), 0x0F, 0x2E)

@@ -1136,9 +1136,13 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(i.reg == ops[i.in[0]].reg) break;
                 
                 if(i.flags.type == Op::_f64)
-                    _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                    //_MOVSDxx(i.reg, ops[i.in[0]].reg);
+                    // prefer rename over shuffle:
+                    _MOVAPSxx(i.reg, ops[i.in[0]].reg);
                 else if(i.flags.type == Op::_f32)
-                    _MOVSSxx(i.reg, ops[i.in[0]].reg);
+                    //_MOVSSxx(i.reg, ops[i.in[0]].reg);
+                    // prefer rename over shuffle:
+                    _MOVAPSxx(i.reg, ops[i.in[0]].reg);
                 else if(i.flags.type == Op::_ptr)
                     _MOVrr(i.reg, ops[i.in[0]].reg);
                 else BJIT_ASSERT(false);
