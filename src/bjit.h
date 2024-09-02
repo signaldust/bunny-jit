@@ -177,6 +177,11 @@ namespace bjit
             auto i = addOp(ops::lcd, Op::_f64); ops[i].f64 = imm; return Value{i};
         }
 
+        Value lnp(uint32_t idx)
+        {
+            auto i = addOp(ops::lnp, Op::_ptr); ops[i].imm32 = idx; return Value{i};
+        }
+        
         // JUMPS:
         void jmp(Label label)
         {

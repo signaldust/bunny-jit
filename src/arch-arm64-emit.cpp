@@ -36,11 +36,21 @@ void Module::arch_patchStub(void * ptr, uintptr_t address)
 
 void Module::arch_patchNear(void * ptr, int32_t delta)
 {
-    // all the near patches are imm26..
-    auto code = (uint32_t*) ptr;
+    auto & code = *(uint32_t*) ptr;
     
-    auto offset = (0x3ffffff & code[0]) + (delta >> 2);
-    code[0] = (code[0] & ~0x3ffffff) | (offset & 0x3ffffff);
+    // everything here except ADR has imm26
+    if((code & 0xfc000000) != 0x10000000)
+    {
+        auto offset = (code & 0x3ffffff) + (delta >> 2);
+        code = (code & 0xfc000000) | (offset & 0x3ffffff);
+    }
+    else
+    {
+        // ADR is imm19
+        auto offset = (code >> 5) + (delta >> 2);
+        code &=~ (0x7ffff << 5);
+        code |= (offset & 0x7ffff) << 5;
+    }
 }
 
 namespace bjit
@@ -292,6 +302,18 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 nearReloc.emplace_back(
                     NearReloc{(uint32_t)out.size(), (uint32_t) i.imm32});
                 a64.emit32(0x14000000 | (0x3ffffff & -(out.size() >> 2)));
+                break;
+
+            case ops::lnp:
+                // ADR
+                {
+                    nearReloc.emplace_back(
+                        NearReloc{(uint32_t)out.size(), (uint32_t) i.imm32});
+                    // code is aligned, so immlo is always 00b
+                    // remaining reloc is then imm19 like condition jumps
+                    a64.emit32(0x10000000 | REG(i.reg)
+                        | (0xffffe0 & -(out.size() << 3)));
+                }
                 break;
 
             case ops::jmp:
@@ -858,8 +880,10 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(i.flags.type == Op::_ptr)
                     a64.MOVrr(i.reg, ops[i.in[0]].reg);
                 else if(i.flags.type == Op::_f32)
+                    // this is rename (not shuffle) 'cos zeroes upper components
                     a64._rrr(0x1E204000, i.reg, ops[i.in[0]].reg, 0);
                 else if(i.flags.type == Op::_f64)
+                    // this is rename (not shuffle) 'cos zeroes upper components
                     a64._rrr(0x1E604000, i.reg, ops[i.in[0]].reg, 0);
                 else BJIT_ASSERT(false);
                 break;

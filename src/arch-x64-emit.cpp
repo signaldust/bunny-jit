@@ -963,6 +963,19 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 }
                 break;
 
+            case ops::lnp:
+                {
+                    // force 32-bit offset
+                    _LEAri(i.reg, RIP, 1<<31);
+                    // pop the disp32 field
+                    a64.out.resize(a64.out.size() - 4);
+                    // add reloc
+                    nearReloc.emplace_back(
+                        NearReloc{(uint32_t)out.size(), (uint32_t) i.imm32});
+                    a64.emit32(-4-out.size());
+                }
+                break;
+
             case ops::i8: _MOVSX_8(i.reg, ops[i.in[0]].reg); break;
             case ops::i16: _MOVSX_16(i.reg, ops[i.in[0]].reg); break;
             case ops::i32: _MOVSX_32(i.reg, ops[i.in[0]].reg); break;
@@ -1123,9 +1136,13 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 if(i.reg == ops[i.in[0]].reg) break;
                 
                 if(i.flags.type == Op::_f64)
-                    _MOVSDxx(i.reg, ops[i.in[0]].reg);
+                    //_MOVSDxx(i.reg, ops[i.in[0]].reg);
+                    // prefer rename over shuffle:
+                    _MOVAPSxx(i.reg, ops[i.in[0]].reg);
                 else if(i.flags.type == Op::_f32)
-                    _MOVSSxx(i.reg, ops[i.in[0]].reg);
+                    //_MOVSSxx(i.reg, ops[i.in[0]].reg);
+                    // prefer rename over shuffle:
+                    _MOVAPSxx(i.reg, ops[i.in[0]].reg);
                 else if(i.flags.type == Op::_ptr)
                     _MOVrr(i.reg, ops[i.in[0]].reg);
                 else BJIT_ASSERT(false);
