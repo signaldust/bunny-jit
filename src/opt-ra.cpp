@@ -373,7 +373,6 @@ void Proc::allocRegs(bool unsafeOpt)
                 }
             }
 
-            int prefer = regs::nregs;
             // Do we have the inputs we need?
             for(int i = 0; i < op.nInputs(); ++i)
             {
@@ -423,7 +422,8 @@ void Proc::allocRegs(bool unsafeOpt)
                     // should we try to save existing?
                     // CSE + no inputs is a constant, which we can always remat
                     if(regstate[r] != noVal
-                    && (ops[regstate[r]].nInputs() || !ops[regstate[r]].canCSE()))
+                    && (ops[regstate[r]].nInputs() || !ops[regstate[r]].canCSE())
+                    )
                     {
                         RegMask smask = ops[regstate[r]].regsMask();
 
@@ -547,13 +547,38 @@ void Proc::allocRegs(bool unsafeOpt)
                     
                     if(ra_debug) BJIT_LOG("; need reload for %04x = %04x into %s",
                         op.in[i], in, regName(r));
-                        
+
+                #if 0
                     auto & rop = ops[in];
                     uint16_t rr = newOp(ops::reload, rop.flags.type, b);
 
                     // can we rematerialize?
                     bool canRemat = false;
+                #else
+                    // can we rematerialize?
+                    bool canRemat = false;
+
+                    // back-trace degenerate phis.. (FIXME: this is a hack!)
+                    auto ropi = in;
+                    if(blocks[b].comeFrom.size() == 1)
+                    {
+                        while(ops[ropi].opcode == ops::phi)
+                        {
+                            for(auto & a : blocks[b].alts)
+                            {
+                                if(a.phi == ropi)
+                                {
+                                    ropi = a.val;
+                                    break; // inner loop
+                                }
+                            }
+                        }
+                    }
                     
+                    auto & rop = ops[ropi];
+                    uint16_t rr = newOp(ops::reload, rop.flags.type, b);
+                #endif
+                
                     // we can remat ops where CSE is valid and inputs are intact
                     // but don't bother if the op is marked for sideFX even if
                     // "unsafeOpt" because it's probably a division that's expensive
@@ -580,13 +605,21 @@ void Proc::allocRegs(bool unsafeOpt)
                         ops[rr].opcode = rop.opcode;
                         ops[rr].i64 = rop.i64;
                         ops[rr].scc = rop.scc;
+
+                        // if we remat a phi, it resolves to constant
+                        // and there's no need to spill it
+                        //
+                        // FIXME: this is bit of a hack
+                        if(ops[in].opcode == ops::phi)
+                        {
+                            ops[in].flags.spill = false;
+                        }
                     }
                     else
                     {
                         if(ra_debug) BJIT_LOG(" - reloaded\n");
                         ops[in].flags.spill = true;
                         ops[rr].in[0] = in;
-                        BJIT_ASSERT_MORE(rop.scc == ops[in].scc);
                         ops[rr].scc = ops[in].scc;
                     }
 
@@ -608,6 +641,9 @@ void Proc::allocRegs(bool unsafeOpt)
             {
                 BJIT_ASSERT_MORE(regstate[ops[op.in[i]].reg] == op.in[i]);
             }
+
+            // preferential output reg
+            int prefer = regs::nregs;
             
             // check to free once all inputs are done
             for(int i = 0; i < op.nInputs(); ++i)
@@ -1031,12 +1067,29 @@ void Proc::allocRegs(bool unsafeOpt)
                     
                     if(ra_debug) BJIT_LOG("reload -> %s:%04x (%04x)",
                             regName(t), tregs[t], sregs[t]);
-                            
-                    auto & rop = ops[tregs[t]];
-                    uint16_t rr = newOp(ops::reload, rop.flags.type, out);
 
                     // can we rematerialize?
                     bool canRemat = false;
+
+                    // back-trace degenerate phis.. (FIXME: this is a hack!)
+                    auto ropi = tregs[t];
+                    if(blocks[b].comeFrom.size() == 1)
+                    {
+                        while(ops[ropi].opcode == ops::phi)
+                        {
+                            for(auto & a : blocks[b].alts)
+                            {
+                                if(a.phi == ropi)
+                                {
+                                    ropi = a.val;
+                                    break; // inner loop
+                                }
+                            }
+                        }
+                    }
+                    
+                    auto & rop = ops[ropi];
+                    uint16_t rr = newOp(ops::reload, rop.flags.type, out);
 
                     // same logic as main reg alloc, except we use memout
                     // as there's no sideFX in shuffle blocks
@@ -1061,6 +1114,15 @@ void Proc::allocRegs(bool unsafeOpt)
                         ops[rr].opcode = rop.opcode;
                         ops[rr].i64 = rop.i64;
                         ops[rr].reg = t;
+
+                        // if we remat a phi, it resolves to constant
+                        // and there's no need to spill it
+                        //
+                        // FIXME: this is bit of a hack
+                        if(ops[tregs[t]].opcode == ops::phi)
+                        {
+                            ops[tregs[t]].flags.spill = false;
+                        }
                     }
                     else
                     {
@@ -1095,6 +1157,7 @@ void Proc::allocRegs(bool unsafeOpt)
         // is this a return?
         if(op.opcode > ops::jmp) continue;
 
+        // FIXME: edges are never critical anymore, so do we really need this?
         if(op.opcode < ops::jmp)
         {
             // create some shuffle blocks
