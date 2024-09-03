@@ -535,7 +535,9 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                 // use LEA for different input/output registers
                 if(i.reg == ops[i.in[0]].reg)
                 {
-                    _ADDri(i.reg, (int32_t) i.imm32);
+                    if(1 == i.imm32) { _INC(i.reg); }
+                    else if(-1 == i.imm32) { _DEC(i.reg); }
+                    else _ADDri(i.reg, (int32_t) i.imm32);
                 }
                 else _LEAri(i.reg, ops[i.in[0]].reg, i.imm32);
                 break;
@@ -567,10 +569,8 @@ void Proc::arch_emit(std::vector<uint8_t> & out)
                     {
                         _LEAri(i.reg, ops[i.in[0]].reg, -i.imm32);
                     }
-                    else if(i.imm32 == 1)
-                    {
-                        _DEC(i.reg);
-                    }
+                    else if(i.imm32 == 1) { _DEC(i.reg); }
+                    else if(i.imm32 == -1) { _INC(i.reg); }
                     else _SUBri(i.reg, (int32_t) i.imm32);
                 }
                 break;
