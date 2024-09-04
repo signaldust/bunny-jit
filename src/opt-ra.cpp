@@ -558,19 +558,20 @@ void Proc::allocRegs(bool unsafeOpt)
                     // can we rematerialize?
                     bool canRemat = false;
 
-                    // back-trace degenerate phis.. (FIXME: this is a hack!)
+                    // back-trace degenerate phis..
+                    //
+                    // FIXME: this is bit of hack and we should probably
+                    // also see if we can backtrace the arguments too
                     auto ropi = in;
-                    if(blocks[b].comeFrom.size() == 1)
+                    while(blocks[ops[ropi].block].comeFrom.size() == 1
+                    && ops[ropi].opcode == ops::phi)
                     {
-                        while(ops[ropi].opcode == ops::phi)
+                        for(auto & a : blocks[ops[ropi].block].alts)
                         {
-                            for(auto & a : blocks[b].alts)
+                            if(a.phi == ropi)
                             {
-                                if(a.phi == ropi)
-                                {
-                                    ropi = a.val;
-                                    break; // inner loop
-                                }
+                                ropi = a.val;
+                                break; // inner loop
                             }
                         }
                     }
@@ -678,12 +679,17 @@ void Proc::allocRegs(bool unsafeOpt)
                     usedRegsBlock |= R2Mask(r);
                     if(regstate[r] == noVal || R2Mask(r)&~lost) continue;
 
+                // Even though we can in principle always remat constants,
+                // it's probably better to save anyway 'cos might get free rename
+                // and we don't need to rely on phi-backtracks
+                #if 0
                     // if this is a constant, then don't save (can always remat)
                     if(ops[regstate[r]].canCSE() && !ops[regstate[r]].nInputs())
                     {
                         regstate[r] = noVal;
                         continue;
                     }
+                #endif
 
                     // scan from current op, don't wanna overwrite inputs
                     int s = findBest(notlost & ops[regstate[r]].regsMask(),
@@ -1071,19 +1077,19 @@ void Proc::allocRegs(bool unsafeOpt)
                     // can we rematerialize?
                     bool canRemat = false;
 
-                    // back-trace degenerate phis.. (FIXME: this is a hack!)
+                    // back-trace degenerate phis..
+                    // FIXME: this is bit of hack and we should probably
+                    // also see if we can backtrace the arguments too
                     auto ropi = tregs[t];
-                    if(blocks[b].comeFrom.size() == 1)
+                    while(blocks[ops[ropi].block].comeFrom.size() == 1
+                    && ops[ropi].opcode == ops::phi)
                     {
-                        while(ops[ropi].opcode == ops::phi)
+                        for(auto & a : blocks[ops[ropi].block].alts)
                         {
-                            for(auto & a : blocks[b].alts)
+                            if(a.phi == ropi)
                             {
-                                if(a.phi == ropi)
-                                {
-                                    ropi = a.val;
-                                    break; // inner loop
-                                }
+                                ropi = a.val;
+                                break; // inner loop
                             }
                         }
                     }
