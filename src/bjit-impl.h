@@ -71,7 +71,8 @@ namespace bjit
 
                         struct
                         {
-                            // this will alias on in[2] (for stores)
+                            // memtag will alias on in[2] for stores
+                            // which is fine, stores don't store a tag
                             uint16_t    memtag;
                             uint16_t    off16;
                         };
