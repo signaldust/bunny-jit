@@ -373,7 +373,6 @@ void Proc::allocRegs(bool unsafeOpt)
                 }
             }
 
-            int prefer = regs::nregs;
             // Do we have the inputs we need?
             for(int i = 0; i < op.nInputs(); ++i)
             {
@@ -423,7 +422,8 @@ void Proc::allocRegs(bool unsafeOpt)
                     // should we try to save existing?
                     // CSE + no inputs is a constant, which we can always remat
                     if(regstate[r] != noVal
-                    && (ops[regstate[r]].nInputs() || !ops[regstate[r]].canCSE()))
+                    && (ops[regstate[r]].nInputs() || !ops[regstate[r]].canCSE())
+                    )
                     {
                         RegMask smask = ops[regstate[r]].regsMask();
 
@@ -492,7 +492,8 @@ void Proc::allocRegs(bool unsafeOpt)
                         ops[op.in[i]].reg = r;
                         regstate[r] = op.in[i];
                     }
-                    else
+                    // if it's not a constant..
+                    else if(!ops[op.in[i]].canCSE() || ops[op.in[i]].nInputs())
                     {
                         if(ra_debug)
                         {
@@ -547,13 +548,39 @@ void Proc::allocRegs(bool unsafeOpt)
                     
                     if(ra_debug) BJIT_LOG("; need reload for %04x = %04x into %s",
                         op.in[i], in, regName(r));
-                        
+
+                #if 0
                     auto & rop = ops[in];
                     uint16_t rr = newOp(ops::reload, rop.flags.type, b);
 
                     // can we rematerialize?
                     bool canRemat = false;
+                #else
+                    // can we rematerialize?
+                    bool canRemat = false;
+
+                    // back-trace degenerate phis..
+                    //
+                    // FIXME: this is bit of hack and we should probably
+                    // also see if we can backtrace the arguments too
+                    auto ropi = in;
+                    while(blocks[ops[ropi].block].comeFrom.size() == 1
+                    && ops[ropi].opcode == ops::phi)
+                    {
+                        for(auto & a : blocks[ops[ropi].block].alts)
+                        {
+                            if(a.phi == ropi)
+                            {
+                                ropi = a.val;
+                                break; // inner loop
+                            }
+                        }
+                    }
                     
+                    auto & rop = ops[ropi];
+                    uint16_t rr = newOp(ops::reload, rop.flags.type, b);
+                #endif
+                
                     // we can remat ops where CSE is valid and inputs are intact
                     // but don't bother if the op is marked for sideFX even if
                     // "unsafeOpt" because it's probably a division that's expensive
@@ -580,13 +607,21 @@ void Proc::allocRegs(bool unsafeOpt)
                         ops[rr].opcode = rop.opcode;
                         ops[rr].i64 = rop.i64;
                         ops[rr].scc = rop.scc;
+
+                        // if we remat a phi, it resolves to constant
+                        // and there's no need to spill it
+                        //
+                        // FIXME: this is bit of a hack
+                        if(ops[in].opcode == ops::phi)
+                        {
+                            ops[in].flags.spill = false;
+                        }
                     }
                     else
                     {
                         if(ra_debug) BJIT_LOG(" - reloaded\n");
                         ops[in].flags.spill = true;
                         ops[rr].in[0] = in;
-                        BJIT_ASSERT_MORE(rop.scc == ops[in].scc);
                         ops[rr].scc = ops[in].scc;
                     }
 
@@ -608,6 +643,9 @@ void Proc::allocRegs(bool unsafeOpt)
             {
                 BJIT_ASSERT_MORE(regstate[ops[op.in[i]].reg] == op.in[i]);
             }
+
+            // preferential output reg
+            int prefer = regs::nregs;
             
             // check to free once all inputs are done
             for(int i = 0; i < op.nInputs(); ++i)
@@ -627,7 +665,7 @@ void Proc::allocRegs(bool unsafeOpt)
             }
 
             // clobbers - could try to save, but whatever
-            RegMask lost = op.regsLost(); usedRegs |= lost;
+            RegMask lost = op.regsLost();
             if(lost)
             {
                 RegMask notlost = ~lost;
@@ -1031,12 +1069,29 @@ void Proc::allocRegs(bool unsafeOpt)
                     
                     if(ra_debug) BJIT_LOG("reload -> %s:%04x (%04x)",
                             regName(t), tregs[t], sregs[t]);
-                            
-                    auto & rop = ops[tregs[t]];
-                    uint16_t rr = newOp(ops::reload, rop.flags.type, out);
 
                     // can we rematerialize?
                     bool canRemat = false;
+
+                    // back-trace degenerate phis..
+                    // FIXME: this is bit of hack and we should probably
+                    // also see if we can backtrace the arguments too
+                    auto ropi = tregs[t];
+                    while(blocks[ops[ropi].block].comeFrom.size() == 1
+                    && ops[ropi].opcode == ops::phi)
+                    {
+                        for(auto & a : blocks[ops[ropi].block].alts)
+                        {
+                            if(a.phi == ropi)
+                            {
+                                ropi = a.val;
+                                break; // inner loop
+                            }
+                        }
+                    }
+                    
+                    auto & rop = ops[ropi];
+                    uint16_t rr = newOp(ops::reload, rop.flags.type, out);
 
                     // same logic as main reg alloc, except we use memout
                     // as there's no sideFX in shuffle blocks
@@ -1061,6 +1116,15 @@ void Proc::allocRegs(bool unsafeOpt)
                         ops[rr].opcode = rop.opcode;
                         ops[rr].i64 = rop.i64;
                         ops[rr].reg = t;
+
+                        // if we remat a phi, it resolves to constant
+                        // and there's no need to spill it
+                        //
+                        // FIXME: this is bit of a hack
+                        if(ops[tregs[t]].opcode == ops::phi)
+                        {
+                            ops[tregs[t]].flags.spill = false;
+                        }
                     }
                     else
                     {
@@ -1095,6 +1159,7 @@ void Proc::allocRegs(bool unsafeOpt)
         // is this a return?
         if(op.opcode > ops::jmp) continue;
 
+        // FIXME: edges are never critical anymore, so do we really need this?
         if(op.opcode < ops::jmp)
         {
             // create some shuffle blocks
@@ -1259,8 +1324,6 @@ void Proc::allocRegs(bool unsafeOpt)
 
         if(op.scc >= sccUsed.size()) sccUsed.resize(op.scc + 1, false);
         if(op.flags.spill) sccUsed[op.scc] = true;
-
-        usedRegs |= R2Mask(op.reg);
     }
 
     std::vector<uint16_t>   slots(sccUsed.size(), 0xffff);
@@ -1306,6 +1369,39 @@ void Proc::allocRegs(bool unsafeOpt)
         }
     }
     
+    // do a little bit of cleanup in case we accidentally
+    // end up renaming constants..
+    for(auto b : live)
+    {
+        for(auto i : blocks[b].code)
+        {
+            if(ops[i].opcode == ops::rename)
+            {
+                auto r = ops[i].in[0];
+                if(ops[r].opcode == ops::lci
+                && ops[r].i64 == 0)
+                {
+                    ops[i].opcode = ops::lci;
+                    ops[i].i64 = 0;
+                }
+                else
+                if(ops[r].opcode == ops::lcf
+                && ops[r].f32 == 0)
+                {
+                    ops[i].opcode = ops::lcf;
+                    ops[i].f32 = 0;
+                }
+                else
+                if(ops[r].opcode == ops::lcd
+                && ops[r].f64 == 0)
+                {
+                    ops[i].opcode = ops::lcd;
+                    ops[i].f64 = 0;
+                }
+            }
+        }
+    }
+
     if(ra_debug) debug();
 
     opt_dce();
@@ -1490,4 +1586,21 @@ void Proc::findSCC()
     }
     
     if(scc_debug) debug();
+}
+
+void Proc::findUsedRegs()
+{
+    BJIT_LOG(" FindRegs");
+    usedRegs = 0;
+    for(auto b : live)
+    {
+        for(auto c : blocks[b].code)
+        {
+            usedRegs |= ops[c].regsLost();
+            if(ops[c].hasOutput())
+            {
+                usedRegs |= R2Mask(ops[c].reg);
+            }
+        }
+    }
 }

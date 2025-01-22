@@ -157,8 +157,6 @@ namespace bjit
             |R2Mask(r10)
             |R2Mask(r11)
             |mask_float;
-            
-        const char * getName(int reg);
     };
 
 };

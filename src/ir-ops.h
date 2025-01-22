@@ -160,7 +160,7 @@
     /* integer arithmetic */ \
     _(iaddI, BJIT_CSE+1, 1+BJIT_IMM32), \
     _(isubI, BJIT_CSE+1, 1+BJIT_IMM32), \
-    _(imulI, BJIT_CSE+1, 1+BJIT_IMM32), \
+    _(imulI, BJIT_ANYREG+BJIT_CSE+1, 1+BJIT_IMM32), \
     /* integer bitwise */ \
     _(iandI, BJIT_CSE+1, 1+BJIT_IMM32), \
     _(iorI,  BJIT_CSE+1, 1+BJIT_IMM32), \
