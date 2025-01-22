@@ -1369,6 +1369,39 @@ void Proc::allocRegs(bool unsafeOpt)
         }
     }
     
+    // do a little bit of cleanup in case we accidentally
+    // end up renaming constants..
+    for(auto b : live)
+    {
+        for(auto i : blocks[b].code)
+        {
+            if(ops[i].opcode == ops::rename)
+            {
+                auto r = ops[i].in[0];
+                if(ops[r].opcode == ops::lci
+                && ops[r].i64 == 0)
+                {
+                    ops[i].opcode = ops::lci;
+                    ops[i].i64 = 0;
+                }
+                else
+                if(ops[r].opcode == ops::lcf
+                && ops[r].f32 == 0)
+                {
+                    ops[i].opcode = ops::lcf;
+                    ops[i].f32 = 0;
+                }
+                else
+                if(ops[r].opcode == ops::lcd
+                && ops[r].f64 == 0)
+                {
+                    ops[i].opcode = ops::lcd;
+                    ops[i].f64 = 0;
+                }
+            }
+        }
+    }
+
     if(ra_debug) debug();
 
     opt_dce();
