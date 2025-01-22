@@ -492,7 +492,8 @@ void Proc::allocRegs(bool unsafeOpt)
                         ops[op.in[i]].reg = r;
                         regstate[r] = op.in[i];
                     }
-                    else
+                    // if it's not a constant..
+                    else if(!ops[op.in[i]].canCSE() || ops[op.in[i]].nInputs())
                     {
                         if(ra_debug)
                         {
