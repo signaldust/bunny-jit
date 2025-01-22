@@ -680,17 +680,12 @@ void Proc::allocRegs(bool unsafeOpt)
                     usedRegsBlock |= R2Mask(r);
                     if(regstate[r] == noVal || R2Mask(r)&~lost) continue;
 
-                // Even though we can in principle always remat constants,
-                // it's probably better to save anyway 'cos might get free rename
-                // and we don't need to rely on phi-backtracks
-                #if 0
                     // if this is a constant, then don't save (can always remat)
                     if(ops[regstate[r]].canCSE() && !ops[regstate[r]].nInputs())
                     {
                         regstate[r] = noVal;
                         continue;
                     }
-                #endif
 
                     // scan from current op, don't wanna overwrite inputs
                     int s = findBest(notlost & ops[regstate[r]].regsMask(),
