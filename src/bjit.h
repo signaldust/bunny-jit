@@ -665,7 +665,8 @@ namespace bjit
 
         // opt-ra.cpp
         void allocRegs(bool unsafeOpt);
-        void findSCC();     // resolve stack congruence classes
+        void findSCC();         // resolve stack congruence classes
+        void findUsedRegs();    // usedRegs post final DCE
 
         // opt-fold.cpp
         bool opt_fold(bool unsafeOpt);

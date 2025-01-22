@@ -69,6 +69,7 @@ void Module::arch_patchNear(void * ptr, int32_t delta)
 void Proc::arch_emit(std::vector<uint8_t> & out)
 {
     rebuild_dom();
+    findUsedRegs();
     
     for(auto & b : blocks) { b.flags.codeDone = false; }
 
