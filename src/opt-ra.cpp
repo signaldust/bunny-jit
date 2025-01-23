@@ -327,6 +327,16 @@ void Proc::allocRegs(bool unsafeOpt)
                 }
             }
 
+            // we should be able to just skip any single-use constants
+            // this forces rematerialization where actually used
+            // but still loads constants that are used multiple times
+            // or which are output to both sides of a conditional branch
+            if(op.canCSE() && !op.nInputs() && op.nUse == 1)
+            {
+                //BJIT_LOG("[RA:skip %04x]", opIndex);
+                continue;
+            }
+            
             // copy - we'll fix this below if necessary
             codeOut.push_back(blocks[b].code[c]);
 
@@ -580,6 +590,66 @@ void Proc::allocRegs(bool unsafeOpt)
                     auto & rop = ops[ropi];
                     uint16_t rr = newOp(ops::reload, rop.flags.type, b);
                 #endif
+                
+                    // should we try to save existing?
+                    // CSE + no inputs is a constant, which we can always remat
+                    if(regstate[r] != noVal
+                    && (ops[regstate[r]].nInputs() || !ops[regstate[r]].canCSE())
+                    )
+                    {
+                        RegMask smask = ops[regstate[r]].regsMask();
+
+                        // findBest should return current if no better
+                        // but play safe and explicitly disallow lost regs
+                        //
+                        // also disallow regs that we are going to lose "soon"
+                        // (eg. because we're preparing for a function call)
+                        //
+                        // FIXME: ideally findBest() should handle this by
+                        // not considering registers that are lost before the
+                        // first use for the value we're trying to save
+                        smask &=~ op.regsLost();
+                            
+                        // if we're moving 2nd operand to make room for
+                        // the first then also take that mask into account
+                        if(!i && op.nInputs()>1 && regstate[r] == op.in[1])
+                        {
+                            smask &= op.regsIn(1);
+                            // but not r
+                            smask &=~R2Mask(r);
+                        }
+                        // if the best choice after this op is r
+                        // then we're going to lose this no matter what
+                        int s = findBest(smask, regs::nregs, c+1, regstate[r]);
+                        if(s != regs::nregs && s != r && s != wr)
+                        {
+                            if(ra_debug) BJIT_LOG("; saving %04x (%s -> %s) \n",
+                                    regstate[r], regName(r), regName(s));
+                            uint16_t sr = newOp(ops::rename,
+                                ops[regstate[r]].flags.type, b);
+                            
+                            ops[sr].in[0] = regstate[r];
+                            ops[sr].reg = s;
+                            ops[sr].scc = ops[regstate[r]].scc;
+                            regstate[s] = sr;
+                            usedRegsBlock |= R2Mask(s);
+
+                            ops[sr].nUse = ops[regstate[r]].nUse;
+                            
+                            rename.add(regstate[r], sr);
+                            rename(op);
+                            if(ra_debug) debugOp(sr);
+                            
+                            std::swap(codeOut.back(), sr);
+                            codeOut.push_back(sr);
+                        }
+                        else
+                        {
+                            // FIXME: we can XCHG but we'll need 2-out ops
+                            if(ra_debug)
+                                BJIT_LOG("; could not save %04x\n", regstate[r]);
+                        }
+                    }
                 
                     // we can remat ops where CSE is valid and inputs are intact
                     // but don't bother if the op is marked for sideFX even if
